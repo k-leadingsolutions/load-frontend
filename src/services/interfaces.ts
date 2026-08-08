@@ -1,5 +1,6 @@
 import type {
   DashboardMetricsResponse,
+  DriverAssignmentResponse,
   ProductionOrderResponse,
   DriverAssignmentsResponse,
   LoginRequest,
@@ -41,6 +42,10 @@ export interface OperationsService {
 
 export interface DriverService {
   listAssignments(): Promise<DriverAssignmentsResponse>
+  confirmArrival(assignmentId: string): Promise<DriverAssignmentResponse>
+  confirmCollection(assignmentId: string): Promise<DriverAssignmentResponse>
+  confirmDelivery(assignmentId: string, proofOfDelivery: string): Promise<DriverAssignmentResponse>
+  recordFailure(assignmentId: string, reason: string): Promise<DriverAssignmentResponse>
 }
 
 export interface AdminService {

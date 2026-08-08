@@ -165,8 +165,30 @@ export const mockProductionOrders: ProductionOrder[] = [
 ]
 
 export const mockDriverAssignments: DriverAssignment[] = [
-  { id: 'run-01', driverName: 'Sipho Khumalo', area: 'Sandton North', scheduledWindow: '09:00 - 11:00', stopType: 'PICKUP', orderId: 'LD10236', customerName: 'Naledi Molefe', addressLine: '7 Gwen Lane, Sandown' },
-  { id: 'run-02', driverName: 'Sipho Khumalo', area: 'Rosebank Loop', scheduledWindow: '14:00 - 16:00', stopType: 'DELIVERY', orderId: 'LD10235', customerName: 'Thando Mokoena', addressLine: '18 West Road South, Morningside' },
+  {
+    id: 'run-01',
+    driverName: 'Sipho Khumalo',
+    area: 'Sandton North',
+    scheduledWindow: '09:00 - 11:00',
+    stopType: 'PICKUP',
+    stopStatus: 'ASSIGNED',
+    orderId: 'LD10236',
+    customerName: 'Naledi Molefe',
+    addressLine: '7 Gwen Lane, Sandown',
+    customerInstructions: 'Please call from the gate on arrival.',
+  },
+  {
+    id: 'run-02',
+    driverName: 'Sipho Khumalo',
+    area: 'Rosebank Loop',
+    scheduledWindow: '14:00 - 16:00',
+    stopType: 'DELIVERY',
+    stopStatus: 'ARRIVED',
+    orderId: 'LD10235',
+    customerName: 'Thando Mokoena',
+    addressLine: '18 West Road South, Morningside',
+    customerInstructions: 'Leave with security desk if customer is in a meeting.',
+  },
 ]
 
 export const mockDashboardMetrics: DashboardMetric[] = [

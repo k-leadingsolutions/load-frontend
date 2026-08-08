@@ -65,4 +65,5 @@ export type ServiceCatalogueResponse = ApiResponse<{
 export type ProductionOrdersResponse = ApiResponse<ProductionOrder[]>
 export type ProductionOrderResponse = ApiResponse<ProductionOrder>
 export type DriverAssignmentsResponse = ApiResponse<DriverAssignment[]>
+export type DriverAssignmentResponse = ApiResponse<DriverAssignment>
 export type DashboardMetricsResponse = ApiResponse<DashboardMetric[]>

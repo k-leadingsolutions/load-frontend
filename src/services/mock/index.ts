@@ -6,12 +6,15 @@ import {
   mockCategories,
   mockCustomerProfile,
   mockDashboardMetrics,
-  mockDriverAssignments,
   mockLoyaltyRules,
   mockPromotions,
   mockServices,
 } from '@/services/mock/data'
 import { getStoredOrder, listStoredOrders, prependStoredOrder } from '@/services/mock/orderStore'
+import {
+  listStoredDriverAssignments,
+  updateStoredDriverAssignment,
+} from '@/services/mock/driverStore'
 import {
   getNextProductionStatus,
   listStoredProductionOrders,
@@ -348,7 +351,49 @@ export const mockOperationsService: OperationsService = {
 
 export const mockDriverService: DriverService = {
   async listAssignments() {
-    return successResponse(mockDriverAssignments, 360)
+    return successResponse(listStoredDriverAssignments(), 360)
+  },
+  async confirmArrival(assignmentId: string) {
+    const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
+      ...current,
+      stopStatus: 'ARRIVED',
+    }))
+
+    return assignment
+      ? successResponse(assignment, 260)
+      : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 260)
+  },
+  async confirmCollection(assignmentId: string) {
+    const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
+      ...current,
+      stopStatus: 'COLLECTED',
+    }))
+
+    return assignment
+      ? successResponse(assignment, 260)
+      : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 260)
+  },
+  async confirmDelivery(assignmentId: string, proofOfDelivery: string) {
+    const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
+      ...current,
+      stopStatus: 'DELIVERED',
+      proofOfDelivery,
+    }))
+
+    return assignment
+      ? successResponse(assignment, 280)
+      : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 280)
+  },
+  async recordFailure(assignmentId: string, reason: string) {
+    const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
+      ...current,
+      stopStatus: 'FAILED',
+      failureReason: reason,
+    }))
+
+    return assignment
+      ? successResponse(assignment, 280)
+      : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 280)
   },
 }
 

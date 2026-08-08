@@ -9,13 +9,17 @@ export interface DashboardMetric {
 
 export interface DriverAssignment {
   id: string
-  driverName: string
   area: string
-  scheduledWindow: string
-  stopType: 'PICKUP' | 'DELIVERY'
-  orderId: string
+  customerInstructions?: string
   customerName: string
+  driverName: string
+  failureReason?: string
   addressLine: string
+  orderId: string
+  proofOfDelivery?: string
+  scheduledWindow: string
+  stopStatus: 'ASSIGNED' | 'ARRIVED' | 'COLLECTED' | 'DELIVERED' | 'FAILED'
+  stopType: 'PICKUP' | 'DELIVERY'
 }
 
 export interface ProductionOrder {
