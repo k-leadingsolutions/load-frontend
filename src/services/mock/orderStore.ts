@@ -41,6 +41,8 @@ const writeOrders = (orders: LaundryOrder[]) => {
 export const listStoredOrders = (customerId: string) =>
   readOrdersFromStorage().filter((order) => order.customerId === customerId)
 
+export const listAllStoredOrders = () => readOrdersFromStorage()
+
 export const getStoredOrder = (orderId: string) =>
   readOrdersFromStorage().find((order) => order.id === orderId)
 

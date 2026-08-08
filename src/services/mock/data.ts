@@ -5,9 +5,11 @@ import type {
   CatalogService,
   CustomerProfile,
   DashboardMetric,
+  DeliveryZone,
   DriverAssignment,
   LaundryOrder,
   LoyaltyRule,
+  ManagedUser,
   ProductionOrder,
   Promotion,
   ServiceCategory,
@@ -195,4 +197,76 @@ export const mockDashboardMetrics: DashboardMetric[] = [
   { id: 'rev', label: 'Today revenue', value: 'R18,420.00', changeLabel: '+12% vs yesterday' },
   { id: 'orders', label: 'Active orders', value: '84', changeLabel: '12 in production' },
   { id: 'sla', label: 'On-time delivery', value: '97.4%', changeLabel: 'Premium service target' },
+]
+
+export const mockCustomerProfiles: CustomerProfile[] = [
+  mockCustomerProfile,
+  {
+    id: 'cust-zanele-002',
+    firstName: 'Zanele',
+    lastName: 'Pillay',
+    mobileNumber: '+27 83 444 0188',
+    email: 'zanele.pillay@load.co.za',
+    role: 'CUSTOMER',
+    defaultAddressId: 'addr-umhlanga-1',
+    addresses: [
+      {
+        id: 'addr-umhlanga-1',
+        label: 'Home',
+        line1: '8 Lighthouse Road',
+        suburb: 'Umhlanga',
+        city: 'Durban',
+        province: 'KwaZulu-Natal',
+        postalCode: '4319',
+        isDefault: true,
+      },
+    ],
+    loyalty: {
+      tier: 'Gold',
+      points: 2860,
+      availableRewards: 2,
+      loadBalance: 420,
+    },
+  },
+  {
+    id: 'cust-ayabonga-003',
+    firstName: 'Ayabonga',
+    lastName: 'Jacobs',
+    mobileNumber: '+27 84 333 0191',
+    email: 'ayabonga.jacobs@load.co.za',
+    role: 'CUSTOMER',
+    defaultAddressId: 'addr-claremont-1',
+    addresses: [
+      {
+        id: 'addr-claremont-1',
+        label: 'Apartment',
+        line1: '33 Main Road',
+        suburb: 'Claremont',
+        city: 'Cape Town',
+        province: 'Western Cape',
+        postalCode: '7708',
+        isDefault: true,
+      },
+    ],
+    loyalty: {
+      tier: 'Silver',
+      points: 840,
+      availableRewards: 1,
+      loadBalance: 95,
+    },
+  },
+]
+
+export const mockManagedUsers: ManagedUser[] = [
+  { id: 'admin-01', name: 'Lebo Nkosi', role: 'ADMIN', status: 'ACTIVE', detail: 'Head of operations' },
+  { id: 'driver-01', name: 'Sipho Khumalo', role: 'DRIVER', status: 'ACTIVE', detail: 'Sandton North route' },
+  { id: 'driver-02', name: 'Aisha Peters', role: 'DRIVER', status: 'OFF_SHIFT', detail: 'Southern suburbs route' },
+  { id: 'employee-01', name: 'Anele Dlamini', role: 'EMPLOYEE', status: 'ACTIVE', detail: 'Quality control lead' },
+  { id: 'employee-02', name: 'Kea Ndlovu', role: 'EMPLOYEE', status: 'INVITED', detail: 'Dispatch coordinator' },
+]
+
+export const mockDeliveryZones: DeliveryZone[] = [
+  { id: 'zone-sandton', name: 'Sandton Core', fee: 45, freeDeliveryThreshold: 300, active: true },
+  { id: 'zone-rosebank', name: 'Rosebank & Parkhurst', fee: 55, freeDeliveryThreshold: 320, active: true },
+  { id: 'zone-durban-north', name: 'Durban North', fee: 75, freeDeliveryThreshold: 450, active: false },
 ]

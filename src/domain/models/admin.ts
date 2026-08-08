@@ -7,6 +7,14 @@ export interface DashboardMetric {
   changeLabel: string
 }
 
+export interface DeliveryZone {
+  id: string
+  active: boolean
+  fee: number
+  freeDeliveryThreshold: number
+  name: string
+}
+
 export interface DriverAssignment {
   id: string
   area: string
@@ -20,6 +28,14 @@ export interface DriverAssignment {
   scheduledWindow: string
   stopStatus: 'ASSIGNED' | 'ARRIVED' | 'COLLECTED' | 'DELIVERED' | 'FAILED'
   stopType: 'PICKUP' | 'DELIVERY'
+}
+
+export interface ManagedUser {
+  detail: string
+  id: string
+  name: string
+  role: 'ADMIN' | 'CUSTOMER' | 'DRIVER' | 'EMPLOYEE'
+  status: 'ACTIVE' | 'INVITED' | 'OFF_SHIFT'
 }
 
 export interface ProductionOrder {
