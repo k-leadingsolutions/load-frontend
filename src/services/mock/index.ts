@@ -1,4 +1,5 @@
 import type { PricingQuote } from '@/domain/models'
+import { getFriendlyOrderStatus } from '@/domain/orderStatus'
 import {
   mockAddOns,
   mockBasketSizes,
@@ -7,12 +8,13 @@ import {
   mockDashboardMetrics,
   mockDriverAssignments,
   mockLoyaltyRules,
-  mockOrders,
   mockProductionOrders,
   mockPromotions,
   mockServices,
 } from '@/services/mock/data'
+import { getStoredOrder, listStoredOrders, prependStoredOrder } from '@/services/mock/orderStore'
 import { errorResponse, successResponse } from '@/services/mock/mockApi'
+import { readStoredCustomerSession } from '@/services/mock/sessionStore'
 import type {
   AdminService,
   AuthService,
@@ -95,8 +97,22 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
     (sum, item) => sum + item.totalPrice,
     0,
   )
-  const deliveryFee = subtotal >= 300 ? 0 : 45
-  const discountTotal = request.promotionCode === 'FIRSTLOAD' ? subtotal * 0.15 : 0
+  const promotion = request.promotionCode
+    ? mockPromotions.find((item) => item.code === request.promotionCode)
+    : undefined
+  const baseDeliveryFee = subtotal >= 300 ? 0 : 45
+  const deliveryFee = promotion?.discountType === 'FREE_DELIVERY' && subtotal >= (promotion.minimumOrderAmount ?? 0)
+    ? 0
+    : baseDeliveryFee
+  const promotionDiscount = promotion?.discountType === 'PERCENTAGE'
+    ? subtotal * (promotion.value / 100)
+    : promotion?.discountType === 'FIXED'
+      ? promotion.value
+      : 0
+  const loyaltyRedemptionTotal = request.useLoyaltyPoints
+    ? Math.min(75, (readStoredCustomerSession()?.loyalty.availableRewards ?? 0) * 25)
+    : 0
+  const discountTotal = promotionDiscount + loyaltyRedemptionTotal
 
   return {
     ...(basket
@@ -116,7 +132,8 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
       : [],
     subtotal,
     discountTotal,
-    estimatedTotal: subtotal + deliveryFee + expressFee - discountTotal,
+    loyaltyRedemptionTotal,
+    estimatedTotal: Math.max(0, subtotal + deliveryFee + expressFee - discountTotal),
     loyaltyPreviewPoints: Math.round((subtotal + expressFee) * 5),
     freeDeliveryThreshold: 300,
     freeDeliveryGap: Math.max(0, 300 - subtotal),
@@ -134,12 +151,22 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
       },
       ...(discountTotal > 0
         ? [{
-            id: 'discount',
-            label: 'Promotion',
+            id: 'promotion-discount',
+            label: promotion?.name ?? 'Promotion',
             pricingType: 'DISCOUNT' as const,
             quantity: 1,
-            unitPrice: -discountTotal,
-            totalPrice: -discountTotal,
+            unitPrice: -promotionDiscount,
+            totalPrice: -promotionDiscount,
+          }]
+        : []),
+      ...(loyaltyRedemptionTotal > 0
+        ? [{
+            id: 'loyalty-redemption',
+            label: 'Loyalty rewards',
+            pricingType: 'DISCOUNT' as const,
+            quantity: 1,
+            unitPrice: -loyaltyRedemptionTotal,
+            totalPrice: -loyaltyRedemptionTotal,
           }]
         : []),
     ],
@@ -189,16 +216,73 @@ export const mockCatalogueService: CatalogueService = {
 
 export const mockCustomerOrderService: CustomerOrderService = {
   async listOrders(customerId: string) {
-    return successResponse(mockOrders.filter((order) => order.customerId === customerId), 380)
+    return successResponse(listStoredOrders(customerId), 380)
   },
   async getOrder(orderId: string) {
-    const order = mockOrders.find((item) => item.id === orderId)
+    const order = getStoredOrder(orderId)
     return order
       ? successResponse(order, 340)
       : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Order could not be located.' }, 340)
   },
-  async placeOrder(_request: PlaceOrderRequest) {
-    return successResponse(mockOrders[0]!, 700)
+  async placeOrder(request: PlaceOrderRequest) {
+    const customer = readStoredCustomerSession() ?? mockCustomerProfile
+    const quote = buildQuote({
+      ...(request.basketSizeId ? { basketSizeId: request.basketSizeId } : {}),
+      basketQuantity: 1,
+      serviceSelections: request.serviceSelections,
+      addOnSelections: request.addOnSelections,
+      ...(request.promotionCode ? { promotionCode: request.promotionCode } : {}),
+      expressRequested: request.addOnSelections.some((selection) => selection.addOnId === 'addon-express'),
+      ...(request.useLoyaltyPoints ? { useLoyaltyPoints: request.useLoyaltyPoints } : {}),
+    })
+    const pickupAddress = customer.addresses.find((address) => address.id === request.pickupAddressId)
+    const deliveryAddress = customer.addresses.find((address) => address.id === request.deliveryAddressId)
+    const basket = request.basketSizeId
+      ? mockBasketSizes.find((item) => item.id === request.basketSizeId)
+      : undefined
+
+    if (!pickupAddress || !deliveryAddress) {
+      return errorResponse({ code: 'ADDRESS_NOT_FOUND', message: 'Select valid pickup and delivery addresses.' }, 700)
+    }
+
+    const nextOrderId = `LD${Math.floor(Math.random() * 90000) + 10000}`
+    const nextOrder = prependStoredOrder({
+      id: nextOrderId,
+      customerId: request.customerId,
+      status: 'BOOKING_RECEIVED',
+      friendlyStatus: getFriendlyOrderStatus('BOOKING_RECEIVED'),
+      pickupWindow: {
+        date: request.pickupWindow.split('|')[0] ?? request.pickupWindow,
+        windowLabel: request.pickupWindow,
+      },
+      deliveryWindow: {
+        date: request.deliveryWindow.split('|')[0] ?? request.deliveryWindow,
+        windowLabel: request.deliveryWindow,
+      },
+      pickupAddress,
+      deliveryAddress,
+      services: [
+        ...(basket
+          ? [{
+              serviceId: basket.id,
+              quantity: 1,
+              unitLabel: basket.capacityLabel,
+            }]
+          : []),
+        ...request.serviceSelections.map((selection) => ({
+          serviceId: selection.serviceId,
+          quantity: selection.quantity,
+          unitLabel: mockServices.find((service) => service.id === selection.serviceId)?.unitLabel ?? 'item',
+        })),
+      ],
+      estimatedTotal: quote.estimatedTotal,
+      loyaltyPointsEarned: quote.loyaltyPreviewPoints,
+      promotionsApplied: request.promotionCode ? [request.promotionCode] : [],
+      internalNotes: [],
+      canRepeat: false,
+    })
+
+    return successResponse(nextOrder, 700)
   },
 }
 

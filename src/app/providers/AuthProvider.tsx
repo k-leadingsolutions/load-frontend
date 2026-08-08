@@ -1,37 +1,12 @@
 import type { PropsWithChildren } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import type { CustomerProfile } from '@/domain/models'
+import type { Address, CustomerProfile } from '@/domain/models'
 import { AuthContext } from '@/app/providers/AuthContext'
 import type { AuthContextValue } from '@/app/providers/AuthContext'
 import type { LoginRequest, RegisterRequest } from '@/services/contracts'
+import { readStoredCustomerSession, saveCustomerAddress, writeStoredCustomerSession } from '@/services/mock/sessionStore'
 import { mockAuthService } from '@/services/mock'
-
-const AUTH_STORAGE_KEY = 'load.customer.session.v1'
-
-const readStoredUser = () => {
-  const rawSession = window.localStorage.getItem(AUTH_STORAGE_KEY)
-
-  if (!rawSession) {
-    return null
-  }
-
-  try {
-    return JSON.parse(rawSession) as CustomerProfile
-  } catch {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY)
-    return null
-  }
-}
-
-const storeUser = (user: CustomerProfile | null) => {
-  if (!user) {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY)
-    return
-  }
-
-  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user))
-}
 
 const assertSuccess = <TData,>(response: { data?: TData; error?: { message?: string }; status: 'success' | 'error' }) => {
   if (response.status === 'error' || !response.data) {
@@ -47,29 +22,39 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [isBootstrapping, setIsBootstrapping] = useState(true)
 
   useEffect(() => {
-    setUser(readStoredUser())
+    setUser(readStoredCustomerSession())
     setIsBootstrapping(false)
   }, [])
 
   const login = useCallback(async (request: LoginRequest) => {
     const profile = assertSuccess(await mockAuthService.login(request))
     setUser(profile)
-    storeUser(profile)
+    writeStoredCustomerSession(profile)
     queryClient.invalidateQueries({ queryKey: ['customer-orders'] })
   }, [queryClient])
 
   const register = useCallback(async (request: RegisterRequest) => {
     const profile = assertSuccess(await mockAuthService.register(request))
     setUser(profile)
-    storeUser(profile)
+    writeStoredCustomerSession(profile)
     queryClient.invalidateQueries({ queryKey: ['customer-orders'] })
   }, [queryClient])
 
   const logout = useCallback(() => {
     setUser(null)
-    storeUser(null)
+    writeStoredCustomerSession(null)
     queryClient.removeQueries({ queryKey: ['customer-orders'] })
   }, [queryClient])
+
+  const saveAddress = useCallback((address: Omit<Address, 'id'>) => {
+    if (!user) {
+      return null
+    }
+
+    const result = saveCustomerAddress(address, user)
+    setUser(result.user)
+    return result.address
+  }, [user])
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -79,8 +64,9 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       login,
       register,
       logout,
+      saveAddress,
     }),
-    [isBootstrapping, login, logout, register, user],
+    [isBootstrapping, login, logout, register, saveAddress, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

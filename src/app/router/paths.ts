@@ -4,6 +4,7 @@ export const appPaths = {
   login: '/login',
   register: '/register',
   customerHome: '/customer/home',
+  customerBooking: '/customer/booking',
   customerOrders: '/customer/orders',
   customerProfile: '/customer/profile',
   operationsOrders: '/operations/orders',

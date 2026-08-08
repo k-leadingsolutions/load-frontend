@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { appPaths } from '@/app/router/paths'
 import { useAuth } from '@/app/providers/useAuth'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -24,6 +26,14 @@ export const CustomerHomePage = () => {
       <SectionCard
         title={`Welcome back, ${user.firstName}`}
         description="Your LOAD account is ready for booking, loyalty, and order tracking workflows."
+        action={(
+          <Link
+            to={appPaths.customerBooking}
+            className="rounded-full bg-load-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-load-700"
+          >
+            Book pickup
+          </Link>
+        )}
       >
         <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
           <article className="rounded-[2rem] bg-gradient-to-br from-load-500 to-load-700 p-6 text-white shadow-glow">

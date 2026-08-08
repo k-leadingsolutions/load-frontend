@@ -42,6 +42,7 @@ export interface PricingQuote {
   promotions: Promotion[]
   subtotal: number
   discountTotal: number
+  loyaltyRedemptionTotal: number
   estimatedTotal: number
   loyaltyPreviewPoints: number
   freeDeliveryThreshold: number

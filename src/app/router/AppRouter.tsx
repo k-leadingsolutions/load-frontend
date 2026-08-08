@@ -7,6 +7,7 @@ import { appPaths } from '@/app/router/paths'
 import { AdminOverviewPage } from '@/features/admin/pages/AdminOverviewPage'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { RegisterPage } from '@/features/auth/pages/RegisterPage'
+import { CustomerBookingPage } from '@/features/customer/pages/CustomerBookingPage'
 import { CustomerHomePage } from '@/features/customer/pages/CustomerHomePage'
 import { FoundationPage } from '@/features/foundation/pages/FoundationPage'
 import { LandingPage } from '@/features/foundation/pages/LandingPage'
@@ -34,12 +35,14 @@ export const AppRouter = () => (
                 summary="Customer booking, loyalty, order tracking, and premium account interactions live within one modular app shell."
                 primaryLinks={[
                   { to: appPaths.customerHome, label: 'Home' },
+                  { to: appPaths.customerBooking, label: 'Book order' },
                   { to: appPaths.foundation, label: 'Blueprint' },
                 ]}
               />
             }
           >
             <Route path={appPaths.customerHome} element={<CustomerHomePage />} />
+            <Route path={appPaths.customerBooking} element={<CustomerBookingPage />} />
             <Route path={appPaths.customerOrders} element={<Navigate replace to={appPaths.customerHome} />} />
             <Route path={appPaths.customerProfile} element={<Navigate replace to={appPaths.customerHome} />} />
           </Route>

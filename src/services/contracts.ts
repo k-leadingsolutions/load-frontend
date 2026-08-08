@@ -47,6 +47,7 @@ export interface QuoteRequest {
   addOnSelections: Array<{ addOnId: string; quantity: number }>
   promotionCode?: string
   expressRequested: boolean
+  useLoyaltyPoints?: boolean
 }
 
 export type CustomerProfileResponse = ApiResponse<CustomerProfile>
