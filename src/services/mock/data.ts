@@ -123,9 +123,45 @@ export const mockOrders: LaundryOrder[] = [
 ]
 
 export const mockProductionOrders: ProductionOrder[] = [
-  { id: 'LD10235', customerName: 'Thando Mokoena', suburb: 'Morningside', status: 'WASHING', stageLabel: 'Washing', qualityCheckPending: false },
-  { id: 'LD10233', customerName: 'Anele Dlamini', suburb: 'Parkhurst', status: 'QUALITY_CHECK', stageLabel: 'Quality check', qualityCheckPending: true },
-  { id: 'LD10231', customerName: 'Kea Ndlovu', suburb: 'Bryanston', status: 'READY_FOR_DISPATCH', stageLabel: 'Ready for dispatch', qualityCheckPending: false },
+  {
+    id: 'LD10235',
+    customerName: 'Thando Mokoena',
+    suburb: 'Morningside',
+    status: 'WASHING',
+    stageLabel: 'Washing',
+    qualityCheckPending: false,
+    internalNotes: ['Handle white shirts separately.'],
+    itemsSummary: ['1 × Standard basket', '1 × Express turnaround'],
+    quantityReviewStatus: 'CONFIRMED',
+    receivedAtStore: true,
+    authorisedAdjustmentAllowed: true,
+  },
+  {
+    id: 'LD10233',
+    customerName: 'Anele Dlamini',
+    suburb: 'Parkhurst',
+    status: 'QUALITY_CHECK',
+    stageLabel: 'Quality check',
+    qualityCheckPending: true,
+    internalNotes: ['Customer requested extra stain care on cuffs.'],
+    itemsSummary: ['3 × Dry Clean Shirts', '6 × Ironing'],
+    quantityReviewStatus: 'ADJUSTED',
+    receivedAtStore: true,
+    authorisedAdjustmentAllowed: true,
+  },
+  {
+    id: 'LD10231',
+    customerName: 'Kea Ndlovu',
+    suburb: 'Bryanston',
+    status: 'BOOKING_RECEIVED',
+    stageLabel: 'Booking received',
+    qualityCheckPending: false,
+    internalNotes: ['Dispatch after 16:00 gate access opens.'],
+    itemsSummary: ['1 × Rug Cleaning'],
+    quantityReviewStatus: 'PENDING',
+    receivedAtStore: false,
+    authorisedAdjustmentAllowed: false,
+  },
 ]
 
 export const mockDriverAssignments: DriverAssignment[] = [

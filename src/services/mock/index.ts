@@ -1,5 +1,5 @@
 import type { PricingQuote } from '@/domain/models'
-import { getFriendlyOrderStatus } from '@/domain/orderStatus'
+import { getFriendlyOrderStatus, ORDER_STATUS_MODEL } from '@/domain/orderStatus'
 import {
   mockAddOns,
   mockBasketSizes,
@@ -8,11 +8,16 @@ import {
   mockDashboardMetrics,
   mockDriverAssignments,
   mockLoyaltyRules,
-  mockProductionOrders,
   mockPromotions,
   mockServices,
 } from '@/services/mock/data'
 import { getStoredOrder, listStoredOrders, prependStoredOrder } from '@/services/mock/orderStore'
+import {
+  getNextProductionStatus,
+  listStoredProductionOrders,
+  prependStoredProductionOrder,
+  updateStoredProductionOrder,
+} from '@/services/mock/operationsStore'
 import { errorResponse, successResponse } from '@/services/mock/mockApi'
 import { readStoredCustomerSession } from '@/services/mock/sessionStore'
 import type {
@@ -281,6 +286,7 @@ export const mockCustomerOrderService: CustomerOrderService = {
       internalNotes: [],
       canRepeat: false,
     })
+    prependStoredProductionOrder(nextOrder)
 
     return successResponse(nextOrder, 700)
   },
@@ -288,7 +294,55 @@ export const mockCustomerOrderService: CustomerOrderService = {
 
 export const mockOperationsService: OperationsService = {
   async listProductionOrders() {
-    return successResponse(mockProductionOrders, 420)
+    return successResponse(listStoredProductionOrders(), 420)
+  },
+  async confirmLaundryReceived(orderId: string) {
+    const order = updateStoredProductionOrder(orderId, (current) => ({
+      ...current,
+      receivedAtStore: true,
+      status: 'RECEIVED_AT_STORE',
+      stageLabel: 'Received at store',
+    }))
+
+    return order
+      ? successResponse(order, 300)
+      : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 300)
+  },
+  async updateQuantityReview(orderId: string, status: 'CONFIRMED' | 'ADJUSTED') {
+    const order = updateStoredProductionOrder(orderId, (current) => ({
+      ...current,
+      quantityReviewStatus: status,
+    }))
+
+    return order
+      ? successResponse(order, 260)
+      : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 260)
+  },
+  async addInternalNote(orderId: string, note: string) {
+    const order = updateStoredProductionOrder(orderId, (current) => ({
+      ...current,
+      internalNotes: [note, ...current.internalNotes],
+    }))
+
+    return order
+      ? successResponse(order, 260)
+      : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 260)
+  },
+  async advanceProductionStage(orderId: string) {
+    const order = updateStoredProductionOrder(orderId, (current) => {
+      const nextStatus = getNextProductionStatus(current.status)
+
+      return {
+        ...current,
+        status: nextStatus,
+        stageLabel: ORDER_STATUS_MODEL[nextStatus].label,
+        qualityCheckPending: nextStatus === 'QUALITY_CHECK',
+      }
+    })
+
+    return order
+      ? successResponse(order, 320)
+      : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
   },
 }
 

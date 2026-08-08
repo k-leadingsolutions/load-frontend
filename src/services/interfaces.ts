@@ -1,5 +1,6 @@
 import type {
   DashboardMetricsResponse,
+  ProductionOrderResponse,
   DriverAssignmentsResponse,
   LoginRequest,
   PlaceOrderRequest,
@@ -32,6 +33,10 @@ export interface CustomerOrderService {
 
 export interface OperationsService {
   listProductionOrders(): Promise<ProductionOrdersResponse>
+  confirmLaundryReceived(orderId: string): Promise<ProductionOrderResponse>
+  updateQuantityReview(orderId: string, status: 'CONFIRMED' | 'ADJUSTED'): Promise<ProductionOrderResponse>
+  addInternalNote(orderId: string, note: string): Promise<ProductionOrderResponse>
+  advanceProductionStage(orderId: string): Promise<ProductionOrderResponse>
 }
 
 export interface DriverService {

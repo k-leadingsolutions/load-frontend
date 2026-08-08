@@ -1,3 +1,5 @@
+import type { OrderStatus } from '@/domain/models/order'
+
 export interface DashboardMetric {
   id: string
   label: string
@@ -17,10 +19,15 @@ export interface DriverAssignment {
 }
 
 export interface ProductionOrder {
+  authorisedAdjustmentAllowed: boolean
   id: string
+  internalNotes: string[]
+  itemsSummary: string[]
+  quantityReviewStatus: 'PENDING' | 'CONFIRMED' | 'ADJUSTED'
+  receivedAtStore: boolean
   customerName: string
   suburb: string
-  status: string
+  status: OrderStatus
   stageLabel: string
   qualityCheckPending: boolean
 }
