@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { GuestOnlyRoute } from '@/app/router/GuestOnlyRoute'
 import { RequireCustomerAuth } from '@/app/router/RequireCustomerAuth'
 import { PublicLayout } from '@/app/layouts/PublicLayout'
@@ -9,6 +9,8 @@ import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { RegisterPage } from '@/features/auth/pages/RegisterPage'
 import { CustomerBookingPage } from '@/features/customer/pages/CustomerBookingPage'
 import { CustomerHomePage } from '@/features/customer/pages/CustomerHomePage'
+import { CustomerOrdersPage } from '@/features/customer/pages/CustomerOrdersPage'
+import { CustomerProfilePage } from '@/features/customer/pages/CustomerProfilePage'
 import { FoundationPage } from '@/features/foundation/pages/FoundationPage'
 import { LandingPage } from '@/features/foundation/pages/LandingPage'
 import { DriverAssignmentsPage } from '@/features/driver/pages/DriverAssignmentsPage'
@@ -36,6 +38,8 @@ export const AppRouter = () => (
                 primaryLinks={[
                   { to: appPaths.customerHome, label: 'Home' },
                   { to: appPaths.customerBooking, label: 'Book order' },
+                  { to: appPaths.customerOrders, label: 'Orders' },
+                  { to: appPaths.customerProfile, label: 'Profile' },
                   { to: appPaths.foundation, label: 'Blueprint' },
                 ]}
               />
@@ -43,8 +47,8 @@ export const AppRouter = () => (
           >
             <Route path={appPaths.customerHome} element={<CustomerHomePage />} />
             <Route path={appPaths.customerBooking} element={<CustomerBookingPage />} />
-            <Route path={appPaths.customerOrders} element={<Navigate replace to={appPaths.customerHome} />} />
-            <Route path={appPaths.customerProfile} element={<Navigate replace to={appPaths.customerHome} />} />
+            <Route path={appPaths.customerOrders} element={<CustomerOrdersPage />} />
+            <Route path={appPaths.customerProfile} element={<CustomerProfilePage />} />
           </Route>
         </Route>
         <Route

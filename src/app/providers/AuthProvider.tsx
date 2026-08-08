@@ -4,8 +4,14 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { Address, CustomerProfile } from '@/domain/models'
 import { AuthContext } from '@/app/providers/AuthContext'
 import type { AuthContextValue } from '@/app/providers/AuthContext'
+import type { ProfileDetailsUpdate } from '@/app/providers/AuthContext'
 import type { LoginRequest, RegisterRequest } from '@/services/contracts'
-import { readStoredCustomerSession, saveCustomerAddress, writeStoredCustomerSession } from '@/services/mock/sessionStore'
+import {
+  readStoredCustomerSession,
+  saveCustomerAddress,
+  updateStoredCustomerProfile,
+  writeStoredCustomerSession,
+} from '@/services/mock/sessionStore'
 import { mockAuthService } from '@/services/mock'
 
 const assertSuccess = <TData,>(response: { data?: TData; error?: { message?: string }; status: 'success' | 'error' }) => {
@@ -56,6 +62,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     return result.address
   }, [user])
 
+  const updateProfile = useCallback((details: ProfileDetailsUpdate) => {
+    if (!user) {
+      return
+    }
+
+    setUser(updateStoredCustomerProfile(details, user))
+  }, [user])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -65,8 +79,9 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       register,
       logout,
       saveAddress,
+      updateProfile,
     }),
-    [isBootstrapping, login, logout, register, saveAddress, user],
+    [isBootstrapping, login, logout, register, saveAddress, updateProfile, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

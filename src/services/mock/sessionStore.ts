@@ -1,4 +1,5 @@
 import type { Address, CustomerProfile } from '@/domain/models'
+import type { ProfileDetailsUpdate } from '@/app/providers/AuthContext'
 
 export const AUTH_STORAGE_KEY = 'load.customer.session.v1'
 
@@ -69,4 +70,14 @@ export const saveCustomerAddress = (address: Omit<Address, 'id'>, currentUser: C
     user: updatedUser,
     address: nextAddress,
   }
+}
+
+export const updateStoredCustomerProfile = (details: ProfileDetailsUpdate, currentUser: CustomerProfile) => {
+  const updatedUser: CustomerProfile = {
+    ...currentUser,
+    ...details,
+  }
+
+  writeStoredCustomerSession(updatedUser)
+  return updatedUser
 }
