@@ -1,6 +1,8 @@
 export const appPaths = {
   home: '/',
   foundation: '/foundation',
+  login: '/login',
+  register: '/register',
   customerHome: '/customer/home',
   customerOrders: '/customer/orders',
   customerProfile: '/customer/profile',

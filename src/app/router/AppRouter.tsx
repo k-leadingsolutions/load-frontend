@@ -1,8 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { GuestOnlyRoute } from '@/app/router/GuestOnlyRoute'
+import { RequireCustomerAuth } from '@/app/router/RequireCustomerAuth'
 import { PublicLayout } from '@/app/layouts/PublicLayout'
 import { RoleLayout } from '@/app/layouts/RoleLayout'
 import { appPaths } from '@/app/router/paths'
 import { AdminOverviewPage } from '@/features/admin/pages/AdminOverviewPage'
+import { LoginPage } from '@/features/auth/pages/LoginPage'
+import { RegisterPage } from '@/features/auth/pages/RegisterPage'
 import { CustomerHomePage } from '@/features/customer/pages/CustomerHomePage'
 import { FoundationPage } from '@/features/foundation/pages/FoundationPage'
 import { LandingPage } from '@/features/foundation/pages/LandingPage'
@@ -17,22 +21,28 @@ export const AppRouter = () => (
       <Route element={<PublicLayout />}>
         <Route path={appPaths.home} element={<LandingPage />} />
         <Route path={appPaths.foundation} element={<FoundationPage />} />
-        <Route
-          element={
-            <RoleLayout
-              roleLabel="Customer"
-              title="Customer experience"
-              summary="Customer booking, loyalty, order tracking, and premium account interactions live within one modular app shell."
-              primaryLinks={[
-                { to: appPaths.customerHome, label: 'Home' },
-                { to: appPaths.foundation, label: 'Blueprint' },
-              ]}
-            />
-          }
-        >
-          <Route path={appPaths.customerHome} element={<CustomerHomePage />} />
-          <Route path={appPaths.customerOrders} element={<Navigate replace to={appPaths.customerHome} />} />
-          <Route path={appPaths.customerProfile} element={<Navigate replace to={appPaths.customerHome} />} />
+        <Route element={<GuestOnlyRoute />}>
+          <Route path={appPaths.login} element={<LoginPage />} />
+          <Route path={appPaths.register} element={<RegisterPage />} />
+        </Route>
+        <Route element={<RequireCustomerAuth />}>
+          <Route
+            element={
+              <RoleLayout
+                roleLabel="Customer"
+                title="Customer experience"
+                summary="Customer booking, loyalty, order tracking, and premium account interactions live within one modular app shell."
+                primaryLinks={[
+                  { to: appPaths.customerHome, label: 'Home' },
+                  { to: appPaths.foundation, label: 'Blueprint' },
+                ]}
+              />
+            }
+          >
+            <Route path={appPaths.customerHome} element={<CustomerHomePage />} />
+            <Route path={appPaths.customerOrders} element={<Navigate replace to={appPaths.customerHome} />} />
+            <Route path={appPaths.customerProfile} element={<Navigate replace to={appPaths.customerHome} />} />
+          </Route>
         </Route>
         <Route
           element={

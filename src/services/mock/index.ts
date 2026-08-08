@@ -23,6 +23,25 @@ import type {
 } from '@/services/interfaces'
 import type { LoginRequest, PlaceOrderRequest, QuoteRequest, RegisterRequest } from '@/services/contracts'
 
+const DEMO_PASSWORD = 'Load@1234'
+
+const createRegisteredProfile = (request: RegisterRequest) => ({
+  id: `cust-${request.firstName.toLowerCase()}-${request.lastName.toLowerCase()}-${crypto.randomUUID().slice(0, 6)}`,
+  firstName: request.firstName,
+  lastName: request.lastName,
+  mobileNumber: request.mobileNumber,
+  email: request.email,
+  role: 'CUSTOMER' as const,
+  defaultAddressId: '',
+  addresses: [],
+  loyalty: {
+    tier: 'Silver' as const,
+    points: 0,
+    availableRewards: 0,
+    loadBalance: 0,
+  },
+})
+
 const buildQuote = (request: QuoteRequest): PricingQuote => {
   const basket = request.basketSizeId
     ? mockBasketSizes.find((item) => item.id === request.basketSizeId)
@@ -128,11 +147,21 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
 }
 
 export const mockAuthService: AuthService = {
-  async login(_request: LoginRequest) {
-    return successResponse(mockCustomerProfile)
+  async login(request: LoginRequest) {
+    const isKnownCustomer = request.mobileNumber === mockCustomerProfile.mobileNumber
+
+    if (!isKnownCustomer || request.password !== DEMO_PASSWORD) {
+      return errorResponse({ code: 'INVALID_CREDENTIALS', message: 'Use the demo mobile number and password to sign in.' }, 450)
+    }
+
+    return successResponse(mockCustomerProfile, 450)
   },
-  async register(_request: RegisterRequest) {
-    return successResponse(mockCustomerProfile, 550)
+  async register(request: RegisterRequest) {
+    if (request.email === mockCustomerProfile.email || request.mobileNumber === mockCustomerProfile.mobileNumber) {
+      return errorResponse({ code: 'ACCOUNT_EXISTS', message: 'An account already exists with those details.' }, 550)
+    }
+
+    return successResponse(createRegisteredProfile(request), 550)
   },
   async getProfile() {
     return successResponse(mockCustomerProfile, 350)
