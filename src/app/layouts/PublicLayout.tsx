@@ -15,16 +15,22 @@ export const PublicLayout = () => {
 
   return (
     <div className="min-h-screen">
+      <a
+        href="#main-content"
+        className="sr-only z-50 rounded-full bg-load-700 px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
+      >
+        Skip to main content
+      </a>
       <header className="sticky top-0 z-20 border-b border-white/60 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
           <div>
-            <NavLink to={appPaths.home} className="text-3xl font-light tracking-tight text-load-600">
+            <NavLink aria-label="LOAD home" to={appPaths.home} className="text-3xl font-light tracking-tight text-load-600">
               load
             </NavLink>
             <p className="text-sm text-slate-500">Premium laundry and delivery MVP foundation</p>
           </div>
           <div className="flex flex-col gap-3 lg:items-end">
-            <nav className="flex flex-wrap gap-2 text-sm text-slate-500">
+            <nav aria-label="Primary" className="flex flex-wrap gap-2 text-sm text-slate-500">
               {navItems.map((item) => (
                 <NavLink
                   key={item.to}
@@ -83,7 +89,7 @@ export const PublicLayout = () => {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-8 lg:px-6 lg:py-10">
+      <main id="main-content" className="mx-auto max-w-7xl px-4 py-8 lg:px-6 lg:py-10">
         <Outlet />
       </main>
     </div>

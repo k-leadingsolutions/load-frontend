@@ -28,7 +28,7 @@ export const AuthShell = ({ children, eyebrow, footer, subtitle, title }: AuthSh
       </div>
     </section>
 
-    <section className="rounded-panel border border-white/70 bg-white/90 p-6 shadow-panel backdrop-blur">
+    <section aria-label="Authentication form" className="rounded-panel border border-white/70 bg-white/90 p-6 shadow-panel backdrop-blur">
       {children}
       <div className="mt-6 border-t border-load-100 pt-4">{footer}</div>
     </section>
