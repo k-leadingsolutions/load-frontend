@@ -1,0 +1,53 @@
+import type {
+  DashboardMetricsResponse,
+  DriverAssignmentResponse,
+  ProductionOrderResponse,
+  DriverAssignmentsResponse,
+  LoginRequest,
+  PlaceOrderRequest,
+  PricingQuoteResponse,
+  ProductionOrdersResponse,
+  QuoteRequest,
+  RegisterRequest,
+  ServiceCatalogueResponse,
+  CustomerOrderResponse,
+  CustomerOrdersResponse,
+  CustomerProfileResponse,
+} from '@/services/contracts'
+
+export interface AuthService {
+  login(request: LoginRequest): Promise<CustomerProfileResponse>
+  register(request: RegisterRequest): Promise<CustomerProfileResponse>
+  getProfile(): Promise<CustomerProfileResponse>
+}
+
+export interface CatalogueService {
+  getCatalogue(): Promise<ServiceCatalogueResponse>
+  getQuote(request: QuoteRequest): Promise<PricingQuoteResponse>
+}
+
+export interface CustomerOrderService {
+  listOrders(customerId: string): Promise<CustomerOrdersResponse>
+  getOrder(orderId: string): Promise<CustomerOrderResponse>
+  placeOrder(request: PlaceOrderRequest): Promise<CustomerOrderResponse>
+}
+
+export interface OperationsService {
+  listProductionOrders(): Promise<ProductionOrdersResponse>
+  confirmLaundryReceived(orderId: string): Promise<ProductionOrderResponse>
+  updateQuantityReview(orderId: string, status: 'CONFIRMED' | 'ADJUSTED'): Promise<ProductionOrderResponse>
+  addInternalNote(orderId: string, note: string): Promise<ProductionOrderResponse>
+  advanceProductionStage(orderId: string): Promise<ProductionOrderResponse>
+}
+
+export interface DriverService {
+  listAssignments(): Promise<DriverAssignmentsResponse>
+  confirmArrival(assignmentId: string): Promise<DriverAssignmentResponse>
+  confirmCollection(assignmentId: string): Promise<DriverAssignmentResponse>
+  confirmDelivery(assignmentId: string, proofOfDelivery: string): Promise<DriverAssignmentResponse>
+  recordFailure(assignmentId: string, reason: string): Promise<DriverAssignmentResponse>
+}
+
+export interface AdminService {
+  getMetrics(): Promise<DashboardMetricsResponse>
+}
