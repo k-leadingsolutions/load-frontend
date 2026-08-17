@@ -4,9 +4,7 @@ import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/app/providers/useAuth'
 import { appPaths } from '@/app/router/paths'
-import { ErrorState } from '@/components/ui/ErrorState'
 import { AuthInput } from '@/features/auth/components/AuthInput'
-import { AuthShell } from '@/features/auth/components/AuthShell'
 import type { RegisterFormValues } from '@/features/auth/schemas'
 import { registerSchema } from '@/features/auth/schemas'
 
@@ -14,6 +12,7 @@ export const RegisterPage = () => {
   const navigate = useNavigate()
   const { register: registerAccount } = useAuth()
   const [submitError, setSubmitError] = useState<string | null>(null)
+
   const {
     register,
     handleSubmit,
@@ -21,98 +20,101 @@ export const RegisterPage = () => {
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      firstName: '',
-      lastName: '',
-      mobileNumber: '',
+      fullName: '',
       email: '',
+      mobileNumber: '',
       password: '',
-      confirmPassword: '',
     },
   })
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null)
-
     try {
+      const [firstName, ...rest] = values.fullName.trim().split(' ')
       await registerAccount({
-        firstName: values.firstName,
-        lastName: values.lastName,
+        firstName: firstName ?? values.fullName,
+        lastName: rest.join(' ') || '-',
         mobileNumber: values.mobileNumber,
         email: values.email,
         password: values.password,
       })
-      navigate(appPaths.customerHome, { replace: true })
+      navigate(appPaths.otpVerify, { state: { mobileNumber: values.mobileNumber }, replace: true })
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Unable to create your account.')
     }
   })
 
   return (
-    <AuthShell
-      eyebrow="Customer registration"
-      title="Create your LOAD account"
-      subtitle="Set up your customer profile now so booking, loyalty rewards, and order tracking can attach to a real account shell."
-      footer={
-        <p className="text-sm text-slate-500">
-          Already have an account?{' '}
-          <Link className="font-semibold text-load-700" to={appPaths.login}>
-            Sign in instead
-          </Link>
-        </p>
-      }
-    >
-      <div className="space-y-5">
-        <div>
-          <h2 className="text-2xl font-semibold text-ink">Create customer profile</h2>
-          <p className="mt-2 text-sm text-slate-500">South African customer details are validated now and wired for future Spring Boot contracts.</p>
+    <div className="flex min-h-[calc(100vh-120px)] items-center justify-center py-8">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 text-center">
+          <span className="text-4xl font-light tracking-tight text-load-600">load</span>
+          <p className="mt-1 text-xs uppercase tracking-widest text-muted">Laundry · Coffee · More</p>
         </div>
 
-        {submitError ? <ErrorState title="Registration failed" message={submitError} /> : null}
+        <div className="rounded-panel border border-card-border bg-white p-8 shadow-panel">
+          <h1 className="text-heading text-ink">Create Account</h1>
+          <p className="mt-1 text-body text-muted">Let's get you started.</p>
 
-        <form className="grid gap-4 sm:grid-cols-2" onSubmit={onSubmit}>
-          <AuthInput id="firstName" label="First name" autoComplete="given-name" error={errors.firstName?.message} {...register('firstName')} />
-          <AuthInput id="lastName" label="Last name" autoComplete="family-name" error={errors.lastName?.message} {...register('lastName')} />
-          <div className="sm:col-span-2">
+          {submitError ? (
+            <div role="alert" className="mt-4 rounded-card border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {submitError}
+            </div>
+          ) : null}
+
+          <form className="mt-6 space-y-4" onSubmit={onSubmit}>
+            <AuthInput
+              id="fullName"
+              label="Full Name"
+              autoComplete="name"
+              placeholder="John Smith"
+              error={errors.fullName?.message}
+              {...register('fullName')}
+            />
+            <AuthInput
+              id="email"
+              label="Email"
+              type="email"
+              autoComplete="email"
+              placeholder="johnsmith@email.com"
+              error={errors.email?.message}
+              {...register('email')}
+            />
             <AuthInput
               id="mobileNumber"
-              label="Mobile number"
+              label="Phone Number"
               autoComplete="tel"
+              placeholder="+27 82 123 4567"
               error={errors.mobileNumber?.message}
-              hint="Format: +27 82 555 0142"
               {...register('mobileNumber')}
             />
-          </div>
-          <div className="sm:col-span-2">
-            <AuthInput id="email" label="Email address" type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
-          </div>
-          <AuthInput
-            id="password"
-            label="Password"
-            type="password"
-            autoComplete="new-password"
-            error={errors.password?.message}
-            hint="Use at least 8 characters with an uppercase letter and a number."
-            {...register('password')}
-          />
-          <AuthInput
-            id="confirmPassword"
-            label="Confirm password"
-            type="password"
-            autoComplete="new-password"
-            error={errors.confirmPassword?.message}
-            {...register('confirmPassword')}
-          />
-          <div className="sm:col-span-2">
+            <AuthInput
+              id="password"
+              label="Password"
+              type="password"
+              autoComplete="new-password"
+              placeholder="••••••••"
+              error={errors.password?.message}
+              {...register('password')}
+            />
+
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-full bg-load-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-load-700 disabled:cursor-not-allowed disabled:opacity-70"
+              className="h-12 w-full rounded-pill bg-load-600 text-sm font-semibold text-white transition hover:bg-load-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? 'Creating account...' : 'Create account'}
+              {isSubmitting ? 'Creating account…' : 'Sign Up'}
             </button>
-          </div>
-        </form>
+          </form>
+
+          <p className="mt-6 text-center text-body text-muted">
+            Already have an account?{' '}
+            <Link className="font-semibold text-load-600" to={appPaths.login}>
+              Log In
+            </Link>
+          </p>
+        </div>
       </div>
-    </AuthShell>
+    </div>
   )
 }

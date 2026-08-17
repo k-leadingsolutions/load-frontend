@@ -1,3 +1,15 @@
+// ─── Pricing model enum ───────────────────────────────────────────────────────
+
+export type PricingModel =
+  | 'PER_BASKET'
+  | 'PER_KILOGRAM'
+  | 'PER_ITEM'
+  | 'FIXED_SERVICE'
+  | 'QUOTE_REQUIRED'
+
+/** @deprecated Use PricingModel instead */
+export type ServicePricingMode = 'PAY_PER_BASKET' | 'PAY_PER_ITEM' | 'ADD_ON' | 'DELIVERY' | 'PROMOTION'
+
 export interface Promotion {
   code: string
   name: string
@@ -48,4 +60,46 @@ export interface PricingQuote {
   freeDeliveryThreshold: number
   freeDeliveryGap: number
   lineItems: PricingQuoteItem[]
+  /** Included when service is PER_KILOGRAM – estimate only */
+  estimatedWeightKg?: number
+  weightDisclaimer?: string
+}
+
+// ─── Invoice ──────────────────────────────────────────────────────────────────
+
+export interface InvoiceLine {
+  id: string
+  description: string
+  quantity: number
+  unitPrice: number
+  total: number
+  lineType: 'SERVICE' | 'ADD_ON' | 'PICKUP_FEE' | 'DELIVERY_FEE' | 'ADJUSTMENT' | 'DISCOUNT' | 'LOYALTY' | 'TAX'
+}
+
+export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'AWAITING_PAYMENT' | 'PAID' | 'ADJUSTED' | 'VOID'
+export type PosSyncStatus = 'NOT_SYNCED' | 'SYNCING' | 'SYNCED' | 'SYNC_FAILED'
+
+export interface Invoice {
+  id: string
+  invoiceNumber: string
+  orderId: string
+  customerId: string
+  customerName: string
+  serviceLabel: string
+  lines: InvoiceLine[]
+  confirmedWeightKg?: number
+  unitPricePerKg?: number
+  pickupFee: number
+  deliveryFee: number
+  subtotal: number
+  adjustmentTotal: number
+  discountTotal: number
+  loyaltyRedemptionTotal: number
+  taxTotal: number
+  finalTotal: number
+  status: InvoiceStatus
+  paymentStatus: string
+  posSyncStatus: PosSyncStatus
+  createdAt: string
+  updatedAt: string
 }

@@ -1,3 +1,11 @@
+export type PricingModel =
+  | 'PER_BASKET'
+  | 'PER_KILOGRAM'
+  | 'PER_ITEM'
+  | 'FIXED_SERVICE'
+  | 'QUOTE_REQUIRED'
+
+/** @deprecated Use PricingModel. Kept for backward compat. */
 export type ServicePricingMode = 'PAY_PER_BASKET' | 'PAY_PER_ITEM' | 'ADD_ON' | 'DELIVERY' | 'PROMOTION'
 
 export interface ServiceCategory {
@@ -14,10 +22,12 @@ export interface CatalogService {
   name: string
   shortDescription: string
   turnaroundLabel: string
-  pricingMode: Extract<ServicePricingMode, 'PAY_PER_BASKET' | 'PAY_PER_ITEM'>
+  pricingMode: ServicePricingMode
+  pricingModel?: PricingModel
   basePrice: number
   unitLabel: string
   featured: boolean
+  icon?: string
 }
 
 export interface AddOnOption {

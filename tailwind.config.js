@@ -4,34 +4,74 @@ export default {
   theme: {
     extend: {
       colors: {
+        // LOAD brand palette – soft sky-blue (matches Module 2/3 design references)
         load: {
-          50: '#f4f9ff',
-          100: '#e8f3ff',
-          200: '#cce4ff',
-          300: '#9dcbff',
-          400: '#66abff',
-          500: '#338aff',
-          600: '#1f6fe0',
-          700: '#1f59b0',
-          800: '#224b8d',
-          900: '#234173'
+          50:  '#f0f7ff',
+          100: '#ddeeff',
+          200: '#b8dcff',
+          300: '#85c2ff',
+          400: '#4fa3f0',
+          500: '#2d87d4',
+          600: '#1a6dba',
+          700: '#155796',
+          800: '#144878',
+          900: '#103a60',
         },
-        ink: '#0f172a'
+        // Semantic surfaces
+        'load-bg':   '#f4f9ff',   // very-light blue page background
+        'card-border': '#ddeeff', // soft card border
+        ink:         '#0f172a',   // dark primary text
+        muted:       '#64748b',   // secondary text
+        // Soft status colours
+        'status-success': '#22c55e',
+        'status-warning': '#f59e0b',
+        'status-error':   '#ef4444',
+        'status-info':    '#2d87d4',
       },
       boxShadow: {
-        panel: '0 18px 45px rgba(15, 23, 42, 0.08)',
-        glow: '0 18px 40px rgba(51, 138, 255, 0.18)'
+        // Softer, lighter than before
+        panel: '0 4px 24px rgba(15, 23, 42, 0.06)',
+        card:  '0 2px 12px rgba(15, 23, 42, 0.04)',
+        glow:  '0 8px 32px rgba(45, 135, 212, 0.14)',
+        // Slightly deeper for elevated elements
+        modal: '0 20px 60px rgba(15, 23, 42, 0.16)',
       },
       borderRadius: {
-        panel: '1.5rem'
+        panel:  '1.5rem',  // card / container
+        card:   '1rem',    // inner card
+        pill:   '9999px',  // buttons / badges
+      },
+      spacing: {
+        // Standardised mobile / section gaps
+        'section': '2rem',
+        'card-pad': '1.25rem',
+      },
+      fontSize: {
+        // Typography hierarchy
+        'display':  ['2rem',   { lineHeight: '1.2', fontWeight: '700' }],
+        'heading':  ['1.5rem', { lineHeight: '1.3', fontWeight: '600' }],
+        'title':    ['1.125rem', { lineHeight: '1.4', fontWeight: '600' }],
+        'body':     ['0.875rem', { lineHeight: '1.6' }],
+        'caption':  ['0.75rem',  { lineHeight: '1.5' }],
+        'label':    ['0.6875rem',{ lineHeight: '1.4', fontWeight: '600', letterSpacing: '0.05em' }],
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif']
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       backgroundImage: {
-        'soft-grid': 'radial-gradient(circle at top, rgba(51,138,255,0.12), transparent 35%)'
-      }
-    }
+        'soft-grid': 'radial-gradient(circle at top, rgba(45,135,212,0.08), transparent 40%)',
+        'load-hero': 'linear-gradient(135deg, #2d87d4 0%, #1a6dba 100%)',
+        'load-card': 'linear-gradient(135deg, #f0f7ff 0%, #ddeeff 100%)',
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.2s ease-out',
+        'slide-up': 'slideUp 0.25s ease-out',
+      },
+      keyframes: {
+        fadeIn:  { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+        slideUp: { '0%': { transform: 'translateY(8px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+      },
+    },
   },
-  plugins: []
+  plugins: [],
 }

@@ -23,6 +23,10 @@ import {
 } from '@/services/mock/operationsStore'
 import { errorResponse, successResponse } from '@/services/mock/mockApi'
 import { readStoredCustomerSession } from '@/services/mock/sessionStore'
+import {
+  mockRouteService,
+  mockWeightPricingService,
+} from '@/services/mock/extendedMocks'
 import type {
   AdminService,
   AuthService,
@@ -201,6 +205,27 @@ export const mockAuthService: AuthService = {
   async getProfile() {
     return successResponse(mockCustomerProfile, 350)
   },
+  async sendOtp(_mobileNumber) {
+    await new Promise((r) => setTimeout(r, 600))
+    return { success: true }
+  },
+  async verifyOtp(_mobileNumber, code) {
+    await new Promise((r) => setTimeout(r, 700))
+    // Accept '123456' or any 6-digit code in mock
+    return { valid: code === '123456' || (code.length === 6 && /^\d{6}$/.test(code)) }
+  },
+  async forgotPassword(_emailOrMobile) {
+    await new Promise((r) => setTimeout(r, 500))
+    return { sent: true }
+  },
+  async resetPassword(_token, _newPassword) {
+    await new Promise((r) => setTimeout(r, 500))
+    return { success: true }
+  },
+  async biometricLogin(_credential) {
+    await new Promise((r) => setTimeout(r, 400))
+    return successResponse(mockCustomerProfile, 0)
+  },
 }
 
 export const mockCatalogueService: CatalogueService = {
@@ -347,6 +372,40 @@ export const mockOperationsService: OperationsService = {
       ? successResponse(order, 320)
       : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
   },
+  async getMetrics() {
+    return successResponse(mockDashboardMetrics, 350)
+  },
+  async assignDriver(orderId: string, driverId: string) {
+    await new Promise((r) => setTimeout(r, 400))
+    void orderId
+    void driverId
+    return { success: true }
+  },
+  async performQC(orderId: string, result) {
+    const order = updateStoredProductionOrder(orderId, (current) => ({
+      ...current,
+      qualityCheckPending: false,
+      status: result.passed ? 'PACKING' : 'SORTING',
+      stageLabel: result.passed ? 'Packing' : 'Returned to production',
+      internalNotes: result.notes
+        ? [result.notes, ...current.internalNotes]
+        : current.internalNotes,
+    }))
+
+    return order
+      ? successResponse(order, 320)
+      : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
+  },
+  async adjustPrice(orderId: string, amount: number, reason: string) {
+    const order = updateStoredProductionOrder(orderId, (current) => ({
+      ...current,
+      internalNotes: [`Price adjustment R${amount}: ${reason}`, ...current.internalNotes],
+    }))
+
+    return order
+      ? successResponse(order, 320)
+      : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
+  },
 }
 
 export const mockDriverService: DriverService = {
@@ -395,6 +454,35 @@ export const mockDriverService: DriverService = {
       ? successResponse(assignment, 280)
       : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 280)
   },
+  async getRoute() {
+    return mockRouteService.getRoute('driver-01')
+  },
+  async captureWeight(stopId, weightKg) {
+    const result = await mockWeightPricingService.confirmWeight(stopId, {
+      orderId: stopId,
+      measuredKg: weightKg,
+      measuredBy: 'driver-01',
+      measuredAt: new Date().toISOString(),
+      status: 'CONFIRMED',
+    })
+    return result
+  },
+  async requestReschedule(stopId, reason, note) {
+    await new Promise((r) => setTimeout(r, 400))
+    void stopId; void reason; void note
+    return { success: true }
+  },
+  async verifyStop(stopId, method, code) {
+    const attempt = await import('@/services/mock/extendedMocks').then((m) =>
+      m.mockVerificationService.initVerification(stopId, method)
+    )
+    if (code) {
+      return import('@/services/mock/extendedMocks').then((m) =>
+        m.mockVerificationService.submitVerification(attempt.id, code)
+      )
+    }
+    return attempt
+  },
 }
 
 export const mockAdminService: AdminService = {
@@ -402,3 +490,15 @@ export const mockAdminService: AdminService = {
     return successResponse(mockDashboardMetrics, 390)
   },
 }
+
+// Re-export extended mocks for convenience
+export {
+  mockCoffeeService,
+  mockInvoiceService,
+  mockLoyaltyService,
+  mockNotificationService,
+  mockPosService,
+  mockRouteService,
+  mockVerificationService,
+  mockWeightPricingService,
+} from '@/services/mock/extendedMocks'

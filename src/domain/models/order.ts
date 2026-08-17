@@ -1,11 +1,18 @@
 import type { Address } from '@/domain/models/customer'
 
+// ─── Core status enum ─────────────────────────────────────────────────────────
+
 export type OrderStatus =
   | 'BOOKING_RECEIVED'
   | 'PICKUP_SCHEDULED'
   | 'DRIVER_ASSIGNED'
   | 'DRIVER_EN_ROUTE'
+  | 'DRIVER_ARRIVED'
+  | 'COLLECTION_VERIFIED'
   | 'COLLECTED'
+  | 'WEIGHT_CONFIRMED'
+  | 'AWAITING_PAYMENT'
+  | 'PAYMENT_CONFIRMED'
   | 'RECEIVED_AT_STORE'
   | 'SORTING'
   | 'WASHING'
@@ -14,10 +21,14 @@ export type OrderStatus =
   | 'QUALITY_CHECK'
   | 'PACKING'
   | 'READY_FOR_DISPATCH'
+  | 'DELIVERY_SCHEDULED'
   | 'OUT_FOR_DELIVERY'
   | 'DELIVERED'
   | 'COMPLETED'
+  | 'RESCHEDULED'
   | 'CANCELLED'
+
+// ─── Timeline ─────────────────────────────────────────────────────────────────
 
 export interface OrderStatusTimelineEntry {
   status: OrderStatus
@@ -26,6 +37,8 @@ export interface OrderStatusTimelineEntry {
   description: string
   stage: 'BOOKING' | 'PICKUP' | 'PRODUCTION' | 'DELIVERY' | 'CLOSED'
 }
+
+// ─── Order items ──────────────────────────────────────────────────────────────
 
 export interface OrderServiceSelection {
   serviceId: string
@@ -38,6 +51,18 @@ export interface PickupDeliveryWindow {
   windowLabel: string
 }
 
+// ─── Payment ──────────────────────────────────────────────────────────────────
+
+export type PaymentStatus =
+  | 'NOT_REQUIRED'
+  | 'PENDING'
+  | 'AWAITING_CUSTOMER'
+  | 'CONFIRMED'
+  | 'FAILED'
+  | 'REFUNDED'
+
+// ─── Main order model ─────────────────────────────────────────────────────────
+
 export interface LaundryOrder {
   id: string
   customerId: string
@@ -49,8 +74,20 @@ export interface LaundryOrder {
   deliveryAddress: Address
   services: OrderServiceSelection[]
   estimatedTotal: number
+  confirmedTotal?: number
+  confirmedWeightKg?: number
+  paymentStatus: PaymentStatus
+  invoiceId?: string
   loyaltyPointsEarned: number
   promotionsApplied: string[]
   internalNotes: string[]
   canRepeat: boolean
+}
+
+// ─── Order status history ─────────────────────────────────────────────────────
+
+export interface OrderStatusHistoryEntry {
+  status: OrderStatus
+  occurredAt: string
+  note?: string
 }

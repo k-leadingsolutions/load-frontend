@@ -11,13 +11,16 @@ export const SectionCard = ({ title, description, action, children }: SectionCar
   const headingId = useId()
 
   return (
-    <section aria-labelledby={headingId} className="rounded-panel border border-white/70 bg-white/90 p-6 shadow-panel backdrop-blur">
+    <section
+      aria-labelledby={headingId}
+      className="rounded-panel border border-card-border bg-white p-6 shadow-card"
+    >
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h2 id={headingId} className="text-lg font-semibold text-ink">
+          <h2 id={headingId} className="text-title text-ink">
             {title}
           </h2>
-          {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+          {description ? <p className="mt-1 text-body text-muted">{description}</p> : null}
         </div>
         {action}
       </div>

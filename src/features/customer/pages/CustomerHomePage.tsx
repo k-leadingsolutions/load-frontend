@@ -12,22 +12,56 @@ import { formatCurrency, formatPoints } from '@/utils/format'
 
 const getGreeting = () => {
   const hour = new Date().getHours()
-  if (hour < 12) return 'Good morning'
-  if (hour < 17) return 'Good afternoon'
-  return 'Good evening'
+  if (hour < 12) return 'Good morning,'
+  if (hour < 17) return 'Good afternoon,'
+  return 'Good evening,'
 }
 
+const QUICK_ACTIONS = [
+  { to: appPaths.customerBooking, label: 'New Order',      emoji: '🧺' },
+  { to: appPaths.customerOrders,  label: 'Track Order',    emoji: '🔍' },
+  { to: appPaths.customerRewards, label: 'Rewards',        emoji: '⭐' },
+  { to: appPaths.customerLoadPass,label: 'LOAD Pass',      emoji: '🎫' },
+  { to: appPaths.customerBooking, label: 'Schedule Pickup',emoji: '📅' },
+  { to: appPaths.customerOrders,  label: 'My Orders',      emoji: '📦' },
+  { to: appPaths.customerProfile, label: 'Support',        emoji: '💬' },
+  { to: appPaths.customerProfile, label: 'Profile',        emoji: '👤' },
+  { to: appPaths.customerProfile, label: 'Refer a Friend', emoji: '🤝' },
+] as const
+
 const ORDER_PROGRESS: Record<string, number> = {
-  PENDING: 5,
-  PICKED_UP: 20,
-  SORTING: 35,
-  WASHING: 55,
-  DRYING: 70,
-  FOLDING: 85,
-  READY: 95,
+  BOOKING_RECEIVED: 5,
+  PICKUP_SCHEDULED: 10,
+  DRIVER_ASSIGNED: 15,
+  DRIVER_EN_ROUTE: 20,
+  DRIVER_ARRIVED: 25,
+  COLLECTION_VERIFIED: 30,
+  COLLECTED: 35,
+  WEIGHT_CONFIRMED: 40,
+  AWAITING_PAYMENT: 42,
+  PAYMENT_CONFIRMED: 45,
+  RECEIVED_AT_STORE: 50,
+  SORTING: 58,
+  WASHING: 65,
+  DRYING: 72,
+  IRONING: 78,
+  QUALITY_CHECK: 84,
+  PACKING: 90,
+  READY_FOR_DISPATCH: 93,
+  DELIVERY_SCHEDULED: 95,
   OUT_FOR_DELIVERY: 98,
   DELIVERED: 100,
-  CANCELLED: 0,
+  COMPLETED: 100,
+}
+
+const PRODUCTION_STEPS = ['Picked Up', 'In Wash', 'In Dry', 'Ready', 'Delivered'] as const
+
+const getStepIndex = (progress: number) => {
+  if (progress <= 35) return 0
+  if (progress <= 65) return 1
+  if (progress <= 78) return 2
+  if (progress <= 93) return 3
+  return 4
 }
 
 export const CustomerHomePage = () => {
@@ -42,135 +76,195 @@ export const CustomerHomePage = () => {
     return <ErrorState title="Customer account unavailable" message="Please sign in again to continue." />
   }
 
-  const activeOrder = data?.data?.find((o) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED')
+  const activeOrder = data?.data?.find((o) => o.status !== 'DELIVERED' && o.status !== 'COMPLETED' && o.status !== 'CANCELLED')
   const recentOrders = data?.data?.slice(0, 3) ?? []
 
   return (
-    <div className="space-y-10">
-      {/* ── Hero greeting card ── */}
-      <section aria-labelledby="home-hero-heading">
-        <article className="rounded-[2rem] bg-gradient-to-br from-load-500 to-load-700 p-6 text-white shadow-glow">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-sm text-white/80">{getGreeting()}</p>
-              <h1 id="home-hero-heading" className="mt-1 text-2xl font-semibold">
-                {user.firstName} {user.lastName}
-              </h1>
-            </div>
-            <Link
-              to={appPaths.customerBooking}
-              className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50"
-            >
-              Book pickup
-            </Link>
-          </div>
+    <div className="mx-auto max-w-lg space-y-5 pb-24">
 
-          {/* Loyalty stats */}
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-3xl bg-white/15 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/70">LOAD Balance</p>
-              <p className="mt-2 text-2xl font-semibold">{formatCurrency(user.loyalty.loadBalance)}</p>
-            </div>
-            <div className="rounded-3xl bg-white/15 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/70">Points</p>
-              <p className="mt-2 text-2xl font-semibold">{formatPoints(user.loyalty.points)}</p>
-            </div>
-            <div className="rounded-3xl bg-white/15 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/70">Rewards</p>
-              <p className="mt-2 text-2xl font-semibold">{user.loyalty.availableRewards} available</p>
-            </div>
+      {/* ── Header ── */}
+      <section aria-label="Welcome header" className="flex items-center justify-between pt-2">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-load-500 text-base font-bold text-white" aria-hidden="true">
+            {user.firstName[0]}
           </div>
-
-          {/* Active order tracker */}
-          {activeOrder ? (
-            <div className="mt-6 rounded-3xl bg-white/10 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="font-semibold">Active order #{activeOrder.id}</p>
-                <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">
-                  {activeOrder.friendlyStatus}
-                </span>
-              </div>
-              <p className="mt-2 text-sm text-white/80">
-                Estimated delivery {activeOrder.deliveryWindow.windowLabel}
-              </p>
-              <div className="mt-3 h-2 rounded-full bg-white/20" role="progressbar" aria-label="Order progress" aria-valuenow={ORDER_PROGRESS[activeOrder.status] ?? 0} aria-valuemin={0} aria-valuemax={100}>
-                <div
-                  className="h-2 rounded-full bg-white transition-all duration-500"
-                  style={{ width: `${ORDER_PROGRESS[activeOrder.status] ?? 0}%` }}
-                />
-              </div>
-            </div>
-          ) : null}
-        </article>
+          <div>
+            <p className="text-caption text-muted">{getGreeting()}</p>
+            <p className="text-title text-ink">{user.firstName} {user.lastName}</p>
+          </div>
+        </div>
+        <Link
+          to={appPaths.customerNotifications}
+          aria-label="Notifications"
+          className="relative flex h-10 w-10 items-center justify-center rounded-full border border-card-border bg-white shadow-card"
+        >
+          <span aria-hidden="true">🔔</span>
+          <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-red-500 ring-2 ring-white" />
+        </Link>
       </section>
 
-      {/* ── Quick Actions ── */}
-      <nav aria-label="Customer quick actions">
-        <div className="grid grid-cols-3 gap-3">
-          {([
-            { to: appPaths.customerBooking, label: 'Book order', emoji: '🧺' },
-            { to: appPaths.customerOrders, label: 'My orders', emoji: '📦' },
-            { to: appPaths.customerProfile, label: 'Profile', emoji: '👤' },
-          ] as const).map(({ to, label, emoji }) => (
+      {/* ── Stats strip ── */}
+      <section aria-label="Account summary" className="grid grid-cols-3 gap-3">
+        {[
+          { label: 'Balance', value: formatCurrency(user.loyalty.loadBalance) },
+          { label: 'LOAD Points', value: formatPoints(user.loyalty.points) },
+          { label: 'Next Reward', value: 'R5 Off' },
+        ].map((stat) => (
+          <div key={stat.label} className="rounded-card border border-card-border bg-white p-3 text-center shadow-card">
+            <p className="text-caption text-muted">{stat.label}</p>
+            <p className="mt-1 text-sm font-semibold text-ink">{stat.value}</p>
+          </div>
+        ))}
+      </section>
+
+      {/* ── Active order card ── */}
+      {isLoading ? <LoadingState /> : null}
+      {isError ? <ErrorState title="Unable to load your orders" message={error instanceof Error ? error.message : 'Unknown error'} /> : null}
+
+      {!isLoading && !isError && activeOrder ? (
+        <section aria-labelledby="active-order-heading">
+          <div className="rounded-panel border border-card-border bg-white p-5 shadow-panel">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-caption text-muted">Order in Progress</p>
+                <p className="text-title text-load-600">#{activeOrder.id}</p>
+              </div>
+              <span className="rounded-pill bg-load-100 px-3 py-1 text-xs font-semibold text-load-700">
+                {activeOrder.friendlyStatus}
+              </span>
+            </div>
+            <p className="mt-1 text-caption text-muted">Your laundry is being processed</p>
+
+            {/* Progress steps */}
+            <div className="mt-4 flex justify-between" role="list" aria-label="Order stages">
+              {PRODUCTION_STEPS.map((step, i) => {
+                const progress = ORDER_PROGRESS[activeOrder.status] ?? 0
+                const currentStep = getStepIndex(progress)
+                const isDone = i <= currentStep
+                return (
+                  <div key={step} role="listitem" className="flex flex-col items-center gap-1">
+                    <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition
+                      ${isDone ? 'bg-load-600 text-white' : 'bg-load-100 text-load-400'}`}>
+                      {isDone ? '✓' : i + 1}
+                    </div>
+                    <p className={`text-[10px] text-center leading-tight ${isDone ? 'text-load-600 font-medium' : 'text-muted'}`}>{step}</p>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2 text-caption text-muted border-t border-load-50 pt-4">
+              <div><span className="text-ink font-medium">Pickup</span><br/>{activeOrder.pickupWindow.windowLabel}</div>
+              <div><span className="text-ink font-medium">Delivery</span><br/>{activeOrder.deliveryWindow.windowLabel}</div>
+              <div><span className="text-ink font-medium">Total</span><br/>
+                <span className="text-sm font-semibold text-ink">{formatCurrency(activeOrder.estimatedTotal)}</span>
+              </div>
+            </div>
+
             <Link
-              key={to}
-              to={to}
-              className="flex flex-col items-center gap-2 rounded-3xl border border-load-100 bg-white p-4 text-center shadow-panel transition hover:border-load-300 hover:shadow-glow"
+              to={appPaths.customerOrders}
+              className="mt-4 flex h-10 w-full items-center justify-center rounded-pill border-2 border-load-600 text-sm font-semibold text-load-600 transition hover:bg-load-50"
             >
-              <span className="text-2xl" aria-hidden="true">{emoji}</span>
-              <span className="text-sm font-semibold text-ink">{label}</span>
+              View Order Details
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
+      {!isLoading && !isError && !activeOrder ? (
+        <div className="rounded-panel border border-card-border bg-white p-5 shadow-panel">
+          <p className="text-caption text-muted">Need something?</p>
+          <p className="mt-1 text-body text-ink">Order now for your next load.</p>
+          <Link
+            to={appPaths.customerBooking}
+            className="mt-3 flex h-10 w-full items-center justify-center rounded-pill bg-load-600 text-sm font-semibold text-white transition hover:bg-load-700"
+          >
+            New Order
+          </Link>
+        </div>
+      ) : null}
+
+      {/* ── Quick Actions ── */}
+      <section aria-labelledby="quick-actions-heading">
+        <h2 id="quick-actions-heading" className="text-title text-ink">Quick Actions</h2>
+        <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
+          {QUICK_ACTIONS.map(({ to, label, emoji }) => (
+            <Link
+              key={label}
+              to={to}
+              className="flex flex-col items-center gap-2 rounded-card border border-card-border bg-white p-3 text-center shadow-card transition hover:border-load-300 hover:shadow-panel"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-load-50 text-xl" aria-hidden="true">
+                {emoji}
+              </div>
+              <span className="text-caption font-semibold text-ink leading-tight">{label}</span>
             </Link>
           ))}
         </div>
-      </nav>
+      </section>
 
       {/* ── Quick Services ── */}
       <QuickServicesSection />
 
-      {/* ── LOAD Coffee ── */}
+      {/* ── LOAD Pass card ── */}
+      <section aria-label="LOAD Pass">
+        <div className="rounded-panel bg-load-card border border-load-200 p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-title text-ink">LOAD Pass</p>
+              <p className="text-caption text-muted mt-1">Save more every time</p>
+              <p className="text-caption text-muted mt-1">Get exclusive benefits</p>
+            </div>
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-load-500 text-2xl" aria-hidden="true">
+              🎫
+            </div>
+          </div>
+          <Link
+            to={appPaths.customerLoadPass}
+            className="mt-4 inline-flex h-9 items-center rounded-pill border-2 border-load-600 px-5 text-sm font-semibold text-load-600 transition hover:bg-load-50"
+          >
+            Learn More
+          </Link>
+        </div>
+      </section>
+
+      {/* ── LOAD Coffee (promotional) ── */}
       <CoffeeSection />
 
-      {/* ── Recent orders ── */}
-      <section aria-labelledby="recent-orders-heading">
+      {/* ── Recent Activity ── */}
+      <section aria-labelledby="recent-activity-heading">
         <div className="flex items-center justify-between gap-3">
-          <h2 id="recent-orders-heading" className="text-lg font-semibold text-ink">
-            Recent orders
-          </h2>
-          <Link
-            to={appPaths.customerOrders}
-            className="text-sm font-semibold text-load-600 hover:text-load-700"
-          >
+          <h2 id="recent-activity-heading" className="text-title text-ink">Recent Activity</h2>
+          <Link to={appPaths.customerOrders} className="text-sm font-semibold text-load-600 hover:text-load-700">
             View all
           </Link>
         </div>
 
-        {isLoading ? <LoadingState /> : null}
-        {isError ? (
-          <ErrorState title="Unable to load your orders" message={error instanceof Error ? error.message : 'Unknown error'} />
-        ) : null}
         {!isLoading && !isError && recentOrders.length === 0 ? (
-          <EmptyState
-            title="No orders yet"
-            description="Your account is ready. Book your first pickup to get started."
-          />
+          <EmptyState title="No orders yet" description="Book your first pickup to get started." />
         ) : null}
+
         {!isLoading && !isError && recentOrders.length > 0 ? (
-          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <ul className="mt-3 divide-y divide-load-50 rounded-panel border border-card-border bg-white shadow-card" aria-label="Recent orders">
             {recentOrders.map((order) => (
-              <article key={order.id} className="rounded-3xl border border-load-100 bg-white p-5 shadow-panel">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-semibold text-ink">#{order.id}</p>
-                  <span className="rounded-full bg-load-50 px-3 py-1 text-xs font-semibold text-load-700">
-                    {order.friendlyStatus}
-                  </span>
+              <li key={order.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-load-100 text-sm" aria-hidden="true">🧺</div>
+                  <div>
+                    <p className="text-sm font-semibold text-ink">Order #{order.id}</p>
+                    <p className="text-caption text-muted">{order.deliveryWindow.windowLabel}</p>
+                  </div>
                 </div>
-                <p className="mt-2 text-sm text-slate-500">{order.deliveryWindow.windowLabel}</p>
-                <p className="mt-3 text-lg font-semibold text-ink">{formatCurrency(order.estimatedTotal)}</p>
-              </article>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-ink">{formatCurrency(order.estimatedTotal)}</p>
+                  <p className="text-caption text-load-600">{order.friendlyStatus}</p>
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         ) : null}
       </section>
+
     </div>
   )
 }
