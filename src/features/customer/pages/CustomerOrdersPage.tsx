@@ -146,7 +146,7 @@ export const CustomerOrdersPage = () => {
                 </div>
                 <p className="mt-3 text-sm text-slate-600">Pickup: {order.pickupWindow.windowLabel}</p>
                 <p className="mt-1 text-sm text-slate-600">Delivery: {order.deliveryWindow.windowLabel}</p>
-                <p className="mt-1 text-sm text-slate-600">Payment: {order.paymentStatus.replaceAll('_', ' ')}</p>
+                <p className="mt-1 text-sm text-slate-600">Payment: {order.paymentStatus?.replaceAll('_', ' ') ?? 'Pending'}</p>
                 {order.confirmedWeightKg ? (
                   <p className="mt-1 text-sm text-slate-600">Confirmed weight: {order.confirmedWeightKg.toFixed(1)} kg</p>
                 ) : null}

@@ -20,7 +20,12 @@ const readOrdersFromStorage = () => {
   }
 
   try {
-    return JSON.parse(rawOrders) as LaundryOrder[]
+    const parsed = JSON.parse(rawOrders) as LaundryOrder[]
+    // Migrate orders persisted before paymentStatus was added to the model
+    return parsed.map((order) => ({
+      paymentStatus: 'PENDING' as const,
+      ...order,
+    }))
   } catch {
     window.localStorage.removeItem(ORDER_STORAGE_KEY)
     window.localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(mockOrders))
