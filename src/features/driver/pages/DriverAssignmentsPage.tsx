@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -8,6 +9,7 @@ import { mockDriverService } from '@/services/mock'
 
 export const DriverAssignmentsPage = () => {
   const queryClient = useQueryClient()
+  const [capturedWeights, setCapturedWeights] = useState<Record<string, number>>({})
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['driver-assignments'],
     queryFn: () => mockDriverService.listAssignments(),
@@ -31,6 +33,13 @@ export const DriverAssignmentsPage = () => {
       mockDriverService.recordFailure(assignmentId, reason),
     onSuccess: refreshAssignments,
   })
+  const weightMutation = useMutation({
+    mutationFn: ({ assignmentId, weightKg }: { assignmentId: string; weightKg: number }) =>
+      mockDriverService.captureWeight(assignmentId, weightKg),
+    onSuccess: (_, variables) => {
+      setCapturedWeights((current) => ({ ...current, [variables.assignmentId]: variables.weightKg }))
+    },
+  })
 
   return (
     <SectionCard title="Driver workflow" description="Manage pickups and deliveries with arrival, collection, proof, and failure capture.">
@@ -47,13 +56,16 @@ export const DriverAssignmentsPage = () => {
             <DriverAssignmentCard
               key={assignment.id}
               assignment={assignment}
+              capturedWeightKg={capturedWeights[assignment.id]}
               isMutating={
                 arrivalMutation.isPending
                 || collectionMutation.isPending
                 || deliveryMutation.isPending
                 || failureMutation.isPending
+                || weightMutation.isPending
               }
               onArrival={() => arrivalMutation.mutate(assignment.id)}
+              onCaptureWeight={(weightKg) => weightMutation.mutate({ assignmentId: assignment.id, weightKg })}
               onCollection={() => collectionMutation.mutate(assignment.id)}
               onDelivery={(proof) => deliveryMutation.mutate({ assignmentId: assignment.id, proof })}
               onFailure={(reason) => failureMutation.mutate({ assignmentId: assignment.id, reason })}

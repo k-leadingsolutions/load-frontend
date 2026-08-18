@@ -3,8 +3,10 @@ import type { DriverAssignment } from '@/domain/models'
 
 interface DriverAssignmentCardProps {
   assignment: DriverAssignment
+  capturedWeightKg?: number
   isMutating: boolean
   onArrival: () => void
+  onCaptureWeight?: (weightKg: number) => void
   onCollection: () => void
   onDelivery: (proof: string) => void
   onFailure: (reason: string) => void
@@ -12,14 +14,17 @@ interface DriverAssignmentCardProps {
 
 export const DriverAssignmentCard = ({
   assignment,
+  capturedWeightKg,
   isMutating,
   onArrival,
+  onCaptureWeight,
   onCollection,
   onDelivery,
   onFailure,
 }: DriverAssignmentCardProps) => {
   const [proof, setProof] = useState('')
   const [failureReason, setFailureReason] = useState('')
+  const [weightKg, setWeightKg] = useState('')
 
   return (
     <article className="rounded-3xl border border-load-100 bg-white p-5">
@@ -92,6 +97,43 @@ export const DriverAssignmentCard = ({
           />
           {assignment.proofOfDelivery ? (
             <p className="text-sm text-emerald-700">Recorded proof: {assignment.proofOfDelivery}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {assignment.stopType === 'PICKUP' ? (
+        <div className="mt-4 space-y-2">
+          <label className="block text-sm font-semibold text-ink" htmlFor={`weight-${assignment.id}`}>
+            Capture weight (kg)
+          </label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              id={`weight-${assignment.id}`}
+              value={weightKg}
+              onChange={(event) => setWeightKg(event.target.value)}
+              inputMode="decimal"
+              className="w-full rounded-2xl border border-load-200 px-4 py-3 text-sm text-ink outline-none focus:border-load-500 focus:ring-4 focus:ring-load-100"
+              placeholder="e.g. 9.4"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const nextWeight = Number.parseFloat(weightKg)
+                if (!onCaptureWeight || Number.isNaN(nextWeight) || nextWeight <= 0) {
+                  return
+                }
+
+                onCaptureWeight(nextWeight)
+                setWeightKg('')
+              }}
+              disabled={isMutating || !weightKg.trim()}
+              className="rounded-full bg-load-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-load-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Capture weight
+            </button>
+          </div>
+          {capturedWeightKg ? (
+            <p className="text-sm text-emerald-700">Captured weight: {capturedWeightKg.toFixed(1)} kg</p>
           ) : null}
         </div>
       ) : null}

@@ -5,12 +5,24 @@ import { PublicLayout } from '@/app/layouts/PublicLayout'
 import { RoleLayout } from '@/app/layouts/RoleLayout'
 import { appPaths } from '@/app/router/paths'
 import { AdminOverviewPage } from '@/features/admin/pages/AdminOverviewPage'
+import { BiometricLoginPage } from '@/features/auth/pages/BiometricLoginPage'
+import { ForgotPasswordPage } from '@/features/auth/pages/ForgotPasswordPage'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
+import { ManageDevicesPage } from '@/features/auth/pages/ManageDevicesPage'
+import { OtpPage } from '@/features/auth/pages/OtpPage'
 import { RegisterPage } from '@/features/auth/pages/RegisterPage'
+import { ResetLinkSentPage } from '@/features/auth/pages/ResetLinkSentPage'
+import { SetNewPasswordPage } from '@/features/auth/pages/SetNewPasswordPage'
+import { SplashPage } from '@/features/auth/pages/SplashPage'
+import { WelcomePage } from '@/features/auth/pages/WelcomePage'
 import { CustomerBookingPage } from '@/features/customer/pages/CustomerBookingPage'
 import { CustomerHomePage } from '@/features/customer/pages/CustomerHomePage'
+import { CustomerInvoicePage } from '@/features/customer/pages/CustomerInvoicePage'
+import { CustomerLoadPassPage } from '@/features/customer/pages/CustomerLoadPassPage'
+import { CustomerNotificationsPage } from '@/features/customer/pages/CustomerNotificationsPage'
 import { CustomerOrdersPage } from '@/features/customer/pages/CustomerOrdersPage'
 import { CustomerProfilePage } from '@/features/customer/pages/CustomerProfilePage'
+import { CustomerRewardsPage } from '@/features/customer/pages/CustomerRewardsPage'
 import { FoundationPage } from '@/features/foundation/pages/FoundationPage'
 import { LandingPage } from '@/features/foundation/pages/LandingPage'
 import { DriverAssignmentsPage } from '@/features/driver/pages/DriverAssignmentsPage'
@@ -25,8 +37,15 @@ export const AppRouter = () => (
         <Route path={appPaths.home} element={<LandingPage />} />
         <Route path={appPaths.foundation} element={<FoundationPage />} />
         <Route element={<GuestOnlyRoute />}>
+          <Route path={appPaths.splash} element={<SplashPage />} />
+          <Route path={appPaths.welcome} element={<WelcomePage />} />
           <Route path={appPaths.login} element={<LoginPage />} />
           <Route path={appPaths.register} element={<RegisterPage />} />
+          <Route path={appPaths.otpVerify} element={<OtpPage />} />
+          <Route path={appPaths.forgotPassword} element={<ForgotPasswordPage />} />
+          <Route path={appPaths.resetLinkSent} element={<ResetLinkSentPage />} />
+          <Route path={appPaths.setNewPassword} element={<SetNewPasswordPage />} />
+          <Route path={appPaths.biometricLogin} element={<BiometricLoginPage />} />
         </Route>
         <Route element={<RequireCustomerAuth />}>
           <Route
@@ -48,7 +67,12 @@ export const AppRouter = () => (
             <Route path={appPaths.customerHome} element={<CustomerHomePage />} />
             <Route path={appPaths.customerBooking} element={<CustomerBookingPage />} />
             <Route path={appPaths.customerOrders} element={<CustomerOrdersPage />} />
+            <Route path={appPaths.customerInvoice} element={<CustomerInvoicePage />} />
             <Route path={appPaths.customerProfile} element={<CustomerProfilePage />} />
+            <Route path={appPaths.customerRewards} element={<CustomerRewardsPage />} />
+            <Route path={appPaths.customerLoadPass} element={<CustomerLoadPassPage />} />
+            <Route path={appPaths.customerNotifications} element={<CustomerNotificationsPage />} />
+            <Route path={appPaths.manageDevices} element={<ManageDevicesPage />} />
           </Route>
         </Route>
         <Route

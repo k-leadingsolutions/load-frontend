@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { buildPath } from '@/app/router/paths'
 import { useAuth } from '@/app/providers/useAuth'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -95,7 +97,18 @@ export const CustomerOrdersPage = () => {
               <p className="text-sm font-semibold text-load-700">Active order #{activeOrder.id}</p>
               <h3 className="mt-2 text-2xl font-semibold text-ink">{activeOrder.friendlyStatus}</h3>
               <p className="mt-2 text-sm text-slate-500">Delivery window: {activeOrder.deliveryWindow.windowLabel}</p>
+              {activeOrder.confirmedWeightKg ? (
+                <p className="mt-2 text-sm text-slate-500">Confirmed weight: {activeOrder.confirmedWeightKg.toFixed(1)} kg</p>
+              ) : null}
               <p className="mt-4 text-lg font-semibold text-ink">{formatCurrency(activeOrder.estimatedTotal)}</p>
+              {activeOrder.invoiceId ? (
+                <Link
+                  to={buildPath.customerInvoice(activeOrder.invoiceId)}
+                  className="mt-4 inline-flex rounded-full border border-load-200 px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50"
+                >
+                  View invoice
+                </Link>
+              ) : null}
             </div>
             <OrderStatusTimeline status={activeOrder.status} />
           </div>
@@ -133,7 +146,21 @@ export const CustomerOrdersPage = () => {
                 </div>
                 <p className="mt-3 text-sm text-slate-600">Pickup: {order.pickupWindow.windowLabel}</p>
                 <p className="mt-1 text-sm text-slate-600">Delivery: {order.deliveryWindow.windowLabel}</p>
+                <p className="mt-1 text-sm text-slate-600">Payment: {order.paymentStatus.replaceAll('_', ' ')}</p>
+                {order.confirmedWeightKg ? (
+                  <p className="mt-1 text-sm text-slate-600">Confirmed weight: {order.confirmedWeightKg.toFixed(1)} kg</p>
+                ) : null}
                 <p className="mt-4 text-lg font-semibold text-ink">{formatCurrency(order.estimatedTotal)}</p>
+                {order.invoiceId ? (
+                  <div className="mt-4">
+                    <Link
+                      to={buildPath.customerInvoice(order.invoiceId)}
+                      className="inline-flex rounded-full border border-load-200 px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50"
+                    >
+                      Open invoice
+                    </Link>
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>

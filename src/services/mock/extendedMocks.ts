@@ -43,7 +43,7 @@ const notificationStore: AppNotification[] = [
     type: 'WASHING_STARTED',
     targetRole: 'CUSTOMER',
     title: 'Washing started',
-    body: 'Your laundry is in the wash. We'll keep you posted.',
+    body: 'Your laundry is in the wash. We’ll keep you posted.',
     orderId: 'LD10235',
     isRead: false,
     createdAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),

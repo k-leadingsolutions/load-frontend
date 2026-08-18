@@ -458,8 +458,9 @@ export const mockDriverService: DriverService = {
     return mockRouteService.getRoute('driver-01')
   },
   async captureWeight(stopId, weightKg) {
+    const assignment = listStoredDriverAssignments().find((item) => item.id === stopId)
     const result = await mockWeightPricingService.confirmWeight(stopId, {
-      orderId: stopId,
+      orderId: assignment?.orderId ?? stopId,
       measuredKg: weightKg,
       measuredBy: 'driver-01',
       measuredAt: new Date().toISOString(),

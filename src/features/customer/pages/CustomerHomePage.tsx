@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { appPaths } from '@/app/router/paths'
+import { appPaths, buildPath } from '@/app/router/paths'
 import { useAuth } from '@/app/providers/useAuth'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -156,17 +156,30 @@ export const CustomerHomePage = () => {
             <div className="mt-4 grid grid-cols-2 gap-2 text-caption text-muted border-t border-load-50 pt-4">
               <div><span className="text-ink font-medium">Pickup</span><br/>{activeOrder.pickupWindow.windowLabel}</div>
               <div><span className="text-ink font-medium">Delivery</span><br/>{activeOrder.deliveryWindow.windowLabel}</div>
+              {activeOrder.confirmedWeightKg ? (
+                <div><span className="text-ink font-medium">Weight</span><br/>{activeOrder.confirmedWeightKg.toFixed(1)} kg</div>
+              ) : null}
               <div><span className="text-ink font-medium">Total</span><br/>
                 <span className="text-sm font-semibold text-ink">{formatCurrency(activeOrder.estimatedTotal)}</span>
               </div>
             </div>
 
-            <Link
-              to={appPaths.customerOrders}
-              className="mt-4 flex h-10 w-full items-center justify-center rounded-pill border-2 border-load-600 text-sm font-semibold text-load-600 transition hover:bg-load-50"
-            >
-              View Order Details
-            </Link>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <Link
+                to={appPaths.customerOrders}
+                className="flex h-10 w-full items-center justify-center rounded-pill border-2 border-load-600 text-sm font-semibold text-load-600 transition hover:bg-load-50"
+              >
+                View Order Details
+              </Link>
+              {activeOrder.invoiceId ? (
+                <Link
+                  to={buildPath.customerInvoice(activeOrder.invoiceId)}
+                  className="flex h-10 w-full items-center justify-center rounded-pill bg-load-600 text-sm font-semibold text-white transition hover:bg-load-700"
+                >
+                  View Invoice
+                </Link>
+              ) : null}
+            </div>
           </div>
         </section>
       ) : null}
