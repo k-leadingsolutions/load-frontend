@@ -23,7 +23,7 @@ export interface CatalogService {
   shortDescription: string
   turnaroundLabel: string
   pricingMode: ServicePricingMode
-  pricingModel?: PricingModel
+  pricingModel: PricingModel
   basePrice: number
   unitLabel: string
   featured: boolean

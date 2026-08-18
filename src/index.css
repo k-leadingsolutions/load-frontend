@@ -3,8 +3,23 @@
 @tailwind utilities;
 
 :root {
-  color: #0f172a;
-  background: #f4f9ff;
+  --color-load-primary: #4fa3f0;
+  --color-load-soft: #ddeeff;
+  --color-load-bg: #f4f9ff;
+  --color-white: #ffffff;
+  --color-text-primary: #0f172a;
+  --color-text-muted: #64748b;
+  --color-success-soft: #dcfce7;
+  --color-warning-soft: #fef3c7;
+  --color-error-soft: #fee2e2;
+  --color-card-border: #ddeeff;
+  --color-divider: #e2e8f0;
+  --color-disabled: #cbd5e1;
+  --radius-card: 1rem;
+  --radius-panel: 1.5rem;
+  --height-control: 3rem;
+  color: var(--color-text-primary);
+  background: var(--color-load-bg);
   font-family: Inter, system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -27,7 +42,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #f4f9ff;
+  background: var(--color-load-bg);
 }
 
 * { box-sizing: border-box; }

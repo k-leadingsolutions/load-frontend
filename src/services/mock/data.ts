@@ -63,13 +63,14 @@ export const mockCategories: ServiceCategory[] = [
 ]
 
 export const mockServices: CatalogService[] = [
-  { id: 'svc-basket-12kg', categoryId: 'wash-fold', name: 'Wash & Fold', shortDescription: 'Fast everyday laundry', turnaroundLabel: '24-hour standard', pricingMode: 'PAY_PER_BASKET', basePrice: 169, unitLabel: '12kg basket', featured: true },
-  { id: 'svc-dry-clean-shirt', categoryId: 'dry-clean', name: 'Dry Clean Shirts', shortDescription: 'Pressed and ready for work', turnaroundLabel: '48-hour premium', pricingMode: 'PAY_PER_ITEM', basePrice: 45, unitLabel: 'shirt', featured: true },
-  { id: 'svc-iron-only', categoryId: 'wash-fold', name: 'Ironing', shortDescription: 'Crisp finishing service', turnaroundLabel: 'Next-day', pricingMode: 'PAY_PER_ITEM', basePrice: 18, unitLabel: 'item', featured: true },
-  { id: 'svc-rug-clean', categoryId: 'home-care', name: 'Rug Cleaning', shortDescription: 'Deep clean for rugs and runners', turnaroundLabel: '3-day specialty', pricingMode: 'PAY_PER_ITEM', basePrice: 220, unitLabel: 'rug', featured: false },
-  { id: 'svc-coffee-espresso', categoryId: 'coffee', name: 'Espresso Blend', shortDescription: 'Bold, rich South African roast', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', basePrice: 120, unitLabel: '250g bag', featured: true },
-  { id: 'svc-coffee-filter', categoryId: 'coffee', name: 'Filter Roast', shortDescription: 'Light, fruity single-origin', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', basePrice: 135, unitLabel: '250g bag', featured: true },
-  { id: 'svc-coffee-capsules', categoryId: 'coffee', name: 'Coffee Capsules', shortDescription: 'Compatible with Nespresso machines', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', basePrice: 85, unitLabel: '10-pack', featured: true },
+  { id: 'svc-basket-12kg', categoryId: 'wash-fold', name: 'Wash & Fold', shortDescription: 'Fast everyday laundry', turnaroundLabel: '24-hour standard', pricingMode: 'PAY_PER_BASKET', pricingModel: 'PER_BASKET', basePrice: 169, unitLabel: '12kg basket', featured: true },
+  { id: 'svc-wash-fold-kg', categoryId: 'wash-fold', name: 'Wash & Fold by Weight', shortDescription: 'Estimated at booking, finalised after weighing', turnaroundLabel: '24-hour standard', pricingMode: 'PAY_PER_ITEM', pricingModel: 'PER_KILOGRAM', basePrice: 22, unitLabel: 'kg', featured: true },
+  { id: 'svc-dry-clean-shirt', categoryId: 'dry-clean', name: 'Dry Clean Shirts', shortDescription: 'Pressed and ready for work', turnaroundLabel: '48-hour premium', pricingMode: 'PAY_PER_ITEM', pricingModel: 'PER_ITEM', basePrice: 45, unitLabel: 'shirt', featured: true },
+  { id: 'svc-iron-only', categoryId: 'wash-fold', name: 'Ironing', shortDescription: 'Crisp finishing service', turnaroundLabel: 'Next-day', pricingMode: 'PAY_PER_ITEM', pricingModel: 'PER_ITEM', basePrice: 18, unitLabel: 'item', featured: true },
+  { id: 'svc-rug-clean', categoryId: 'home-care', name: 'Rug Cleaning', shortDescription: 'Deep clean for rugs and runners', turnaroundLabel: '3-day specialty', pricingMode: 'PAY_PER_ITEM', pricingModel: 'PER_ITEM', basePrice: 220, unitLabel: 'rug', featured: false },
+  { id: 'svc-coffee-espresso', categoryId: 'coffee', name: 'Espresso Blend', shortDescription: 'Bold, rich South African roast', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', pricingModel: 'FIXED_SERVICE', basePrice: 120, unitLabel: '250g bag', featured: true },
+  { id: 'svc-coffee-filter', categoryId: 'coffee', name: 'Filter Roast', shortDescription: 'Light, fruity single-origin', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', pricingModel: 'FIXED_SERVICE', basePrice: 135, unitLabel: '250g bag', featured: true },
+  { id: 'svc-coffee-capsules', categoryId: 'coffee', name: 'Coffee Capsules', shortDescription: 'Compatible with Nespresso machines', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', pricingModel: 'FIXED_SERVICE', basePrice: 85, unitLabel: '10-pack', featured: true },
 ]
 
 export const mockAddOns: AddOnOption[] = [

@@ -7,7 +7,9 @@ import { GuestOnlyRoute } from '@/app/router/GuestOnlyRoute'
 import { RequireCustomerAuth } from '@/app/router/RequireCustomerAuth'
 import { appPaths } from '@/app/router/paths'
 import { CustomerHomePage } from '@/features/customer/pages/CustomerHomePage'
+import { BiometricLoginPage } from '@/features/auth/pages/BiometricLoginPage'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
+import { OtpPage } from '@/features/auth/pages/OtpPage'
 import { RegisterPage } from '@/features/auth/pages/RegisterPage'
 
 const renderRoutes = (initialEntries: string[]) =>
@@ -19,6 +21,8 @@ const renderRoutes = (initialEntries: string[]) =>
             <Route element={<GuestOnlyRoute />}>
               <Route path={appPaths.login} element={<LoginPage />} />
               <Route path={appPaths.register} element={<RegisterPage />} />
+              <Route path={appPaths.otpVerify} element={<OtpPage />} />
+              <Route path={appPaths.biometricLogin} element={<BiometricLoginPage />} />
             </Route>
             <Route element={<RequireCustomerAuth />}>
               <Route path={appPaths.customerHome} element={<CustomerHomePage />} />
@@ -52,6 +56,19 @@ describe('auth pages', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /thando mokoena/i })).toBeInTheDocument()
+    })
+
+    it('renders OTP verification inputs and resend timer', async () => {
+      renderRoutes([appPaths.otpVerify])
+      expect(await screen.findByRole('heading', { name: /verify your number/i })).toBeInTheDocument()
+      expect(screen.getAllByRole('textbox')).toHaveLength(6)
+      expect(screen.getByText(/resend code in/i)).toBeInTheDocument()
+    })
+
+    it('renders biometric method options', async () => {
+      renderRoutes([appPaths.biometricLogin])
+      expect(await screen.findByRole('button', { name: /face id/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /fingerprint/i })).toBeInTheDocument()
     })
   })
 })

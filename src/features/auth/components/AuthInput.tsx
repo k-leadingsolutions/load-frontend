@@ -19,7 +19,7 @@ export const AuthInput = ({ error, hint, id, label, ...inputProps }: AuthInputPr
         id={id}
         aria-invalid={Boolean(error)}
         aria-describedby={describedBy}
-        className="w-full rounded-2xl border border-load-200 bg-white px-4 py-3 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-load-500 focus:ring-4 focus:ring-load-100"
+        className="h-control w-full rounded-2xl border border-load-200 bg-white px-4 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-load-500 focus:ring-4 focus:ring-load-100 disabled:border-disabled disabled:bg-slate-100"
       />
       {error ? (
         <p id={errorId} className="text-sm text-rose-600">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { appPaths } from '@/app/router/paths'
+import { OtpCodeInput } from '@/features/auth/components/OtpCodeInput'
 import { mockAuthService } from '@/services/mock'
 
 type OtpState = 'idle' | 'loading' | 'success' | 'invalid' | 'expired'
@@ -16,37 +17,28 @@ export const OtpPage = () => {
   const [digits, setDigits] = useState<string[]>(Array(6).fill(''))
   const [status, setStatus] = useState<OtpState>('idle')
   const [resendSeconds, setResendSeconds] = useState(RESEND_SECONDS)
-  const refs = Array.from({ length: 6 }, () => useRef<HTMLInputElement>(null)) // eslint-disable-line react-hooks/rules-of-hooks
+  const didExpire = useRef(false)
 
   // Countdown timer
   useEffect(() => {
     if (resendSeconds <= 0) return
-    const timer = setInterval(() => setResendSeconds((s) => s - 1), 1000)
+    const timer = setInterval(() => {
+      setResendSeconds((s) => {
+        if (s <= 1 && !didExpire.current) {
+          didExpire.current = true
+          setStatus('expired')
+          return 0
+        }
+        return s - 1
+      })
+    }, 1000)
     return () => clearInterval(timer)
   }, [resendSeconds])
-
-  const handleDigitInput = (index: number, value: string) => {
-    if (!/^\d?$/.test(value)) return
-    const next = [...digits]
-    next[index] = value
-    setDigits(next)
-    setStatus('idle')
-    if (value && index < 5) {
-      refs[index + 1]?.current?.focus()
-    }
-  }
-
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !digits[index] && index > 0) {
-      refs[index - 1]?.current?.focus()
-    }
-  }
 
   const handlePaste = (e: React.ClipboardEvent) => {
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
     if (pasted.length === 6) {
       setDigits(pasted.split(''))
-      refs[5]?.current?.focus()
     }
   }
 
@@ -69,6 +61,7 @@ export const OtpPage = () => {
 
   const handleResend = async () => {
     setResendSeconds(RESEND_SECONDS)
+    didExpire.current = false
     setDigits(Array(6).fill(''))
     setStatus('idle')
     await mockAuthService.sendOtp(mobileNumber)
@@ -106,25 +99,18 @@ export const OtpPage = () => {
           ) : null}
 
           {/* OTP digit inputs */}
-          <div className="mt-6 flex justify-between gap-2" onPaste={handlePaste} aria-label="Enter 6-digit verification code">
-            {digits.map((digit, i) => (
-              <input
-                key={i}
-                ref={refs[i]}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleDigitInput(i, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(i, e)}
-                disabled={status === 'loading' || status === 'success'}
-                className={`h-12 w-12 rounded-card border text-center text-lg font-semibold text-ink transition focus:border-load-500 focus:outline-none focus:ring-2 focus:ring-load-200
-                  ${status === 'invalid' ? 'border-red-400 bg-red-50' : 'border-card-border bg-load-50'}
-                  ${status === 'success' ? 'border-green-400 bg-green-50' : ''}
-                `}
-                aria-label={`Digit ${i + 1}`}
-              />
-            ))}
+          <div onPaste={handlePaste}>
+            <OtpCodeInput
+              value={digits}
+              onChange={(next) => {
+                setDigits(next)
+                if (status !== 'loading' && status !== 'success') {
+                  setStatus('idle')
+                }
+              }}
+              disabled={status === 'loading' || status === 'success'}
+              hasError={status === 'invalid' || status === 'expired'}
+            />
           </div>
 
           {/* Resend */}

@@ -17,7 +17,7 @@ import { formatCurrency } from '@/utils/format'
 
 const bookingSchema = z
   .object({
-    pricingMode: z.enum(['BASKET', 'ITEM']),
+    pricingModel: z.enum(['PER_BASKET', 'PER_ITEM', 'PER_KILOGRAM']),
     basketSizeId: z.string().optional(),
     basketQuantity: z.number().int().min(1),
     serviceQuantities: z.record(z.string(), z.number().int().min(0)),
@@ -33,7 +33,7 @@ const bookingSchema = z
   .superRefine((values, context) => {
     const hasServiceSelection = Object.values(values.serviceQuantities).some((quantity) => quantity > 0)
 
-    if (values.pricingMode === 'BASKET' && !values.basketSizeId) {
+    if (values.pricingModel === 'PER_BASKET' && !values.basketSizeId) {
       context.addIssue({
         code: 'custom',
         message: 'Choose a basket size.',
@@ -41,7 +41,7 @@ const bookingSchema = z
       })
     }
 
-    if (values.pricingMode === 'ITEM' && !hasServiceSelection) {
+    if (values.pricingModel !== 'PER_BASKET' && !hasServiceSelection) {
       context.addIssue({
         code: 'custom',
         message: 'Select at least one service item.',
@@ -71,7 +71,7 @@ export const CustomerBookingPage = () => {
   } = useForm<BookingFormValues>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
-      pricingMode: 'BASKET',
+      pricingModel: 'PER_BASKET',
       basketSizeId: 'basket-12kg',
       basketQuantity: 1,
       serviceQuantities: {},
@@ -102,7 +102,7 @@ export const CustomerBookingPage = () => {
         quantity: quantity ?? 0,
       }))
 
-    const hasBasketSelection = watchedValues.pricingMode === 'BASKET' && Boolean(watchedValues.basketSizeId)
+    const hasBasketSelection = watchedValues.pricingModel === 'PER_BASKET' && Boolean(watchedValues.basketSizeId)
     const hasItemSelection = serviceSelections.length > 0
 
     if (!hasBasketSelection && !hasItemSelection) {
@@ -110,13 +110,15 @@ export const CustomerBookingPage = () => {
     }
 
     return {
-      ...(watchedValues.pricingMode === 'BASKET' && watchedValues.basketSizeId
+      ...(watchedValues.pricingModel === 'PER_BASKET' && watchedValues.basketSizeId
         ? { basketSizeId: watchedValues.basketSizeId }
         : {}),
-      ...(watchedValues.pricingMode === 'BASKET'
+      ...(watchedValues.pricingModel === 'PER_BASKET'
         ? { basketQuantity: watchedValues.basketQuantity }
         : {}),
-      serviceSelections: watchedValues.pricingMode === 'ITEM' ? serviceSelections : [],
+      serviceSelections: watchedValues.pricingModel === 'PER_BASKET'
+        ? []
+        : serviceSelections,
       addOnSelections,
       ...(watchedValues.promotionCode ? { promotionCode: watchedValues.promotionCode } : {}),
       expressRequested: watchedValues.expressRequested ?? false,
@@ -157,7 +159,7 @@ export const CustomerBookingPage = () => {
         }))
       const response = await mockCustomerOrderService.placeOrder({
         customerId: user!.id,
-        ...(values.pricingMode === 'BASKET' && values.basketSizeId ? { basketSizeId: values.basketSizeId } : {}),
+        ...(values.pricingModel === 'PER_BASKET' && values.basketSizeId ? { basketSizeId: values.basketSizeId } : {}),
         serviceSelections,
         addOnSelections,
         pickupAddressId: values.pickupAddressId,
@@ -275,22 +277,27 @@ export const CustomerBookingPage = () => {
             <div className="grid gap-3 md:grid-cols-2">
               {[
                 {
-                  key: 'BASKET' as const,
+                  key: 'PER_BASKET' as const,
                   title: 'Pay per basket',
                   description: 'Best for mixed household loads with predictable pricing.',
                 },
                 {
-                  key: 'ITEM' as const,
+                  key: 'PER_ITEM' as const,
                   title: 'Pay per item or service',
                   description: 'Best for garment-specific cleaning and ironing.',
+                },
+                {
+                  key: 'PER_KILOGRAM' as const,
+                  title: 'Pay per kilogram',
+                  description: 'Estimated now, confirmed after collection and weighing.',
                 },
               ].map((option) => (
                 <button
                   key={option.key}
                   type="button"
-                  onClick={() => setValue('pricingMode', option.key, { shouldDirty: true, shouldValidate: true })}
+                  onClick={() => setValue('pricingModel', option.key, { shouldDirty: true, shouldValidate: true })}
                   className={`rounded-3xl border p-5 text-left transition ${
-                    watchedValues.pricingMode === option.key
+                    watchedValues.pricingModel === option.key
                       ? 'border-load-500 bg-load-50 shadow-panel'
                       : 'border-load-100 bg-white hover:border-load-200'
                   }`}
@@ -302,7 +309,7 @@ export const CustomerBookingPage = () => {
             </div>
           </SectionCard>
 
-          {watchedValues.pricingMode === 'BASKET' ? (
+          {watchedValues.pricingModel === 'PER_BASKET' ? (
             <SectionCard
               title="Basket pricing"
               description="Choose the basket size that best matches this collection."
@@ -338,7 +345,7 @@ export const CustomerBookingPage = () => {
                   <QuantitySelector
                     key={service.id}
                     label={service.name}
-                    description={`${service.shortDescription} · ${service.turnaroundLabel}`}
+                    description={`${service.shortDescription} · ${service.turnaroundLabel}${service.pricingModel === 'PER_KILOGRAM' ? ' · Final amount confirmed after weighing' : ''}`}
                     priceLabel={`${formatCurrency(service.basePrice)} / ${service.unitLabel}`}
                     quantity={watchedValues.serviceQuantities?.[service.id] ?? 0}
                     onChange={(quantity) => updateQuantity('serviceQuantities', service.id, quantity)}

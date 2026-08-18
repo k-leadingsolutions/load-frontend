@@ -43,9 +43,9 @@ describe('CustomerHomePage', () => {
 
   it('renders quick action navigation links', async () => {
     renderPage()
-    expect(await screen.findByRole('link', { name: /book order/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /my orders/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /profile/i })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /new order/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /track order/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /support/i })).toBeInTheDocument()
   })
 
   it('renders the Quick Services section', async () => {

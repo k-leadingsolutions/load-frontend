@@ -30,10 +30,13 @@ export const LoginPage = () => {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
+      loginMethod: 'MOBILE',
       emailOrMobile: '+27 82 555 0142',
       password: 'Load@1234',
     },
@@ -42,10 +45,10 @@ export const LoginPage = () => {
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null)
     try {
-      // Determine if emailOrMobile is a mobile number or email
-      const isMobile = values.emailOrMobile.startsWith('+')
       await login({
-        mobileNumber: isMobile ? values.emailOrMobile : '+27 82 555 0142',
+        ...(values.loginMethod === 'MOBILE'
+          ? { mobileNumber: values.emailOrMobile }
+          : { email: values.emailOrMobile }),
         password: values.password,
       })
       navigate(redirectTo, { replace: true })
@@ -81,12 +84,28 @@ export const LoginPage = () => {
           <form className="mt-6 space-y-4" onSubmit={onSubmit}>
             <AuthInput
               id="emailOrMobile"
-              label="Email or Phone Number"
+              label={watch('loginMethod') === 'EMAIL' ? 'Email' : 'Phone Number'}
               autoComplete="username"
-              placeholder="example@email.com"
+              placeholder={watch('loginMethod') === 'EMAIL' ? 'example@email.com' : '+27 82 555 0142'}
               error={errors.emailOrMobile?.message}
               {...register('emailOrMobile')}
             />
+            <div className="grid grid-cols-2 gap-2 rounded-pill bg-load-50 p-1">
+              <button
+                type="button"
+                onClick={() => setValue('loginMethod', 'EMAIL', { shouldDirty: true })}
+                className={`h-9 rounded-pill text-xs font-semibold transition ${watch('loginMethod') === 'EMAIL' ? 'bg-white text-load-700 shadow-card' : 'text-muted'}`}
+              >
+                Email
+              </button>
+              <button
+                type="button"
+                onClick={() => setValue('loginMethod', 'MOBILE', { shouldDirty: true })}
+                className={`h-9 rounded-pill text-xs font-semibold transition ${watch('loginMethod') === 'MOBILE' ? 'bg-white text-load-700 shadow-card' : 'text-muted'}`}
+              >
+                Mobile
+              </button>
+            </div>
             <div>
               <AuthInput
                 id="password"

@@ -5,8 +5,8 @@ import { appPaths } from '@/app/router/paths'
 const navItems = [
   { to: appPaths.home, label: 'Home' },
   { to: appPaths.foundation, label: 'Blueprint' },
-  { to: appPaths.operationsOrders, label: 'Operations' },
-  { to: appPaths.driverRuns, label: 'Driver' },
+  { to: appPaths.operationsDashboard, label: 'Operations' },
+  { to: appPaths.driverDashboard, label: 'Driver' },
   { to: appPaths.adminOverview, label: 'Admin' },
 ]
 

@@ -13,7 +13,7 @@ export const SectionCard = ({ title, description, action, children }: SectionCar
   return (
     <section
       aria-labelledby={headingId}
-      className="rounded-panel border border-card-border bg-white p-6 shadow-card"
+      className="rounded-panel border border-card-border bg-white p-card-pad shadow-card"
     >
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>

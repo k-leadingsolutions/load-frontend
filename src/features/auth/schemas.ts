@@ -4,6 +4,7 @@ const saMobilePattern = /^\+27\s\d{2}\s\d{3}\s\d{4}$/
 const emailOrMobilePattern = /^(\+27\s\d{2}\s\d{3}\s\d{4}|[^\s@]+@[^\s@]+\.[^\s@]+)$/
 
 export const loginSchema = z.object({
+  loginMethod: z.enum(['EMAIL', 'MOBILE']),
   emailOrMobile: z.string().regex(emailOrMobilePattern, 'Enter a valid email or mobile number (+27 82 555 0142).'),
   password: z.string().min(8, 'Password must be at least 8 characters.'),
   rememberMe: z.boolean().optional(),

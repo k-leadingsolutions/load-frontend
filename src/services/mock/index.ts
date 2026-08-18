@@ -24,6 +24,7 @@ import {
 import { errorResponse, successResponse } from '@/services/mock/mockApi'
 import { readStoredCustomerSession } from '@/services/mock/sessionStore'
 import {
+  mockDomainEventService,
   mockRouteService,
   mockWeightPricingService,
 } from '@/services/mock/extendedMocks'
@@ -76,6 +77,15 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
       totalPrice: selection.quantity * service.basePrice,
     }]
   })
+  const hasWeightPricedService = request.serviceSelections.some((selection) => {
+    const service = mockServices.find((item) => item.id === selection.serviceId)
+    return service?.pricingModel === 'PER_KILOGRAM'
+  })
+  const estimatedWeightKg = hasWeightPricedService
+    ? request.serviceSelections
+    .filter((selection) => mockServices.find((item) => item.id === selection.serviceId)?.pricingModel === 'PER_KILOGRAM')
+    .reduce((sum, selection) => sum + selection.quantity, 0)
+    : undefined
 
   const addOnItems = request.addOnSelections.flatMap((selection) => {
     const addOn = mockAddOns.find((item) => item.id === selection.addOnId)
@@ -182,12 +192,20 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
           }]
         : []),
     ],
+    ...(estimatedWeightKg
+      ? {
+          estimatedWeightKg,
+          weightDisclaimer: 'Estimated price. Final amount will be confirmed after collection and weighing.',
+        }
+      : {}),
   }
 }
 
 export const mockAuthService: AuthService = {
   async login(request: LoginRequest) {
-    const isKnownCustomer = request.mobileNumber === mockCustomerProfile.mobileNumber
+    const isKnownCustomer =
+      (request.mobileNumber && request.mobileNumber === mockCustomerProfile.mobileNumber)
+      || (request.email && request.email.toLowerCase() === mockCustomerProfile.email.toLowerCase())
 
     if (!isKnownCustomer || request.password !== DEMO_PASSWORD) {
       return errorResponse({ code: 'INVALID_CREDENTIALS', message: 'Use the demo mobile number and password to sign in.' }, 450)
@@ -378,6 +396,7 @@ export const mockOperationsService: OperationsService = {
   },
   async assignDriver(orderId: string, driverId: string) {
     await new Promise((r) => setTimeout(r, 400))
+    await mockDomainEventService.emit('DRIVER_ASSIGNED', orderId, { driverId })
     void orderId
     void driverId
     return { success: true }
@@ -418,6 +437,9 @@ export const mockDriverService: DriverService = {
       ...current,
       stopStatus: 'ARRIVED',
     }))
+    if (assignment) {
+      await mockDomainEventService.emit('DRIVER_ARRIVED', assignment.orderId)
+    }
 
     return assignment
       ? successResponse(assignment, 260)
@@ -428,6 +450,9 @@ export const mockDriverService: DriverService = {
       ...current,
       stopStatus: 'COLLECTED',
     }))
+    if (assignment) {
+      await mockDomainEventService.emit('ORDER_COLLECTED', assignment.orderId)
+    }
 
     return assignment
       ? successResponse(assignment, 260)
@@ -439,6 +464,9 @@ export const mockDriverService: DriverService = {
       stopStatus: 'DELIVERED',
       proofOfDelivery,
     }))
+    if (assignment) {
+      await mockDomainEventService.emit('DELIVERY_COMPLETED', assignment.orderId, { proofOfDelivery })
+    }
 
     return assignment
       ? successResponse(assignment, 280)
@@ -467,10 +495,15 @@ export const mockDriverService: DriverService = {
       measuredAt: new Date().toISOString(),
       status: 'CONFIRMED',
     })
+    const orderId = assignment?.orderId ?? stopId
+    await mockDomainEventService.emit('LAUNDRY_WEIGHT_CAPTURED', orderId, { measuredKg: weightKg })
+    await mockDomainEventService.emit('PRICE_RECALCULATED', orderId, { measuredKg: weightKg })
+    await mockDomainEventService.emit('PAYMENT_REQUIRED', orderId)
     return result
   },
   async requestReschedule(stopId, reason, note) {
     await new Promise((r) => setTimeout(r, 400))
+    await mockDomainEventService.emit('DELIVERY_RESCHEDULED', stopId, { reason, note })
     void stopId; void reason; void note
     return { success: true }
   },
@@ -496,6 +529,7 @@ export const mockAdminService: AdminService = {
 // Re-export extended mocks for convenience
 export {
   mockCoffeeService,
+  mockDomainEventService,
   mockInvoiceService,
   mockLoyaltyService,
   mockNotificationService,

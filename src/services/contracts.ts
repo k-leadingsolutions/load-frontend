@@ -15,7 +15,8 @@ import type {
 } from '@/domain/models'
 
 export interface LoginRequest {
-  mobileNumber: string
+  mobileNumber?: string
+  email?: string
   password: string
 }
 

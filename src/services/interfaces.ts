@@ -26,6 +26,8 @@ import type {
   Reward,
   LoyaltyAccount,
   LoyaltyTransaction,
+  DomainEvent,
+  DomainEventType,
 } from '@/domain/models'
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -172,6 +174,11 @@ export interface LoyaltyService {
 
 export interface CoffeeService {
   getOffers(): Promise<import('@/domain/models').CoffeeOffer[]>
+}
+
+export interface DomainEventService {
+  emit(type: DomainEventType, orderId: string, payload?: Record<string, unknown>): Promise<DomainEvent>
+  listByOrder(orderId: string): Promise<DomainEvent[]>
 }
 
 // ─── Admin ────────────────────────────────────────────────────────────────────

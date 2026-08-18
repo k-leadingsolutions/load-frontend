@@ -8,6 +8,7 @@ export const BiometricLoginPage = () => {
   const navigate = useNavigate()
   const { login } = useAuth()
   const [status, setStatus] = useState<'idle' | 'scanning' | 'success' | 'failed'>('idle')
+  const [method, setMethod] = useState<'FACE_ID' | 'FINGERPRINT'>('FACE_ID')
 
   const handleBiometric = async () => {
     setStatus('scanning')
@@ -33,7 +34,24 @@ export const BiometricLoginPage = () => {
           <h1 className="text-heading text-ink">Welcome back</h1>
           <p className="mt-2 text-body text-muted">Login using biometrics</p>
 
-          {/* Face ID graphic */}
+          <div className="mt-6 grid grid-cols-2 gap-2 rounded-pill bg-load-50 p-1">
+            <button
+              type="button"
+              onClick={() => setMethod('FACE_ID')}
+              className={`h-9 rounded-pill text-xs font-semibold transition ${method === 'FACE_ID' ? 'bg-white text-load-700 shadow-card' : 'text-muted'}`}
+            >
+              Face ID
+            </button>
+            <button
+              type="button"
+              onClick={() => setMethod('FINGERPRINT')}
+              className={`h-9 rounded-pill text-xs font-semibold transition ${method === 'FINGERPRINT' ? 'bg-white text-load-700 shadow-card' : 'text-muted'}`}
+            >
+              Fingerprint
+            </button>
+          </div>
+
+          {/* biometric graphic */}
           <button
             type="button"
             onClick={handleBiometric}
@@ -42,10 +60,10 @@ export const BiometricLoginPage = () => {
             aria-label="Authenticate with Face ID"
           >
             <span className="text-5xl" aria-hidden="true">
-              {status === 'success' ? '✓' : status === 'failed' ? '✗' : '🔐'}
+              {status === 'success' ? '✓' : status === 'failed' ? '✗' : method === 'FACE_ID' ? '🔐' : '🖐️'}
             </span>
             <span className="mt-2 text-caption font-semibold text-load-600">
-              {status === 'scanning' ? 'Scanning…' : status === 'success' ? 'Verified' : status === 'failed' ? 'Failed' : 'Face ID'}
+              {status === 'scanning' ? 'Scanning…' : status === 'success' ? 'Verified' : status === 'failed' ? 'Failed' : method === 'FACE_ID' ? 'Face ID' : 'Fingerprint'}
             </span>
           </button>
 

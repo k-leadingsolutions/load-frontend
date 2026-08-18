@@ -18,14 +18,14 @@ const getGreeting = () => {
 }
 
 const QUICK_ACTIONS = [
-  { to: appPaths.customerBooking, label: 'Book Order',     emoji: '🧺' },
+  { to: appPaths.customerBooking, label: 'New Order',      emoji: '🧺' },
   { to: appPaths.customerOrders,  label: 'Track Order',    emoji: '🔍' },
-  { to: appPaths.customerRewards, label: 'Rewards Hub',    emoji: '⭐' },
-  { to: appPaths.customerLoadPass,label: 'LOAD Pass',      emoji: '🎫' },
   { to: appPaths.customerBooking, label: 'Schedule Pickup',emoji: '📅' },
-  { to: appPaths.customerOrders,  label: 'My Orders',      emoji: '📦' },
+  { to: appPaths.customerOrders,  label: 'Repeat Last',    emoji: '↺' },
+  { to: appPaths.customerRewards, label: 'Rewards',        emoji: '⭐' },
+  { to: appPaths.customerLoadPass,label: 'LOAD Pass',      emoji: '🎫' },
+  { to: appPaths.customerProfile, label: 'Locations',      emoji: '📍' },
   { to: appPaths.customerProfile, label: 'Support',        emoji: '💬' },
-  { to: appPaths.customerProfile, label: 'Profile',        emoji: '👤' },
   { to: appPaths.customerProfile, label: 'Refer a Friend', emoji: '🤝' },
 ] as const
 

@@ -26,7 +26,15 @@ import { CustomerRewardsPage } from '@/features/customer/pages/CustomerRewardsPa
 import { FoundationPage } from '@/features/foundation/pages/FoundationPage'
 import { LandingPage } from '@/features/foundation/pages/LandingPage'
 import { DriverAssignmentsPage } from '@/features/driver/pages/DriverAssignmentsPage'
+import { DriverDashboardPage } from '@/features/driver/pages/DriverDashboardPage'
+import { DriverNotificationsPage } from '@/features/driver/pages/DriverNotificationsPage'
+import { DriverProfilePage } from '@/features/driver/pages/DriverProfilePage'
+import { DriverRoutePage } from '@/features/driver/pages/DriverRoutePage'
+import { OperationsCollectionsPage } from '@/features/operations/pages/OperationsCollectionsPage'
 import { OperationsBoardPage } from '@/features/operations/pages/OperationsBoardPage'
+import { OperationsDashboardPage } from '@/features/operations/pages/OperationsDashboardPage'
+import { OperationsNotificationsPage } from '@/features/operations/pages/OperationsNotificationsPage'
+import { OperationsReportsPage } from '@/features/operations/pages/OperationsReportsPage'
 import { NotFoundPage } from '@/features/shared/pages/NotFoundPage'
 import { RoadmapPlaceholderPage } from '@/features/shared/pages/RoadmapPlaceholderPage'
 
@@ -56,10 +64,17 @@ export const AppRouter = () => (
                 summary="Customer booking, loyalty, order tracking, and premium account interactions live within one modular app shell."
                 primaryLinks={[
                   { to: appPaths.customerHome, label: 'Home' },
-                  { to: appPaths.customerBooking, label: 'Book order' },
+                  { to: appPaths.customerBooking, label: 'New order' },
                   { to: appPaths.customerOrders, label: 'Orders' },
-                  { to: appPaths.customerProfile, label: 'Profile' },
-                  { to: appPaths.foundation, label: 'Blueprint' },
+                  { to: appPaths.customerRewards, label: 'Rewards / Wallet' },
+                  { to: appPaths.customerProfile, label: 'More / Account' },
+                ]}
+                mobileNavLinks={[
+                  { to: appPaths.customerHome, label: 'Home', icon: '⌂' },
+                  { to: appPaths.customerOrders, label: 'Orders', icon: '◷' },
+                  { to: appPaths.customerBooking, label: 'New', icon: '+' },
+                  { to: appPaths.customerRewards, label: 'Rewards', icon: '★' },
+                  { to: appPaths.customerProfile, label: 'More', icon: '☰' },
                 ]}
               />
             }
@@ -82,13 +97,29 @@ export const AppRouter = () => (
               title="Operations command centre"
               summary="Production receives and moves orders through every MVP laundry stage with quality-control visibility."
               primaryLinks={[
-                { to: appPaths.operationsOrders, label: 'Production board' },
-                { to: appPaths.foundation, label: 'Blueprint' },
+                { to: appPaths.operationsDashboard, label: 'Dashboard' },
+                { to: appPaths.operationsOrders, label: 'Orders' },
+                { to: appPaths.operationsProduction, label: 'Production' },
+                { to: appPaths.operationsCollections, label: 'Collections / Dispatch' },
+                { to: appPaths.operationsQC, label: 'More' },
+              ]}
+              mobileNavLinks={[
+                { to: appPaths.operationsDashboard, label: 'Dashboard', icon: '⌂' },
+                { to: appPaths.operationsOrders, label: 'Orders', icon: '◷' },
+                { to: appPaths.operationsProduction, label: 'Production', icon: '◉' },
+                { to: appPaths.operationsCollections, label: 'Dispatch', icon: '➤' },
+                { to: appPaths.operationsQC, label: 'More', icon: '☰' },
               ]}
             />
           }
         >
-          <Route path={appPaths.operationsOrders} element={<OperationsBoardPage />} />
+        <Route path={appPaths.operationsDashboard} element={<OperationsDashboardPage />} />
+        <Route path={appPaths.operationsOrders} element={<OperationsBoardPage />} />
+        <Route path={appPaths.operationsProduction} element={<OperationsBoardPage />} />
+        <Route path={appPaths.operationsCollections} element={<OperationsCollectionsPage />} />
+        <Route path={appPaths.operationsQC} element={<OperationsBoardPage />} />
+        <Route path={appPaths.operationsNotifications} element={<OperationsNotificationsPage />} />
+        <Route path={appPaths.operationsReports} element={<OperationsReportsPage />} />
         </Route>
         <Route
           element={
@@ -97,20 +128,34 @@ export const AppRouter = () => (
               title="Driver run management"
               summary="Drivers manage pickups and deliveries with customer instructions, confirmation actions, and proof-ready workflows."
               primaryLinks={[
-                { to: appPaths.driverRuns, label: 'Assignments' },
-                { to: appPaths.foundation, label: 'Blueprint' },
+                { to: appPaths.driverDashboard, label: 'Dashboard' },
+                { to: appPaths.driverRoute, label: 'Route' },
+                { to: appPaths.driverRuns, label: 'Orders' },
+                { to: appPaths.driverNotifications, label: 'Messages' },
+                { to: appPaths.driverProfile, label: 'Profile' },
+              ]}
+              mobileNavLinks={[
+                { to: appPaths.driverDashboard, label: 'Dashboard', icon: '⌂' },
+                { to: appPaths.driverRoute, label: 'Route', icon: '➤' },
+                { to: appPaths.driverRuns, label: 'Orders', icon: '◷' },
+                { to: appPaths.driverNotifications, label: 'Messages', icon: '✉' },
+                { to: appPaths.driverProfile, label: 'Profile', icon: '☻' },
               ]}
             />
           }
         >
-          <Route path={appPaths.driverRuns} element={<DriverAssignmentsPage />} />
+        <Route path={appPaths.driverDashboard} element={<DriverDashboardPage />} />
+        <Route path={appPaths.driverRoute} element={<DriverRoutePage />} />
+        <Route path={appPaths.driverRuns} element={<DriverAssignmentsPage />} />
+        <Route path={appPaths.driverNotifications} element={<DriverNotificationsPage />} />
+        <Route path={appPaths.driverProfile} element={<DriverProfilePage />} />
         </Route>
         <Route
           element={
             <RoleLayout
               roleLabel="Admin"
-              title="Admin control tower"
-              summary="Admins manage pricing, catalogue, staff, promotions, loyalty, and core commercial metrics."
+              title="Admin control tower (future scope)"
+              summary="Admin remains available but is intentionally deprioritised for current MVP delivery."
               primaryLinks={[
                 { to: appPaths.adminOverview, label: 'Overview' },
                 { to: appPaths.foundation, label: 'Blueprint' },

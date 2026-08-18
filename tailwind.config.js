@@ -27,6 +27,8 @@ export default {
         'status-warning': '#f59e0b',
         'status-error':   '#ef4444',
         'status-info':    '#2d87d4',
+        divider: '#e2e8f0',
+        disabled: '#cbd5e1',
       },
       boxShadow: {
         // Softer, lighter than before
@@ -45,6 +47,11 @@ export default {
         // Standardised mobile / section gaps
         'section': '2rem',
         'card-pad': '1.25rem',
+        'mobile-x': '1rem',
+        'desktop-x': '1.5rem',
+      },
+      height: {
+        control: '3rem',
       },
       fontSize: {
         // Typography hierarchy

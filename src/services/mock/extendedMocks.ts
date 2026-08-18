@@ -5,6 +5,8 @@
 import type {
   AppNotification,
   CoffeeOffer,
+  DomainEvent,
+  DomainEventType,
   Invoice,
   LoyaltyAccount,
   LoyaltyTransaction,
@@ -23,6 +25,7 @@ import type {
   RouteService,
   VerificationService,
   WeightPricingService,
+  DomainEventService,
 } from '@/services/interfaces'
 
 // ─── Shared in-memory stores ──────────────────────────────────────────────────
@@ -102,6 +105,7 @@ const notificationStore: AppNotification[] = [
 ]
 
 let notifMem = [...notificationStore]
+let eventMem: DomainEvent[] = []
 
 // ─── Mock invoice store ───────────────────────────────────────────────────────
 
@@ -219,6 +223,40 @@ const coffeeOffers: CoffeeOffer[] = [
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
+const notificationTemplates: Partial<Record<DomainEventType, Array<Omit<AppNotification, 'id' | 'createdAt' | 'isRead'>>>> = {
+  DRIVER_ASSIGNED: [{ targetRole: 'CUSTOMER', type: 'DRIVER_ASSIGNED', title: 'Driver assigned', body: 'A driver has been assigned to your order.' }],
+  DRIVER_EN_ROUTE: [{ targetRole: 'CUSTOMER', type: 'DRIVER_APPROACHING', title: 'Driver approaching', body: 'Your driver is en route.' }],
+  DRIVER_ARRIVED: [{ targetRole: 'CUSTOMER', type: 'DRIVER_ARRIVED', title: 'Driver arrived', body: 'Your driver has arrived.' }],
+  LAUNDRY_WEIGHT_CAPTURED: [{ targetRole: 'OPERATIONS', type: 'OPS_WEIGHT_CAPTURED', title: 'Weight captured', body: 'A weight capture has been recorded.' }],
+  PRICE_RECALCULATED: [{ targetRole: 'CUSTOMER', type: 'PRICE_UPDATED', title: 'Price updated', body: 'Your final price has been recalculated from measured weight.' }],
+  PAYMENT_REQUIRED: [{ targetRole: 'CUSTOMER', type: 'PAYMENT_REQUIRED', title: 'Payment required', body: 'Please complete payment to continue collection.' }],
+  PAYMENT_CONFIRMED: [
+    { targetRole: 'CUSTOMER', type: 'PAYMENT_CONFIRMED', title: 'Payment confirmed', body: 'Payment is complete.' },
+    { targetRole: 'DRIVER', type: 'DRIVER_PAYMENT_CONFIRMED', title: 'Payment confirmed', body: 'Customer payment is confirmed. Proceed with collection.' },
+    { targetRole: 'OPERATIONS', type: 'OPS_PAYMENT_CONFIRMED', title: 'Payment confirmed', body: 'Customer payment has been confirmed.' },
+  ],
+  ORDER_COLLECTED: [{ targetRole: 'OPERATIONS', type: 'OPS_WEIGHT_CAPTURED', title: 'Collection update', body: 'Driver marked order as collected.' }],
+  DELIVERY_COMPLETED: [{ targetRole: 'CUSTOMER', type: 'DELIVERED', title: 'Delivered', body: 'Your order has been delivered.' }],
+  DELIVERY_RESCHEDULED: [
+    { targetRole: 'CUSTOMER', type: 'DELIVERY_RESCHEDULED', title: 'Delivery rescheduled', body: 'A new schedule will be shared shortly.' },
+    { targetRole: 'OPERATIONS', type: 'OPS_DELIVERY_RESCHEDULED', title: 'Delivery rescheduled', body: 'A delivery stop was rescheduled.' },
+  ],
+}
+
+const appendNotificationsForEvent = (eventType: DomainEventType, orderId: string) => {
+  const templates = notificationTemplates[eventType]
+  if (!templates) return
+  const createdAt = new Date().toISOString()
+  const next = templates.map((template, index) => ({
+    id: `notif-${eventType}-${Date.now()}-${index}`,
+    createdAt,
+    isRead: false,
+    orderId,
+    ...template,
+  })) as AppNotification[]
+  notifMem = [...next, ...notifMem]
+}
+
 // ─── Notification service mock ────────────────────────────────────────────────
 
 export const mockNotificationService: NotificationService = {
@@ -233,6 +271,27 @@ export const mockNotificationService: NotificationService = {
   async markAllRead(role) {
     await sleep(250)
     notifMem = notifMem.map((n) => (n.targetRole === role ? { ...n, isRead: true } : n))
+  },
+}
+
+export const mockDomainEventService: DomainEventService = {
+  async emit(type, orderId, payload) {
+    await sleep(120)
+    const event: DomainEvent = {
+      id: `evt-${type}-${Date.now()}`,
+      type,
+      orderId,
+      occurredAt: new Date().toISOString(),
+      payload,
+      acknowledgedBy: [],
+    }
+    eventMem = [event, ...eventMem]
+    appendNotificationsForEvent(type, orderId)
+    return event
+  },
+  async listByOrder(orderId) {
+    await sleep(100)
+    return eventMem.filter((event) => event.orderId === orderId)
   },
 }
 
@@ -333,11 +392,15 @@ export const mockPosService: PosService = {
   },
   async confirmPayment(invoiceId) {
     await sleep(500)
+    const existing = invoiceMem.find((i) => i.id === invoiceId)
     invoiceMem = invoiceMem.map((i) =>
       i.id === invoiceId
         ? { ...i, status: 'PAID', paymentStatus: 'CONFIRMED', posSyncStatus: 'SYNCED', updatedAt: new Date().toISOString() }
         : i
     )
+    if (existing) {
+      await mockDomainEventService.emit('PAYMENT_CONFIRMED', existing.orderId, { invoiceId })
+    }
     return { confirmed: true }
   },
   async syncOrderCharges(_orderId) {

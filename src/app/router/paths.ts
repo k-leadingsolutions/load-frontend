@@ -32,6 +32,8 @@ export const appPaths = {
   operationsProduction: '/operations/production',
   operationsCollections: '/operations/collections',
   operationsQC: '/operations/qc',
+  operationsNotifications: '/operations/notifications',
+  operationsReports: '/operations/reports',
 
   // Driver
   driverDashboard: '/driver/dashboard',
@@ -40,6 +42,7 @@ export const appPaths = {
   driverStop: '/driver/stop/:stopId',
   driverOrder: '/driver/order/:orderId',
   driverNotifications: '/driver/notifications',
+  driverProfile: '/driver/profile',
 
   // Admin – kept but marked future scope
   adminOverview: '/admin/overview',
