@@ -28,6 +28,8 @@ import type {
   LoyaltyTransaction,
   DomainEvent,
   DomainEventType,
+  PaymentStatus,
+  PosSyncStatus,
 } from '@/domain/models'
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -74,9 +76,9 @@ export interface PosService {
   createInvoice(orderId: string): Promise<Invoice>
   updateInvoice(invoiceId: string, updates: Partial<Invoice>): Promise<Invoice>
   getInvoice(invoiceId: string): Promise<Invoice>
-  getPaymentStatus(invoiceId: string): Promise<{ status: string }>
-  confirmPayment(invoiceId: string): Promise<{ confirmed: boolean }>
-  syncOrderCharges(orderId: string): Promise<{ synced: boolean; posSyncStatus: string }>
+  getPaymentStatus(invoiceId: string): Promise<{ status: PaymentStatus }>
+  confirmPayment(invoiceId: string): Promise<{ confirmed: boolean; status: PaymentStatus }>
+  syncOrderCharges(orderId: string): Promise<{ synced: boolean; posSyncStatus: PosSyncStatus }>
 }
 
 // ─── Invoice ─────────────────────────────────────────────────────────────────

@@ -22,4 +22,15 @@ describe('DriverAssignmentsPage', () => {
       expect(screen.getByText('Recorded proof: Signed by concierge')).toBeInTheDocument()
     })
   })
+
+  it('shows verification and reschedule controls for pickup flow', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <DriverAssignmentsPage />
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByLabelText(/verify collection/i)).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /request reschedule/i }).length).toBeGreaterThan(0)
+  })
 })

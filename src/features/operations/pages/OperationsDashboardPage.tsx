@@ -12,6 +12,7 @@ export const OperationsDashboardPage = () => {
 
   if (metricsQuery.isLoading) return <LoadingState />
   if (metricsQuery.isError || metricsQuery.data?.status === 'error') return <ErrorState title="Unable to load dashboard" message="Try again shortly." />
+  if (!metricsQuery.data?.data) return <ErrorState title="Dashboard unavailable" message="No metrics available right now." />
 
   return (
     <SectionCard title="Operations dashboard" description="Orders, collections, dispatch readiness, and payment visibility.">
@@ -27,4 +28,3 @@ export const OperationsDashboardPage = () => {
     </SectionCard>
   )
 }
-

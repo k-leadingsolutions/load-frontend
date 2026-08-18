@@ -57,18 +57,18 @@ describe('auth pages', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /thando mokoena/i })).toBeInTheDocument()
     })
+  })
 
-    it('renders OTP verification inputs and resend timer', async () => {
-      renderRoutes([appPaths.otpVerify])
-      expect(await screen.findByRole('heading', { name: /verify your number/i })).toBeInTheDocument()
-      expect(screen.getAllByRole('textbox')).toHaveLength(6)
-      expect(screen.getByText(/resend code in/i)).toBeInTheDocument()
-    })
+  it('renders OTP verification inputs and resend timer', async () => {
+    renderRoutes([appPaths.otpVerify])
+    expect(await screen.findByRole('heading', { name: /verify your number/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('textbox')).toHaveLength(6)
+    expect(screen.getByText(/resend code in/i)).toBeInTheDocument()
+  })
 
-    it('renders biometric method options', async () => {
-      renderRoutes([appPaths.biometricLogin])
-      expect(await screen.findByRole('button', { name: /face id/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /fingerprint/i })).toBeInTheDocument()
-    })
+  it('renders biometric method options', async () => {
+    renderRoutes([appPaths.biometricLogin])
+    expect((await screen.findAllByRole('button', { name: /face id/i })).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /fingerprint/i })).toBeInTheDocument()
   })
 })

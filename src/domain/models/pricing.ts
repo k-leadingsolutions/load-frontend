@@ -1,3 +1,5 @@
+import type { PaymentStatus } from '@/domain/models/order'
+
 // ─── Pricing model enum ───────────────────────────────────────────────────────
 
 export type PricingModel =
@@ -98,7 +100,7 @@ export interface Invoice {
   taxTotal: number
   finalTotal: number
   status: InvoiceStatus
-  paymentStatus: string
+  paymentStatus: PaymentStatus
   posSyncStatus: PosSyncStatus
   createdAt: string
   updatedAt: string

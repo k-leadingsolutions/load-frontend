@@ -1,4 +1,6 @@
 import type { OrderStatus } from '@/domain/models/order'
+import type { RescheduleReason } from '@/domain/models/route'
+import type { VerificationMethod, VerificationStatus } from '@/domain/models/verification'
 
 export interface DashboardMetric {
   id: string
@@ -28,6 +30,11 @@ export interface DriverAssignment {
   scheduledWindow: string
   stopStatus: 'ASSIGNED' | 'ARRIVED' | 'COLLECTED' | 'DELIVERED' | 'FAILED'
   stopType: 'PICKUP' | 'DELIVERY'
+  verificationMethod?: VerificationMethod
+  verificationStatus?: VerificationStatus
+  paymentStatus?: 'AWAITING_PAYMENT' | 'PAYMENT_CONFIRMED' | 'NOT_REQUIRED'
+  requiresWeightCapture?: boolean
+  rescheduleReason?: RescheduleReason
 }
 
 export interface ManagedUser {

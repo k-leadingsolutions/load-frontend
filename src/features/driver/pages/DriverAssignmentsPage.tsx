@@ -4,6 +4,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
+import type { RescheduleReason } from '@/domain/models'
 import { DriverAssignmentCard } from '@/features/driver/components/DriverAssignmentCard'
 import { mockDriverService } from '@/services/mock'
 
@@ -31,6 +32,16 @@ export const DriverAssignmentsPage = () => {
   const failureMutation = useMutation({
     mutationFn: ({ assignmentId, reason }: { assignmentId: string; reason: string }) =>
       mockDriverService.recordFailure(assignmentId, reason),
+    onSuccess: refreshAssignments,
+  })
+  const verifyMutation = useMutation({
+    mutationFn: ({ assignmentId, code }: { assignmentId: string; code: string }) =>
+      mockDriverService.verifyStop(assignmentId, 'OTP', code),
+    onSuccess: refreshAssignments,
+  })
+  const rescheduleMutation = useMutation({
+    mutationFn: ({ assignmentId, reason, note }: { assignmentId: string; reason: RescheduleReason; note?: string }) =>
+      mockDriverService.requestReschedule(assignmentId, reason, note),
     onSuccess: refreshAssignments,
   })
   const weightMutation = useMutation({
@@ -63,12 +74,20 @@ export const DriverAssignmentsPage = () => {
                 || deliveryMutation.isPending
                 || failureMutation.isPending
                 || weightMutation.isPending
+                || verifyMutation.isPending
+                || rescheduleMutation.isPending
               }
               onArrival={() => arrivalMutation.mutate(assignment.id)}
               onCaptureWeight={(weightKg) => weightMutation.mutate({ assignmentId: assignment.id, weightKg })}
               onCollection={() => collectionMutation.mutate(assignment.id)}
               onDelivery={(proof) => deliveryMutation.mutate({ assignmentId: assignment.id, proof })}
               onFailure={(reason) => failureMutation.mutate({ assignmentId: assignment.id, reason })}
+              onVerify={(code) => verifyMutation.mutate({ assignmentId: assignment.id, code })}
+              onReschedule={(reason, note) => rescheduleMutation.mutate({
+                assignmentId: assignment.id,
+                reason: reason as RescheduleReason,
+                ...(note ? { note } : {}),
+              })}
             />
           ))}
         </div>

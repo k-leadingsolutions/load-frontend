@@ -24,4 +24,15 @@ describe('OperationsBoardPage', () => {
       expect(screen.getAllByText(/Received: Confirmed/)[0]).toBeInTheDocument()
     })
   })
+
+  it('renders QC and price adjustment controls', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <OperationsBoardPage />
+      </QueryClientProvider>,
+    )
+
+    expect((await screen.findAllByRole('button', { name: /qc pass/i })).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /adjust price/i })[0]).toBeInTheDocument()
+  })
 })

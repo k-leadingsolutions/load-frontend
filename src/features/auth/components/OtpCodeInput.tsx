@@ -23,7 +23,6 @@ export const OtpCodeInput = ({ disabled = false, hasError = false, onChange, val
       {value.map((digit, index) => (
         <input
           key={index}
-          ref={refs[index]}
           type="text"
           inputMode="numeric"
           maxLength={1}

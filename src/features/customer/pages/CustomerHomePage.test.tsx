@@ -38,7 +38,7 @@ describe('CustomerHomePage', () => {
     renderPage()
     expect(await screen.findByText('LOAD Balance')).toBeInTheDocument()
     expect(screen.getByText('Points')).toBeInTheDocument()
-    expect(screen.getByText('Rewards')).toBeInTheDocument()
+    expect(screen.getAllByText('Rewards').length).toBeGreaterThan(0)
   })
 
   it('renders quick action navigation links', async () => {

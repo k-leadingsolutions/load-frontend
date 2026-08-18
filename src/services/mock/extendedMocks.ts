@@ -282,8 +282,8 @@ export const mockDomainEventService: DomainEventService = {
       type,
       orderId,
       occurredAt: new Date().toISOString(),
-      payload,
       acknowledgedBy: [],
+      ...(payload ? { payload } : {}),
     }
     eventMem = [event, ...eventMem]
     appendNotificationsForEvent(type, orderId)
@@ -388,7 +388,7 @@ export const mockPosService: PosService = {
   async getPaymentStatus(invoiceId) {
     await sleep(280)
     const inv = invoiceMem.find((i) => i.id === invoiceId)
-    return { status: inv?.paymentStatus ?? 'UNKNOWN' }
+    return { status: inv?.paymentStatus ?? 'PENDING' }
   },
   async confirmPayment(invoiceId) {
     await sleep(500)
@@ -401,7 +401,7 @@ export const mockPosService: PosService = {
     if (existing) {
       await mockDomainEventService.emit('PAYMENT_CONFIRMED', existing.orderId, { invoiceId })
     }
-    return { confirmed: true }
+    return { confirmed: true, status: 'CONFIRMED' }
   },
   async syncOrderCharges(_orderId) {
     await sleep(600)

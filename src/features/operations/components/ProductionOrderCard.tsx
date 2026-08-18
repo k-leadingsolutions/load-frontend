@@ -7,6 +7,8 @@ interface ProductionOrderCardProps {
   onAdvanceStage: () => void
   onConfirmReceived: () => void
   onQuantityReview: (status: 'CONFIRMED' | 'ADJUSTED') => void
+  onPriceAdjustment: (amount: number, reason: string) => void
+  onQcDecision: (passed: boolean, notes?: string) => void
   order: ProductionOrder
 }
 
@@ -15,10 +17,14 @@ export const ProductionOrderCard = ({
   onAddNote,
   onAdvanceStage,
   onConfirmReceived,
+  onPriceAdjustment,
+  onQcDecision,
   onQuantityReview,
   order,
 }: ProductionOrderCardProps) => {
   const [note, setNote] = useState('')
+  const [adjustmentAmount, setAdjustmentAmount] = useState('')
+  const [adjustmentReason, setAdjustmentReason] = useState('')
 
   return (
     <article className="rounded-3xl border border-load-100 bg-white p-5">
@@ -80,6 +86,52 @@ export const ProductionOrderCard = ({
           className="rounded-full border border-load-200 bg-white px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Adjust details
+        </button>
+        <button
+          type="button"
+          onClick={() => onQcDecision(true)}
+          disabled={isMutating}
+          className="rounded-full border border-load-200 bg-white px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          QC pass
+        </button>
+        <button
+          type="button"
+          onClick={() => onQcDecision(false, 'Returned to production')}
+          disabled={isMutating}
+          className="rounded-full border border-load-200 bg-white px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          QC fail
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-[120px_1fr_auto]">
+        <input
+          value={adjustmentAmount}
+          onChange={(event) => setAdjustmentAmount(event.target.value)}
+          placeholder="Amount"
+          inputMode="decimal"
+          className="w-full rounded-2xl border border-load-200 px-4 py-3 text-sm text-ink outline-none focus:border-load-500 focus:ring-4 focus:ring-load-100"
+        />
+        <input
+          value={adjustmentReason}
+          onChange={(event) => setAdjustmentReason(event.target.value)}
+          placeholder="Adjustment reason"
+          className="w-full rounded-2xl border border-load-200 px-4 py-3 text-sm text-ink outline-none focus:border-load-500 focus:ring-4 focus:ring-load-100"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            const amount = Number.parseFloat(adjustmentAmount)
+            if (Number.isNaN(amount) || !adjustmentReason.trim()) return
+            onPriceAdjustment(amount, adjustmentReason.trim())
+            setAdjustmentAmount('')
+            setAdjustmentReason('')
+          }}
+          disabled={isMutating || !adjustmentAmount.trim() || !adjustmentReason.trim()}
+          className="rounded-full border border-load-200 bg-white px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Adjust price
         </button>
       </div>
 

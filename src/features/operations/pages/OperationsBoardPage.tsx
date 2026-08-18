@@ -31,6 +31,16 @@ export const OperationsBoardPage = () => {
     mutationFn: (orderId: string) => mockOperationsService.advanceProductionStage(orderId),
     onSuccess: refreshOrders,
   })
+  const qcMutation = useMutation({
+    mutationFn: ({ orderId, passed, notes }: { orderId: string; passed: boolean; notes?: string }) =>
+      mockOperationsService.performQC(orderId, { passed, ...(notes ? { notes } : {}) }),
+    onSuccess: refreshOrders,
+  })
+  const adjustPriceMutation = useMutation({
+    mutationFn: ({ orderId, amount, reason }: { orderId: string; amount: number; reason: string }) =>
+      mockOperationsService.adjustPrice(orderId, amount, reason),
+    onSuccess: refreshOrders,
+  })
 
   return (
     <SectionCard
@@ -55,11 +65,19 @@ export const OperationsBoardPage = () => {
                 || quantityReviewMutation.isPending
                 || noteMutation.isPending
                 || advanceStageMutation.isPending
+                || qcMutation.isPending
+                || adjustPriceMutation.isPending
               }
               onConfirmReceived={() => confirmReceivedMutation.mutate(order.id)}
               onQuantityReview={(status) => quantityReviewMutation.mutate({ orderId: order.id, status })}
               onAddNote={(note) => noteMutation.mutate({ orderId: order.id, note })}
               onAdvanceStage={() => advanceStageMutation.mutate(order.id)}
+              onQcDecision={(passed, notes) => qcMutation.mutate({
+                orderId: order.id,
+                passed,
+                ...(notes ? { notes } : {}),
+              })}
+              onPriceAdjustment={(amount, reason) => adjustPriceMutation.mutate({ orderId: order.id, amount, reason })}
             />
           ))}
         </div>

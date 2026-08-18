@@ -42,4 +42,16 @@ describe('CustomerBookingPage', () => {
       expect(screen.getByText('Order booked')).toBeInTheDocument()
     })
   })
+
+  it('shows weight-based estimate disclaimer for per-kilogram flow', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: /pay per kilogram/i }))
+    await user.click(screen.getByRole('button', { name: /increase wash & fold by weight/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/estimated price\. final amount will be confirmed after collection and weighing\./i)).toBeInTheDocument()
+    })
+  })
 })

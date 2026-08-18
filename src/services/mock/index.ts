@@ -413,7 +413,12 @@ export const mockOperationsService: OperationsService = {
     }))
 
     return order
-      ? successResponse(order, 320)
+      ? await (async () => {
+        if (!result.passed) {
+          await mockDomainEventService.emit('QUALITY_ISSUE_FOUND', orderId, { notes: result.notes })
+        }
+        return successResponse(order, 320)
+      })()
       : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
   },
   async adjustPrice(orderId: string, amount: number, reason: string) {
@@ -423,7 +428,11 @@ export const mockOperationsService: OperationsService = {
     }))
 
     return order
-      ? successResponse(order, 320)
+      ? await (async () => {
+        await mockDomainEventService.emit('PRICE_ADJUSTED', orderId, { amount, reason })
+        await mockDomainEventService.emit('PAYMENT_REQUIRED', orderId)
+        return successResponse(order, 320)
+      })()
       : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
   },
 }
@@ -436,6 +445,7 @@ export const mockDriverService: DriverService = {
     const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
       ...current,
       stopStatus: 'ARRIVED',
+      verificationStatus: 'AWAITING',
     }))
     if (assignment) {
       await mockDomainEventService.emit('DRIVER_ARRIVED', assignment.orderId)
@@ -449,6 +459,13 @@ export const mockDriverService: DriverService = {
     const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
       ...current,
       stopStatus: 'COLLECTED',
+      ...(current.paymentStatus
+        ? {
+            paymentStatus: current.paymentStatus === 'AWAITING_PAYMENT'
+              ? 'PAYMENT_CONFIRMED'
+              : current.paymentStatus,
+          }
+        : {}),
     }))
     if (assignment) {
       await mockDomainEventService.emit('ORDER_COLLECTED', assignment.orderId)
@@ -487,7 +504,10 @@ export const mockDriverService: DriverService = {
     return mockRouteService.getRoute('driver-01')
   },
   async captureWeight(stopId, weightKg) {
-    const assignment = listStoredDriverAssignments().find((item) => item.id === stopId)
+    const assignment = updateStoredDriverAssignment(stopId, (current) => ({
+      ...current,
+      paymentStatus: 'AWAITING_PAYMENT',
+    }))
     const result = await mockWeightPricingService.confirmWeight(stopId, {
       orderId: assignment?.orderId ?? stopId,
       measuredKg: weightKg,
@@ -503,20 +523,36 @@ export const mockDriverService: DriverService = {
   },
   async requestReschedule(stopId, reason, note) {
     await new Promise((r) => setTimeout(r, 400))
-    await mockDomainEventService.emit('DELIVERY_RESCHEDULED', stopId, { reason, note })
-    void stopId; void reason; void note
+    const assignment = updateStoredDriverAssignment(stopId, (current) => ({
+      ...current,
+      stopStatus: 'FAILED',
+      rescheduleReason: reason,
+      ...(note ? { failureReason: note } : {}),
+    }))
+    await mockDomainEventService.emit('DELIVERY_RESCHEDULED', assignment?.orderId ?? stopId, { reason, note })
     return { success: true }
   },
   async verifyStop(stopId, method, code) {
     const attempt = await import('@/services/mock/extendedMocks').then((m) =>
       m.mockVerificationService.initVerification(stopId, method)
     )
-    if (code) {
-      return import('@/services/mock/extendedMocks').then((m) =>
+    const verification = code
+      ? await import('@/services/mock/extendedMocks').then((m) =>
         m.mockVerificationService.submitVerification(attempt.id, code)
       )
+      : attempt
+    updateStoredDriverAssignment(stopId, (current) => ({
+      ...current,
+      verificationMethod: method,
+      verificationStatus: verification.status,
+    }))
+    if (verification.status === 'VERIFIED') {
+      const current = listStoredDriverAssignments().find((item) => item.id === stopId)
+      if (current) {
+        await mockDomainEventService.emit('COLLECTION_VERIFIED', current.orderId, { method })
+      }
     }
-    return attempt
+    return verification
   },
 }
 
