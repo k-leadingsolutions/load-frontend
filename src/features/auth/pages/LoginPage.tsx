@@ -113,7 +113,7 @@ export const LoginPage = () => {
               disabled={isSubmitting}
               className="h-12 w-full rounded-pill bg-load-600 text-sm font-semibold text-white transition hover:bg-load-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? 'Signing in…' : 'Log In'}
+              {isSubmitting ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
 

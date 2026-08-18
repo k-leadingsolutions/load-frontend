@@ -11,7 +11,7 @@ export const loginSchema = z.object({
 
 export const registerSchema = z
   .object({
-    fullName: z.string().min(3, 'Full name must be at least 3 characters.'),
+    fullName: z.string().min(2, 'First name must be at least 2 characters.'),
     email: z.email('Enter a valid email address.'),
     mobileNumber: z.string().regex(saMobilePattern, 'Use South African format like +27 82 555 0142.'),
     password: z

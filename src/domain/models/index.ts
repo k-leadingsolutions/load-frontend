@@ -6,6 +6,11 @@ export * from '@/domain/models/notification'
 export * from '@/domain/models/order'
 export * from '@/domain/models/pricing'
 export * from '@/domain/models/route'
-export * from '@/domain/models/service'
+export type {
+  AddOnOption,
+  BasketSize,
+  CatalogService,
+  ServiceCategory,
+} from '@/domain/models/service'
 export * from '@/domain/models/verification'
 export * from '@/domain/models/weight'

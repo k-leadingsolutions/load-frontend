@@ -3,7 +3,7 @@ import type { DriverAssignment } from '@/domain/models'
 
 interface DriverAssignmentCardProps {
   assignment: DriverAssignment
-  capturedWeightKg?: number
+  capturedWeightKg?: number | undefined
   isMutating: boolean
   onArrival: () => void
   onCaptureWeight?: (weightKg: number) => void

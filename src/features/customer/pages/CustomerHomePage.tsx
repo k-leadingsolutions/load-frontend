@@ -18,9 +18,9 @@ const getGreeting = () => {
 }
 
 const QUICK_ACTIONS = [
-  { to: appPaths.customerBooking, label: 'New Order',      emoji: '🧺' },
+  { to: appPaths.customerBooking, label: 'Book Order',     emoji: '🧺' },
   { to: appPaths.customerOrders,  label: 'Track Order',    emoji: '🔍' },
-  { to: appPaths.customerRewards, label: 'Rewards',        emoji: '⭐' },
+  { to: appPaths.customerRewards, label: 'Rewards Hub',    emoji: '⭐' },
   { to: appPaths.customerLoadPass,label: 'LOAD Pass',      emoji: '🎫' },
   { to: appPaths.customerBooking, label: 'Schedule Pickup',emoji: '📅' },
   { to: appPaths.customerOrders,  label: 'My Orders',      emoji: '📦' },
@@ -90,7 +90,7 @@ export const CustomerHomePage = () => {
           </div>
           <div>
             <p className="text-caption text-muted">{getGreeting()}</p>
-            <p className="text-title text-ink">{user.firstName} {user.lastName}</p>
+            <h1 className="text-title text-ink">{user.firstName} {user.lastName}</h1>
           </div>
         </div>
         <Link
@@ -106,9 +106,9 @@ export const CustomerHomePage = () => {
       {/* ── Stats strip ── */}
       <section aria-label="Account summary" className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Balance', value: formatCurrency(user.loyalty.loadBalance) },
-          { label: 'LOAD Points', value: formatPoints(user.loyalty.points) },
-          { label: 'Next Reward', value: 'R5 Off' },
+          { label: 'LOAD Balance', value: formatCurrency(user.loyalty.loadBalance) },
+          { label: 'Points', value: formatPoints(user.loyalty.points) },
+          { label: 'Rewards', value: 'R5 Off' },
         ].map((stat) => (
           <div key={stat.label} className="rounded-card border border-card-border bg-white p-3 text-center shadow-card">
             <p className="text-caption text-muted">{stat.label}</p>
@@ -245,9 +245,9 @@ export const CustomerHomePage = () => {
       <CoffeeSection />
 
       {/* ── Recent Activity ── */}
-      <section aria-labelledby="recent-activity-heading">
+      <section aria-labelledby="recent-orders-heading">
         <div className="flex items-center justify-between gap-3">
-          <h2 id="recent-activity-heading" className="text-title text-ink">Recent Activity</h2>
+          <h2 id="recent-orders-heading" className="text-title text-ink">Recent Orders</h2>
           <Link to={appPaths.customerOrders} className="text-sm font-semibold text-load-600 hover:text-load-700">
             View all
           </Link>

@@ -309,6 +309,7 @@ export const mockCustomerOrderService: CustomerOrderService = {
         })),
       ],
       estimatedTotal: quote.estimatedTotal,
+      paymentStatus: 'PENDING',
       loyaltyPointsEarned: quote.loyaltyPreviewPoints,
       promotionsApplied: request.promotionCode ? [request.promotionCode] : [],
       internalNotes: [],

@@ -402,32 +402,34 @@ export const mockRouteService: RouteService = {
 export const mockVerificationService: VerificationService = {
   async initVerification(orderId, method) {
     await sleep(350)
-    return {
+    const attempt: VerificationAttempt = {
       id: `va-${orderId}-${Date.now()}`,
       orderId,
       method,
       status: 'AWAITING',
     }
+    return attempt
   },
   async submitVerification(attemptId, code) {
     await sleep(600)
     const valid = code === '123456' || code.length === 6
-    return {
+    const attempt: VerificationAttempt = {
       id: attemptId,
       orderId: 'mock',
       method: 'OTP',
       status: valid ? 'VERIFIED' : 'INVALID',
-      verifiedAt: valid ? new Date().toISOString() : undefined,
     }
+    return valid ? { ...attempt, verifiedAt: new Date().toISOString() } : attempt
   },
   async requestManualOverride(attemptId, _reason) {
     await sleep(300)
-    return {
+    const attempt: VerificationAttempt = {
       id: attemptId,
       orderId: 'mock',
       method: 'MANUAL_OVERRIDE',
       status: 'MANUAL_OVERRIDE_REQUESTED',
     }
+    return attempt
   },
 }
 
