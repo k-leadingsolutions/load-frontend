@@ -55,7 +55,7 @@ describe('auth pages', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /thando mokoena/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /thando/i })).toBeInTheDocument()
     })
   })
 

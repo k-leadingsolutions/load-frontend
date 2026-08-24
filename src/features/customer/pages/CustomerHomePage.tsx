@@ -2,269 +2,381 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { appPaths, buildPath } from '@/app/router/paths'
 import { useAuth } from '@/app/providers/useAuth'
+import { Badge } from '@/components/ui/Badge'
+import { Collapsible } from '@/components/ui/Collapsible'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
-import { LoadingState } from '@/components/ui/LoadingState'
-import { CoffeeSection } from '@/features/customer/components/CoffeeSection'
-import { QuickServicesSection } from '@/features/customer/components/QuickServicesSection'
-import { mockCustomerOrderService } from '@/services/mock'
+import { SkeletonCard } from '@/components/ui/LoadingState'
+import { mockCustomerOrderService, mockNotificationService } from '@/services/mock'
+import { mockPromotions, mockServices } from '@/services/mock/data'
 import { formatCurrency, formatPoints } from '@/utils/format'
 
+/* ── Helpers ─────────────────────────────────────────────────────── */
+
 const getGreeting = () => {
-  const hour = new Date().getHours()
-  if (hour < 12) return 'Good morning,'
-  if (hour < 17) return 'Good afternoon,'
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning,'
+  if (h < 17) return 'Good afternoon,'
   return 'Good evening,'
 }
 
-const QUICK_ACTIONS = [
-  { to: appPaths.customerBooking, label: 'New Order',      emoji: '🧺' },
-  { to: appPaths.customerOrders,  label: 'Track Order',    emoji: '🔍' },
-  { to: appPaths.customerBooking, label: 'Schedule Pickup',emoji: '📅' },
-  { to: appPaths.customerOrders,  label: 'Repeat Last',    emoji: '↺' },
-  { to: appPaths.customerRewards, label: 'Rewards',        emoji: '⭐' },
-  { to: appPaths.customerLoadPass,label: 'LOAD Pass',      emoji: '🎫' },
-  { to: appPaths.customerProfile, label: 'Locations',      emoji: '📍' },
-  { to: appPaths.customerProfile, label: 'Support',        emoji: '💬' },
-  { to: appPaths.customerProfile, label: 'Refer a Friend', emoji: '🤝' },
-] as const
-
 const ORDER_PROGRESS: Record<string, number> = {
-  BOOKING_RECEIVED: 5,
-  PICKUP_SCHEDULED: 10,
-  DRIVER_ASSIGNED: 15,
-  DRIVER_EN_ROUTE: 20,
-  DRIVER_ARRIVED: 25,
-  COLLECTION_VERIFIED: 30,
-  COLLECTED: 35,
-  WEIGHT_CONFIRMED: 40,
-  AWAITING_PAYMENT: 42,
-  PAYMENT_CONFIRMED: 45,
-  RECEIVED_AT_STORE: 50,
-  SORTING: 58,
-  WASHING: 65,
-  DRYING: 72,
-  IRONING: 78,
-  QUALITY_CHECK: 84,
-  PACKING: 90,
-  READY_FOR_DISPATCH: 93,
-  DELIVERY_SCHEDULED: 95,
-  OUT_FOR_DELIVERY: 98,
-  DELIVERED: 100,
-  COMPLETED: 100,
+  BOOKING_RECEIVED: 5,   PICKUP_SCHEDULED: 10,  DRIVER_ASSIGNED: 15,
+  DRIVER_EN_ROUTE: 20,   DRIVER_ARRIVED: 25,    COLLECTION_VERIFIED: 30,
+  COLLECTED: 35,         WEIGHT_CONFIRMED: 40,  AWAITING_PAYMENT: 42,
+  PAYMENT_CONFIRMED: 45, RECEIVED_AT_STORE: 50, SORTING: 58,
+  WASHING: 65,           DRYING: 72,            IRONING: 78,
+  QUALITY_CHECK: 84,     PACKING: 90,           READY_FOR_DISPATCH: 93,
+  DELIVERY_SCHEDULED: 95, OUT_FOR_DELIVERY: 98, DELIVERED: 100, COMPLETED: 100,
 }
 
-const PRODUCTION_STEPS = ['Picked Up', 'In Wash', 'In Dry', 'Ready', 'Delivered'] as const
-
-const getStepIndex = (progress: number) => {
+const STAGES = ['Picked Up', 'Washing', 'Ready', 'Delivered'] as const
+const getStageIndex = (progress: number) => {
   if (progress <= 35) return 0
-  if (progress <= 65) return 1
-  if (progress <= 78) return 2
-  if (progress <= 93) return 3
-  return 4
+  if (progress <= 78) return 1
+  if (progress <= 93) return 2
+  return 3
 }
+
+/* ── Sub-components ──────────────────────────────────────────────── */
+
+const QuickActions = () => {
+  const actions = [
+    { to: appPaths.customerBooking, label: 'New Order',   icon: '🧺' },
+    { to: appPaths.customerOrders,  label: 'My Orders',   icon: '📦' },
+    { to: appPaths.customerRewards, label: 'Rewards',     icon: '⭐' },
+    { to: appPaths.customerProfile, label: 'Profile',     icon: '👤' },
+  ]
+  return (
+    <div className="grid grid-cols-4 gap-2">
+      {actions.map(({ to, label, icon }) => (
+        <Link
+          key={label}
+          to={to}
+          className="flex flex-col items-center gap-2 rounded-card border border-card-border bg-white p-3 text-center shadow-card transition hover:border-load-300 hover:shadow-panel"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-load-50 text-xl" aria-hidden="true">
+            {icon}
+          </div>
+          <span className="text-[11px] font-semibold text-ink leading-tight">{label}</span>
+        </Link>
+      ))}
+    </div>
+  )
+}
+
+const ActiveOrderCard = ({ order }: { order: NonNullable<ReturnType<typeof useActiveOrder>> }) => {
+  const progress = ORDER_PROGRESS[order.status] ?? 0
+  const stageIdx = getStageIndex(progress)
+
+  return (
+    <section aria-labelledby="active-order-heading" className="rounded-panel border border-card-border bg-white p-5 shadow-panel">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p id="active-order-heading" className="text-caption text-muted">Order in progress</p>
+          <p className="text-title text-load-700">#{order.id}</p>
+        </div>
+        <Badge tone="primary">{order.friendlyStatus}</Badge>
+      </div>
+
+      {/* Stage dots */}
+      <div className="mt-4 flex items-center gap-1" role="list" aria-label="Order stages">
+        {STAGES.map((stage, i) => {
+          const done = i <= stageIdx
+          const current = i === stageIdx
+          return (
+            <div key={stage} role="listitem" className="flex flex-1 flex-col items-center gap-1">
+              <div className={`h-2 w-full rounded-full transition ${done ? 'bg-load-500' : 'bg-load-100'} ${current ? 'ring-2 ring-load-300' : ''}`} />
+              <p className={`text-[9px] text-center leading-tight ${done ? 'text-load-700 font-semibold' : 'text-muted'}`}>{stage}</p>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 text-caption text-muted border-t border-divider pt-4">
+        <div><span className="font-medium text-ink">Pickup</span><br />{order.pickupWindow.windowLabel}</div>
+        <div><span className="font-medium text-ink">Delivery</span><br />{order.deliveryWindow.windowLabel}</div>
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <Link
+          to={appPaths.customerOrders}
+          className="flex-1 flex h-10 items-center justify-center rounded-pill border-2 border-load-600 text-sm font-semibold text-load-600 transition hover:bg-load-50"
+        >
+          Track Order
+        </Link>
+        {order.invoiceId ? (
+          <Link
+            to={buildPath.customerInvoice(order.invoiceId)}
+            className="flex-1 flex h-10 items-center justify-center rounded-pill bg-load-600 text-sm font-semibold text-white transition hover:bg-load-700"
+          >
+            View Invoice
+          </Link>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
+const LoyaltySummary = ({ points, balance, tier, rewards }: { points: number; balance: number; tier: string; rewards: number }) => (
+  <div className="grid grid-cols-3 gap-2">
+    {[
+      { label: 'Balance',   value: formatCurrency(balance) },
+      { label: 'Points',    value: formatPoints(points) },
+      { label: 'Rewards',   value: String(rewards) },
+    ].map((stat) => (
+      <div key={stat.label} className="rounded-card border border-card-border bg-white p-3 text-center shadow-card">
+        <p className="text-caption text-muted">{stat.label}</p>
+        <p className="mt-0.5 text-sm font-semibold text-ink">{stat.value}</p>
+      </div>
+    ))}
+    <div className="col-span-3">
+      <p className="text-caption text-muted text-center">
+        <Badge tone="info" size="sm">{tier} Member</Badge>
+      </p>
+    </div>
+  </div>
+)
+
+const QuickServices = () => {
+  const LAUNDRY_IDS = new Set(['wash-fold', 'dry-clean', 'home-care'])
+  const services = mockServices.filter((s) => s.featured && LAUNDRY_IDS.has(s.categoryId)).slice(0, 3)
+  return (
+    <div className="space-y-2">
+      {services.map((svc) => (
+        <Link
+          key={svc.id}
+          to={appPaths.customerBooking}
+          className="flex items-center gap-3 rounded-card border border-card-border bg-white p-3 shadow-card transition hover:border-load-300"
+          aria-label={`Book ${svc.name} – from ${formatCurrency(svc.basePrice)}`}
+        >
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-load-50 text-xl" aria-hidden="true">🧺</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-ink">{svc.name}</p>
+            <p className="text-caption text-muted">{svc.shortDescription}</p>
+          </div>
+          <div className="flex-shrink-0 text-right">
+            <p className="text-sm font-semibold text-ink">{formatCurrency(svc.basePrice)}</p>
+            <p className="text-caption text-muted">/{svc.unitLabel}</p>
+          </div>
+        </Link>
+      ))}
+      <Link
+        to={appPaths.customerBooking}
+        className="flex w-full items-center justify-center rounded-card border border-dashed border-load-300 py-3 text-sm font-semibold text-load-600 hover:bg-load-50 transition"
+      >
+        View all services →
+      </Link>
+    </div>
+  )
+}
+
+const PromotionsSection = () => (
+  <div className="space-y-2">
+    {mockPromotions.map((promo) => (
+      <div key={promo.code} className="flex items-start gap-3 rounded-card border border-card-border bg-white p-3 shadow-card">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-load-100 text-lg" aria-hidden="true">🏷️</div>
+        <div>
+          <p className="text-sm font-semibold text-ink">{promo.name}</p>
+          <p className="text-caption text-muted">{promo.description}</p>
+          <Badge tone="primary" size="sm">{promo.code}</Badge>
+        </div>
+      </div>
+    ))}
+  </div>
+)
+
+const CoffeeCollapsible = () => {
+  const coffeeItems = mockServices.filter((s) => s.categoryId === 'coffee' && s.featured)
+  return (
+    <div className="space-y-2">
+      {coffeeItems.map((item) => (
+        <div key={item.id} className="flex items-center gap-3 rounded-card border border-card-border bg-white p-3 shadow-card">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-50 text-lg" aria-hidden="true">☕</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-ink">{item.name}</p>
+            <p className="text-caption text-muted">{item.shortDescription}</p>
+          </div>
+          <p className="flex-shrink-0 text-sm font-semibold text-load-700">{formatCurrency(item.basePrice)}</p>
+        </div>
+      ))}
+      <p className="text-caption text-muted text-center">Coffee ordering available in a future update.</p>
+    </div>
+  )
+}
+
+const LoadPassTeaser = () => (
+  <section aria-label="LOAD Pass">
+    <div className="rounded-panel bg-load-pass p-5 text-white">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Coming Soon</p>
+          <h2 className="mt-1 text-title">LOAD Pass</h2>
+          <p className="mt-1 text-caption text-white/80">Exclusive benefits. Free pickups. Priority service.</p>
+        </div>
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-2xl" aria-hidden="true">🎫</div>
+      </div>
+      <Link
+        to={appPaths.customerLoadPass}
+        className="mt-4 inline-flex h-9 items-center rounded-pill border border-white/40 bg-white/15 px-5 text-sm font-semibold text-white transition hover:bg-white/25"
+      >
+        Learn more
+      </Link>
+    </div>
+  </section>
+)
+
+/* ── Hook ─────────────────────────────────────────────────────────── */
+
+const useActiveOrder = (userId: string | undefined) => {
+  const { data } = useQuery({
+    queryKey: ['customer-orders', userId],
+    queryFn: () => mockCustomerOrderService.listOrders(userId!),
+    enabled: Boolean(userId),
+  })
+  return data?.data?.find((o) => o.status !== 'DELIVERED' && o.status !== 'COMPLETED' && o.status !== 'CANCELLED') ?? null
+}
+
+/* ── Page ─────────────────────────────────────────────────────────── */
 
 export const CustomerHomePage = () => {
   const { user } = useAuth()
-  const { data, isLoading, isError, error } = useQuery({
+
+  const ordersQuery = useQuery({
     queryKey: ['customer-orders', user?.id],
     queryFn: () => mockCustomerOrderService.listOrders(user!.id),
     enabled: Boolean(user?.id),
   })
 
+  const notificationsQuery = useQuery({
+    queryKey: ['notifications', 'CUSTOMER'],
+    queryFn: () => mockNotificationService.listNotifications('CUSTOMER'),
+  })
+
   if (!user) {
-    return <ErrorState title="Customer account unavailable" message="Please sign in again to continue." />
+    return <ErrorState title="Account unavailable" message="Please sign in again to continue." />
   }
 
-  const activeOrder = data?.data?.find((o) => o.status !== 'DELIVERED' && o.status !== 'COMPLETED' && o.status !== 'CANCELLED')
-  const recentOrders = data?.data?.slice(0, 3) ?? []
+  const orders       = ordersQuery.data?.data ?? []
+  const activeOrder  = orders.find((o) => o.status !== 'DELIVERED' && o.status !== 'COMPLETED' && o.status !== 'CANCELLED') ?? null
+  const recentOrders = orders.slice(0, 3)
+  const unreadCount  = (notificationsQuery.data ?? []).filter((n) => !n.isRead).length
 
   return (
-    <div className="mx-auto max-w-lg space-y-5 pb-24">
+    <div className="mx-auto max-w-lg space-y-4 pb-28 animate-fade-in">
 
-      {/* ── Header ── */}
+      {/* ── Header ─────────────────────────────────────────────── */}
       <section aria-label="Welcome header" className="flex items-center justify-between pt-2">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-load-500 text-base font-bold text-white" aria-hidden="true">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-load-300 text-base font-bold text-load-900"
+            aria-hidden="true"
+          >
             {user.firstName[0]}
           </div>
           <div>
             <p className="text-caption text-muted">{getGreeting()}</p>
-            <h1 className="text-title text-ink">{user.firstName} {user.lastName}</h1>
+            <h1 className="text-title text-ink">{user.firstName}</h1>
           </div>
         </div>
         <Link
           to={appPaths.customerNotifications}
-          aria-label="Notifications"
+          aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
           className="relative flex h-10 w-10 items-center justify-center rounded-full border border-card-border bg-white shadow-card"
         >
-          <span aria-hidden="true">🔔</span>
-          <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-red-500 ring-2 ring-white" />
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-muted">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          {unreadCount > 0 ? (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-status-error text-[9px] font-bold text-white ring-2 ring-white" aria-hidden="true">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          ) : null}
         </Link>
       </section>
 
-      {/* ── Stats strip ── */}
-      <section aria-label="Account summary" className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'LOAD Balance', value: formatCurrency(user.loyalty.loadBalance) },
-          { label: 'Points', value: formatPoints(user.loyalty.points) },
-          { label: 'Rewards', value: 'R5 Off' },
-        ].map((stat) => (
-          <div key={stat.label} className="rounded-card border border-card-border bg-white p-3 text-center shadow-card">
-            <p className="text-caption text-muted">{stat.label}</p>
-            <p className="mt-1 text-sm font-semibold text-ink">{stat.value}</p>
-          </div>
-        ))}
+      {/* ── Loyalty summary ─────────────────────────────────────── */}
+      <section aria-label="Loyalty summary">
+        <LoyaltySummary
+          points={user.loyalty.points}
+          balance={user.loyalty.loadBalance}
+          tier={user.loyalty.tier}
+          rewards={user.loyalty.availableRewards}
+        />
       </section>
 
-      {/* ── Active order card ── */}
-      {isLoading ? <LoadingState /> : null}
-      {isError ? <ErrorState title="Unable to load your orders" message={error instanceof Error ? error.message : 'Unknown error'} /> : null}
-
-      {!isLoading && !isError && activeOrder ? (
-        <section aria-labelledby="active-order-heading">
-          <div className="rounded-panel border border-card-border bg-white p-5 shadow-panel">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-caption text-muted">Order in Progress</p>
-                <p className="text-title text-load-600">#{activeOrder.id}</p>
-              </div>
-              <span className="rounded-pill bg-load-100 px-3 py-1 text-xs font-semibold text-load-700">
-                {activeOrder.friendlyStatus}
-              </span>
-            </div>
-            <p className="mt-1 text-caption text-muted">Your laundry is being processed</p>
-
-            {/* Progress steps */}
-            <div className="mt-4 flex justify-between" role="list" aria-label="Order stages">
-              {PRODUCTION_STEPS.map((step, i) => {
-                const progress = ORDER_PROGRESS[activeOrder.status] ?? 0
-                const currentStep = getStepIndex(progress)
-                const isDone = i <= currentStep
-                return (
-                  <div key={step} role="listitem" className="flex flex-col items-center gap-1">
-                    <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition
-                      ${isDone ? 'bg-load-600 text-white' : 'bg-load-100 text-load-400'}`}>
-                      {isDone ? '✓' : i + 1}
-                    </div>
-                    <p className={`text-[10px] text-center leading-tight ${isDone ? 'text-load-600 font-medium' : 'text-muted'}`}>{step}</p>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-2 text-caption text-muted border-t border-load-50 pt-4">
-              <div><span className="text-ink font-medium">Pickup</span><br/>{activeOrder.pickupWindow.windowLabel}</div>
-              <div><span className="text-ink font-medium">Delivery</span><br/>{activeOrder.deliveryWindow.windowLabel}</div>
-              {activeOrder.confirmedWeightKg ? (
-                <div><span className="text-ink font-medium">Weight</span><br/>{activeOrder.confirmedWeightKg.toFixed(1)} kg</div>
-              ) : null}
-              <div><span className="text-ink font-medium">Total</span><br/>
-                <span className="text-sm font-semibold text-ink">{formatCurrency(activeOrder.estimatedTotal)}</span>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <Link
-                to={appPaths.customerOrders}
-                className="flex h-10 w-full items-center justify-center rounded-pill border-2 border-load-600 text-sm font-semibold text-load-600 transition hover:bg-load-50"
-              >
-                View Order Details
-              </Link>
-              {activeOrder.invoiceId ? (
-                <Link
-                  to={buildPath.customerInvoice(activeOrder.invoiceId)}
-                  className="flex h-10 w-full items-center justify-center rounded-pill bg-load-600 text-sm font-semibold text-white transition hover:bg-load-700"
-                >
-                  View Invoice
-                </Link>
-              ) : null}
-            </div>
-          </div>
-        </section>
+      {/* ── Active order or primary CTA ─────────────────────────── */}
+      {ordersQuery.isLoading ? <SkeletonCard /> : null}
+      {ordersQuery.isError ? (
+        <ErrorState title="Unable to load orders" message={ordersQuery.error instanceof Error ? ordersQuery.error.message : 'Unknown error'} />
       ) : null}
 
-      {!isLoading && !isError && !activeOrder ? (
-        <div className="rounded-panel border border-card-border bg-white p-5 shadow-panel">
-          <p className="text-caption text-muted">Need something?</p>
-          <p className="mt-1 text-body text-ink">Order now for your next load.</p>
-          <Link
-            to={appPaths.customerBooking}
-            className="mt-3 flex h-10 w-full items-center justify-center rounded-pill bg-load-600 text-sm font-semibold text-white transition hover:bg-load-700"
-          >
-            New Order
-          </Link>
-        </div>
+      {!ordersQuery.isLoading && !ordersQuery.isError && activeOrder ? (
+        <ActiveOrderCard order={activeOrder} />
       ) : null}
 
-      {/* ── Quick Actions ── */}
-      <section aria-labelledby="quick-actions-heading">
-        <h2 id="quick-actions-heading" className="text-title text-ink">Quick Actions</h2>
-        <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
-          {QUICK_ACTIONS.map(({ to, label, emoji }) => (
+      {!ordersQuery.isLoading && !ordersQuery.isError && !activeOrder ? (
+        <div className="rounded-panel border border-load-200 bg-load-card p-5">
+          <p className="text-caption text-muted">Ready for a fresh start?</p>
+          <p className="mt-1 text-title text-ink">Book your next pickup</p>
+          <p className="mt-1 text-caption text-muted">Fast pickup. Fresh delivery. Every time.</p>
+          <div className="mt-4">
             <Link
-              key={label}
-              to={to}
-              className="flex flex-col items-center gap-2 rounded-card border border-card-border bg-white p-3 text-center shadow-card transition hover:border-load-300 hover:shadow-panel"
+              to={appPaths.customerBooking}
+              className="flex h-control w-full items-center justify-center rounded-pill bg-load-600 text-sm font-semibold text-white transition hover:bg-load-700 active:bg-load-800"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-load-50 text-xl" aria-hidden="true">
-                {emoji}
-              </div>
-              <span className="text-caption font-semibold text-ink leading-tight">{label}</span>
+              New Order
             </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Quick Services ── */}
-      <QuickServicesSection />
-
-      {/* ── LOAD Pass card ── */}
-      <section aria-label="LOAD Pass">
-        <div className="rounded-panel bg-load-card border border-load-200 p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-title text-ink">LOAD Pass</p>
-              <p className="text-caption text-muted mt-1">Save more every time</p>
-              <p className="text-caption text-muted mt-1">Get exclusive benefits</p>
-            </div>
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-load-500 text-2xl" aria-hidden="true">
-              🎫
-            </div>
           </div>
-          <Link
-            to={appPaths.customerLoadPass}
-            className="mt-4 inline-flex h-9 items-center rounded-pill border-2 border-load-600 px-5 text-sm font-semibold text-load-600 transition hover:bg-load-50"
-          >
-            Learn More
-          </Link>
         </div>
+      ) : null}
+
+      {/* ── Quick actions (4 max) ────────────────────────────────── */}
+      <section aria-labelledby="quick-actions-heading">
+        <h2 id="quick-actions-heading" className="mb-3 text-title text-ink">Quick Actions</h2>
+        <QuickActions />
       </section>
 
-      {/* ── LOAD Coffee (promotional) ── */}
-      <CoffeeSection />
+      {/* ── Collapsible: Services ────────────────────────────────── */}
+      <Collapsible title="Services" defaultOpen={true} badge={<Badge tone="info" size="sm">3 available</Badge>}>
+        <QuickServices />
+      </Collapsible>
 
-      {/* ── Recent Activity ── */}
+      {/* ── Collapsible: Promotions ──────────────────────────────── */}
+      <Collapsible title="Promotions &amp; Offers" badge={<Badge tone="success" size="sm">{mockPromotions.length} active</Badge>}>
+        <PromotionsSection />
+      </Collapsible>
+
+      {/* ── LOAD Pass teaser ─────────────────────────────────────── */}
+      <LoadPassTeaser />
+
+      {/* ── Collapsible: Coffee ──────────────────────────────────── */}
+      <Collapsible title="LOAD Coffee" badge={<Badge tone="muted" size="sm">Explore</Badge>}>
+        <CoffeeCollapsible />
+      </Collapsible>
+
+      {/* ── Recent orders ────────────────────────────────────────── */}
       <section aria-labelledby="recent-orders-heading">
-        <div className="flex items-center justify-between gap-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <h2 id="recent-orders-heading" className="text-title text-ink">Recent Orders</h2>
           <Link to={appPaths.customerOrders} className="text-sm font-semibold text-load-600 hover:text-load-700">
             View all
           </Link>
         </div>
 
-        {!isLoading && !isError && recentOrders.length === 0 ? (
+        {!ordersQuery.isLoading && !ordersQuery.isError && recentOrders.length === 0 ? (
           <EmptyState title="No orders yet" description="Book your first pickup to get started." />
         ) : null}
 
-        {!isLoading && !isError && recentOrders.length > 0 ? (
-          <ul className="mt-3 divide-y divide-load-50 rounded-panel border border-card-border bg-white shadow-card" aria-label="Recent orders">
+        {!ordersQuery.isLoading && !ordersQuery.isError && recentOrders.length > 0 ? (
+          <ul className="divide-y divide-divider rounded-panel border border-card-border bg-white shadow-card" aria-label="Recent orders">
             {recentOrders.map((order) => (
               <li key={order.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-load-100 text-sm" aria-hidden="true">🧺</div>
                   <div>
-                    <p className="text-sm font-semibold text-ink">Order #{order.id}</p>
+                    <p className="text-sm font-semibold text-ink">#{order.id}</p>
                     <p className="text-caption text-muted">{order.deliveryWindow.windowLabel}</p>
                   </div>
                 </div>
@@ -281,3 +393,4 @@ export const CustomerHomePage = () => {
     </div>
   )
 }
+

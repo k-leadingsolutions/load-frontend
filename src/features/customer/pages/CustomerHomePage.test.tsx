@@ -36,7 +36,7 @@ describe('CustomerHomePage', () => {
 
   it('renders loyalty balance stats', async () => {
     renderPage()
-    expect(await screen.findByText('LOAD Balance')).toBeInTheDocument()
+    expect(await screen.findByText('Balance')).toBeInTheDocument()
     expect(screen.getByText('Points')).toBeInTheDocument()
     expect(screen.getAllByText('Rewards').length).toBeGreaterThan(0)
   })
@@ -44,23 +44,19 @@ describe('CustomerHomePage', () => {
   it('renders quick action navigation links', async () => {
     renderPage()
     expect(await screen.findByRole('link', { name: /new order/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /track order/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /support/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /my orders/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /rewards/i })).toBeInTheDocument()
   })
 
   it('renders the Quick Services section', async () => {
     renderPage()
-    expect(await screen.findByRole('heading', { name: /quick services/i })).toBeInTheDocument()
-    expect(screen.getAllByText('Wash & Fold').length).toBeGreaterThan(0)
-    expect(screen.getByText('Dry Clean Shirts')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /quick actions/i })).toBeInTheDocument()
+    expect((await screen.findAllByText(/wash & fold/i)).length).toBeGreaterThan(0)
   })
 
   it('renders the LOAD Coffee section', async () => {
     renderPage()
-    expect(await screen.findByRole('heading', { name: /load coffee/i })).toBeInTheDocument()
-    expect(screen.getByText('Espresso Blend')).toBeInTheDocument()
-    expect(screen.getByText('Filter Roast')).toBeInTheDocument()
-    expect(screen.getByText('Coffee Capsules')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /load coffee/i })).toBeInTheDocument()
   })
 
   it('renders the recent orders section heading', async () => {

@@ -3,21 +3,53 @@
 @tailwind utilities;
 
 :root {
-  --color-load-primary: #4fa3f0;
-  --color-load-soft: #ddeeff;
-  --color-load-bg: #f4f9ff;
-  --color-white: #ffffff;
-  --color-text-primary: #0f172a;
-  --color-text-muted: #64748b;
-  --color-success-soft: #dcfce7;
-  --color-warning-soft: #fef3c7;
-  --color-error-soft: #fee2e2;
-  --color-card-border: #ddeeff;
-  --color-divider: #e2e8f0;
-  --color-disabled: #cbd5e1;
-  --radius-card: 1rem;
-  --radius-panel: 1.5rem;
-  --height-control: 3rem;
+  /* ── Brand colours ───────────────────────────────────────────── */
+  --color-load-primary:    #A8D8FF;   /* load-300 — primary brand */
+  --color-load-interactive: #2a8fd4;  /* load-600 — CTAs / links */
+  --color-load-deep:       #1d72ab;   /* load-700 — dark text blue */
+  --color-load-soft:       #daf0ff;   /* load-100 — light surface */
+  --color-load-bg:         #f5faff;   /* page background */
+  --color-white:           #ffffff;
+
+  /* ── Text colours ────────────────────────────────────────────── */
+  --color-text-primary:    #0f172a;   /* ink */
+  --color-text-muted:      #5e7a93;   /* muted */
+
+  /* ── Status soft surfaces ────────────────────────────────────── */
+  --color-success-soft:    #dcfce7;
+  --color-warning-soft:    #fef3c7;
+  --color-error-soft:      #fee2e2;
+  --color-info-soft:       #daf0ff;
+
+  /* ── Status foregrounds ──────────────────────────────────────── */
+  --color-success:         #16a34a;
+  --color-warning:         #d97706;
+  --color-error:           #dc2626;
+  --color-info:            #2a8fd4;
+
+  /* ── Borders / dividers ──────────────────────────────────────── */
+  --color-card-border:     #daf0ff;
+  --color-divider:         #e1eef8;
+  --color-input-border:    #c0d9ee;
+  --color-input-focus:     #A8D8FF;
+
+  /* ── Control / component tokens ──────────────────────────────── */
+  --color-disabled:        #b8cfe0;
+  --radius-card:           1rem;
+  --radius-panel:          1.5rem;
+  --radius-input:          0.75rem;
+  --radius-modal:          1.25rem;
+  --height-control:        3rem;
+  --height-control-sm:     2.25rem;
+  --height-control-lg:     3.5rem;
+
+  /* ── Shadow tokens ───────────────────────────────────────────── */
+  --shadow-card:  0 2px 12px rgba(15, 23, 42, 0.04);
+  --shadow-panel: 0 4px 24px rgba(15, 23, 42, 0.06);
+  --shadow-glow:  0 8px 32px rgba(168, 216, 255, 0.35);
+  --shadow-modal: 0 20px 60px rgba(15, 23, 42, 0.18);
+  --shadow-input: 0 0 0 3px rgba(168, 216, 255, 0.45);
+
   color: var(--color-text-primary);
   background: var(--color-load-bg);
   font-family: Inter, system-ui, sans-serif;
@@ -55,7 +87,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [role='button']:focus-visible {
-  outline: 2px solid #1a6dba;
+  outline: 2px solid var(--color-load-interactive);
   outline-offset: 2px;
 }
 
