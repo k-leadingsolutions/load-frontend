@@ -3,13 +3,74 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { buildPath } from '@/app/router/paths'
 import { useAuth } from '@/app/providers/useAuth'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { OrderStatusTimeline } from '@/features/customer/components/OrderStatusTimeline'
+import { ORDER_STATUS_MODEL } from '@/domain/orderStatus'
 import { mockCustomerOrderService } from '@/services/mock'
 import { formatCurrency } from '@/utils/format'
+import type { LaundryOrder, PaymentStatus } from '@/domain/models/order'
+
+// ── Stage progress ─────────────────────────────────────────────────────────────
+
+const STAGES = ['Booking', 'Pickup', 'Production', 'Delivery', 'Closed'] as const
+type Stage = (typeof STAGES)[number]
+
+const STAGE_FROM_MODEL: Record<string, Stage> = {
+  BOOKING:    'Booking',
+  PICKUP:     'Pickup',
+  PRODUCTION: 'Production',
+  DELIVERY:   'Delivery',
+  CLOSED:     'Closed',
+}
+
+function getStageIndex(order: LaundryOrder): number {
+  const stage = ORDER_STATUS_MODEL[order.status]?.stage ?? 'BOOKING'
+  const label = STAGE_FROM_MODEL[stage] ?? 'Booking'
+  return STAGES.indexOf(label as Stage)
+}
+
+// ── Payment badge ─────────────────────────────────────────────────────────────
+
+const PAYMENT_BADGE: Record<PaymentStatus, { label: string; tone: 'success' | 'warning' | 'error' | 'muted' | 'info' }> = {
+  CONFIRMED:         { label: 'Paid',            tone: 'success'  },
+  PENDING:           { label: 'Payment pending',  tone: 'warning'  },
+  AWAITING_CUSTOMER: { label: 'Awaiting payment', tone: 'warning'  },
+  FAILED:            { label: 'Payment failed',   tone: 'error'    },
+  NOT_REQUIRED:      { label: 'No charge',        tone: 'muted'    },
+  REFUNDED:          { label: 'Refunded',         tone: 'info'     },
+}
+
+// ── Stage progress bar component ──────────────────────────────────────────────
+
+function StageProgressBar({ order }: { order: LaundryOrder }) {
+  const currentIndex = getStageIndex(order)
+  return (
+    <div aria-label="Order stage progress">
+      <div className="flex items-center gap-1">
+        {STAGES.map((stage, i) => (
+          <div key={stage} className="flex flex-1 flex-col items-center gap-1">
+            <div
+              className={`h-1.5 w-full rounded-full transition ${
+                i <= currentIndex ? 'bg-load-600' : 'bg-load-100'
+              }`}
+            />
+            <span className={`text-[10px] font-semibold ${i === currentIndex ? 'text-load-700' : 'text-muted'}`}>
+              {stage}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export const CustomerOrdersPage = () => {
   const { user } = useAuth()
@@ -87,29 +148,41 @@ export const CustomerOrdersPage = () => {
         </SectionCard>
       ) : null}
 
+      {/* Active order — enriched card */}
       <SectionCard
         title="Live order tracking"
         description="Customer-friendly status labels and production visibility for the active order."
       >
         {activeOrder ? (
           <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="rounded-3xl bg-load-50/60 p-5">
-              <p className="text-sm font-semibold text-load-700">Active order #{activeOrder.id}</p>
-              <h3 className="mt-2 text-2xl font-semibold text-ink">{activeOrder.friendlyStatus}</h3>
-              <p className="mt-2 text-sm text-slate-500">Delivery window: {activeOrder.deliveryWindow.windowLabel}</p>
-              {activeOrder.confirmedWeightKg ? (
-                <p className="mt-2 text-sm text-slate-500">Confirmed weight: {activeOrder.confirmedWeightKg.toFixed(1)} kg</p>
-              ) : null}
-              <p className="mt-4 text-lg font-semibold text-ink">{formatCurrency(activeOrder.estimatedTotal)}</p>
+            <Card variant="brand" className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-caption text-muted">Order #{activeOrder.id}</p>
+                  <h3 className="mt-1 text-heading text-ink">{activeOrder.friendlyStatus}</h3>
+                </div>
+                <Badge tone={PAYMENT_BADGE[activeOrder.paymentStatus].tone}>
+                  {PAYMENT_BADGE[activeOrder.paymentStatus].label}
+                </Badge>
+              </div>
+
+              <StageProgressBar order={activeOrder} />
+
+              <div className="space-y-1 text-body text-muted">
+                <p>Delivery: {activeOrder.deliveryWindow.windowLabel}</p>
+                {activeOrder.confirmedWeightKg ? (
+                  <p>Confirmed weight: {activeOrder.confirmedWeightKg.toFixed(1)} kg</p>
+                ) : null}
+              </div>
+
+              <p className="text-lg font-semibold text-ink">{formatCurrency(activeOrder.estimatedTotal)}</p>
+
               {activeOrder.invoiceId ? (
-                <Link
-                  to={buildPath.customerInvoice(activeOrder.invoiceId)}
-                  className="mt-4 inline-flex rounded-full border border-load-200 px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50"
-                >
-                  View invoice
+                <Link to={buildPath.customerInvoice(activeOrder.invoiceId)}>
+                  <Button variant="outline" size="sm">View invoice</Button>
                 </Link>
               ) : null}
-            </div>
+            </Card>
             <OrderStatusTimeline status={activeOrder.status} />
           </div>
         ) : (
@@ -120,6 +193,7 @@ export const CustomerOrdersPage = () => {
         )}
       </SectionCard>
 
+      {/* Order history */}
       <SectionCard
         title="Order history and quick reorder"
         description="View completed orders and place a similar booking again with one action."
@@ -128,41 +202,51 @@ export const CustomerOrdersPage = () => {
           <EmptyState title="No order history" description="Your booking activity will appear here after your first LOAD order." />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
-            {orders.map((order) => (
-              <article key={order.id} className="rounded-3xl border border-load-100 bg-white p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-ink">#{order.id}</p>
-                    <p className="mt-1 text-sm text-slate-500">{order.friendlyStatus}</p>
+            {orders.map((order) => {
+              const payBadge = PAYMENT_BADGE[order.paymentStatus]
+              const stage = STAGE_FROM_MODEL[ORDER_STATUS_MODEL[order.status]?.stage ?? 'BOOKING'] ?? 'Booking'
+              return (
+                <Card key={order.id} variant="elevated">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="text-title text-ink">#{order.id}</p>
+                      <p className="text-body text-muted">{order.friendlyStatus}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge tone={payBadge.tone}>{payBadge.label}</Badge>
+                      <Badge tone="info">{stage}</Badge>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => repeatOrderMutation.mutate(order.id)}
-                    disabled={repeatOrderMutation.isPending}
-                    className="rounded-full border border-load-200 bg-white px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Repeat order
-                  </button>
-                </div>
-                <p className="mt-3 text-sm text-slate-600">Pickup: {order.pickupWindow.windowLabel}</p>
-                <p className="mt-1 text-sm text-slate-600">Delivery: {order.deliveryWindow.windowLabel}</p>
-                <p className="mt-1 text-sm text-slate-600">Payment: {order.paymentStatus?.replaceAll('_', ' ') ?? 'Pending'}</p>
-                {order.confirmedWeightKg ? (
-                  <p className="mt-1 text-sm text-slate-600">Confirmed weight: {order.confirmedWeightKg.toFixed(1)} kg</p>
-                ) : null}
-                <p className="mt-4 text-lg font-semibold text-ink">{formatCurrency(order.estimatedTotal)}</p>
-                {order.invoiceId ? (
-                  <div className="mt-4">
-                    <Link
-                      to={buildPath.customerInvoice(order.invoiceId)}
-                      className="inline-flex rounded-full border border-load-200 px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50"
+
+                  <div className="mt-3 space-y-1 text-body text-muted">
+                    <p>Pickup: {order.pickupWindow.windowLabel}</p>
+                    <p>Delivery: {order.deliveryWindow.windowLabel}</p>
+                    {order.confirmedWeightKg ? (
+                      <p>Confirmed weight: {order.confirmedWeightKg.toFixed(1)} kg</p>
+                    ) : null}
+                  </div>
+
+                  <p className="mt-3 text-lg font-semibold text-ink">{formatCurrency(order.estimatedTotal)}</p>
+
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => repeatOrderMutation.mutate(order.id)}
+                      loading={repeatOrderMutation.isPending && repeatOrderMutation.variables === order.id}
+                      disabled={repeatOrderMutation.isPending}
                     >
-                      Open invoice
-                    </Link>
+                      Repeat order
+                    </Button>
+                    {order.invoiceId ? (
+                      <Link to={buildPath.customerInvoice(order.invoiceId)}>
+                        <Button variant="ghost" size="sm">Open invoice</Button>
+                      </Link>
+                    ) : null}
                   </div>
-                ) : null}
-              </article>
-            ))}
+                </Card>
+              )
+            })}
           </div>
         )}
       </SectionCard>

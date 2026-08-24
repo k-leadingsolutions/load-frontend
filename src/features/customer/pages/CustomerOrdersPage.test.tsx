@@ -30,11 +30,39 @@ describe('CustomerOrdersPage', () => {
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockCustomerProfile))
   })
 
+  it('renders the live order tracking and order history sections', async () => {
+    renderPage()
+    expect(await screen.findByText('Live order tracking')).toBeInTheDocument()
+    expect(screen.getByText('Order history and quick reorder')).toBeInTheDocument()
+  })
+
+  it('shows the stage progress bar for the active order', async () => {
+    renderPage()
+    await screen.findByText('Live order tracking')
+    // The active order (LD10235) is in WASHING → Production stage
+    expect(screen.getByLabelText('Order stage progress')).toBeInTheDocument()
+    expect(screen.getAllByText('Production').length).toBeGreaterThan(0)
+  })
+
+  it('shows a payment status badge on the active order card', async () => {
+    renderPage()
+    await screen.findByText('Live order tracking')
+    // Active order has paymentStatus: 'CONFIRMED' → badge text 'Paid'
+    expect(screen.getAllByText('Paid').length).toBeGreaterThan(0)
+  })
+
+  it('shows stage badges on history order cards', async () => {
+    renderPage()
+    await screen.findByText('Order history and quick reorder')
+    // LD10234 is DELIVERED → Delivery stage badge
+    expect(screen.getAllByText('Delivery').length).toBeGreaterThan(0)
+  })
+
   it('repeats an existing order', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    expect(await screen.findByText('Live order tracking')).toBeInTheDocument()
+    expect(await screen.findByText('Live order tracking'))
 
     await user.click(screen.getAllByRole('button', { name: 'Repeat order' })[0]!)
 

@@ -15,31 +15,58 @@ export const OrderStatusTimeline = ({ status }: OrderStatusTimelineProps) => {
   }
 
   const currentIndex = ORDER_STATUS_SEQUENCE.indexOf(status)
-  const visibleStatuses = ORDER_STATUS_SEQUENCE.filter((item) => item !== 'CANCELLED')
+  const visibleStatuses = ORDER_STATUS_SEQUENCE.filter((item) => item !== 'CANCELLED' && item !== 'RESCHEDULED')
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-0">
       {visibleStatuses.map((item, index) => {
-        const state =
+        const state: 'done' | 'current' | 'upcoming' =
           index < currentIndex ? 'done' : index === currentIndex ? 'current' : 'upcoming'
+        const isLast = index === visibleStatuses.length - 1
 
         return (
           <div key={item} className="flex gap-3">
-            <div className="mt-1 flex flex-col items-center">
-              <div
-                className={`h-3 w-3 rounded-full ${
-                  state === 'done'
-                    ? 'bg-load-600'
-                    : state === 'current'
-                      ? 'bg-emerald-500'
-                      : 'bg-load-100'
-                }`}
-              />
-              {index < visibleStatuses.length - 1 ? <div className="mt-1 h-8 w-px bg-load-100" /> : null}
+            {/* Dot + connector line */}
+            <div className="flex flex-col items-center">
+              {/* Dot */}
+              {state === 'done' ? (
+                <div className="mt-1 flex h-3 w-3 flex-shrink-0 items-center justify-center rounded-full bg-load-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-white" aria-hidden="true" />
+                </div>
+              ) : state === 'current' ? (
+                <div
+                  className="mt-1 h-3 w-3 flex-shrink-0 rounded-full bg-status-success ring-4 ring-status-success/20"
+                  aria-label="current step"
+                />
+              ) : (
+                <div className="mt-1 h-3 w-3 flex-shrink-0 rounded-full border-2 border-load-200 bg-white" />
+              )}
+
+              {/* Connector line */}
+              {!isLast ? (
+                <div
+                  className={`mt-1 w-px flex-1 ${
+                    state === 'done'
+                      ? 'bg-load-600'
+                      : state === 'current'
+                        ? 'bg-load-200'
+                        : 'border-l-2 border-dashed border-load-100 bg-transparent'
+                  }`}
+                  style={{ minHeight: '2rem' }}
+                />
+              ) : null}
             </div>
-            <div className="pb-4">
-              <p className="font-semibold text-ink">{ORDER_STATUS_MODEL[item].customerLabel}</p>
-              <p className="text-sm text-slate-500">{ORDER_STATUS_MODEL[item].description}</p>
+
+            {/* Label */}
+            <div className={`pb-4 ${state === 'upcoming' ? 'opacity-50' : ''}`}>
+              <p
+                className={`font-semibold ${
+                  state === 'current' ? 'text-status-success' : state === 'done' ? 'text-ink' : 'text-muted'
+                }`}
+              >
+                {ORDER_STATUS_MODEL[item].customerLabel}
+              </p>
+              <p className="text-sm text-muted">{ORDER_STATUS_MODEL[item].description}</p>
             </div>
           </div>
         )
