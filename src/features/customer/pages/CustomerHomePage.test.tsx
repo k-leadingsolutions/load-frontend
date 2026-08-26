@@ -51,7 +51,7 @@ describe('CustomerHomePage', () => {
   it('renders the Quick Services section', async () => {
     renderPage()
     expect(await screen.findByRole('heading', { name: /quick actions/i })).toBeInTheDocument()
-    expect((await screen.findAllByText(/wash & fold/i)).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText(/everyday/i)).length).toBeGreaterThan(0)
   })
 
   it('renders the LOAD Coffee section', async () => {

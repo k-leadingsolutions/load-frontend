@@ -7,6 +7,7 @@ export type PricingModel =
   | 'PER_KILOGRAM'
   | 'PER_ITEM'
   | 'FIXED_SERVICE'
+  | 'ASSESSMENT_REQUIRED'
   | 'QUOTE_REQUIRED'
 
 /** @deprecated Use PricingModel instead */

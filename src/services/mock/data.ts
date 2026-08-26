@@ -1,8 +1,6 @@
 import { getFriendlyOrderStatus } from '@/domain/orderStatus'
 import type {
-  AddOnOption,
   BasketSize,
-  CatalogService,
   CustomerProfile,
   DashboardMetric,
   DeliveryZone,
@@ -12,8 +10,13 @@ import type {
   ManagedUser,
   ProductionOrder,
   Promotion,
-  ServiceCategory,
 } from '@/domain/models'
+import type { CatalogService, ServiceCategory } from '@/domain/models/service'
+import {
+  approvedAddOns,
+  approvedCategories,
+  approvedLaundryServices,
+} from '@/services/mock/approvedLaundryCatalogue'
 
 const primaryAddress = {
   id: 'addr-sandton-1',
@@ -56,33 +59,42 @@ export const mockCustomerProfile: CustomerProfile = {
 }
 
 export const mockCategories: ServiceCategory[] = [
-  { id: 'wash-fold', name: 'Wash & Fold', description: 'Clean, fresh, and folded everyday laundry.', accent: 'bg-load-100 text-load-700', isFeatured: true },
-  { id: 'dry-clean', name: 'Dry Cleaning', description: 'Premium garment care for delicate fabrics.', accent: 'bg-slate-100 text-slate-700', isFeatured: true },
-  { id: 'home-care', name: 'Home Care', description: 'Rugs, linens, duvets, and specialty home items.', accent: 'bg-cyan-100 text-cyan-700', isFeatured: false },
-  { id: 'coffee', name: 'LOAD Coffee', description: 'Freshly roasted single-origin beans delivered to your door.', accent: 'bg-amber-100 text-amber-800', isFeatured: true },
+  // ── Approved laundry categories ──────────────────────────────────────────
+  ...approvedCategories,
+  // ── Coffee category — PLACEHOLDER, pricing not yet approved ─────────────
+  // Keep isolated so laundry module sign-off is not blocked by pending coffee menu.
+  {
+    id: 'coffee',
+    name: 'LOAD Coffee',
+    description: 'Freshly roasted single-origin beans delivered to your door.',
+    tagline: 'Coming soon',
+    startingPriceLabel: 'Pending',
+    accent: 'bg-amber-100 text-amber-800',
+    icon: '☕',
+    isFeatured: false,
+  },
 ]
 
 export const mockServices: CatalogService[] = [
-  { id: 'svc-basket-12kg', categoryId: 'wash-fold', name: 'Wash & Fold', shortDescription: 'Fast everyday laundry', turnaroundLabel: '24-hour standard', pricingMode: 'PAY_PER_BASKET', pricingModel: 'PER_BASKET', basePrice: 169, unitLabel: '12kg basket', featured: true },
-  { id: 'svc-wash-fold-kg', categoryId: 'wash-fold', name: 'Wash & Fold by Weight', shortDescription: 'Estimated at booking, finalised after weighing', turnaroundLabel: '24-hour standard', pricingMode: 'PAY_PER_ITEM', pricingModel: 'PER_KILOGRAM', basePrice: 22, unitLabel: 'kg', featured: true },
-  { id: 'svc-dry-clean-shirt', categoryId: 'dry-clean', name: 'Dry Clean Shirts', shortDescription: 'Pressed and ready for work', turnaroundLabel: '48-hour premium', pricingMode: 'PAY_PER_ITEM', pricingModel: 'PER_ITEM', basePrice: 45, unitLabel: 'shirt', featured: true },
-  { id: 'svc-iron-only', categoryId: 'wash-fold', name: 'Ironing', shortDescription: 'Crisp finishing service', turnaroundLabel: 'Next-day', pricingMode: 'PAY_PER_ITEM', pricingModel: 'PER_ITEM', basePrice: 18, unitLabel: 'item', featured: true },
-  { id: 'svc-rug-clean', categoryId: 'home-care', name: 'Rug Cleaning', shortDescription: 'Deep clean for rugs and runners', turnaroundLabel: '3-day specialty', pricingMode: 'PAY_PER_ITEM', pricingModel: 'PER_ITEM', basePrice: 220, unitLabel: 'rug', featured: false },
-  { id: 'svc-coffee-espresso', categoryId: 'coffee', name: 'Espresso Blend', shortDescription: 'Bold, rich South African roast', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', pricingModel: 'FIXED_SERVICE', basePrice: 120, unitLabel: '250g bag', featured: true },
-  { id: 'svc-coffee-filter', categoryId: 'coffee', name: 'Filter Roast', shortDescription: 'Light, fruity single-origin', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', pricingModel: 'FIXED_SERVICE', basePrice: 135, unitLabel: '250g bag', featured: true },
-  { id: 'svc-coffee-capsules', categoryId: 'coffee', name: 'Coffee Capsules', shortDescription: 'Compatible with Nespresso machines', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', pricingModel: 'FIXED_SERVICE', basePrice: 85, unitLabel: '10-pack', featured: true },
+  // ── Approved laundry services (sourced from approvedLaundryCatalogue.ts) ──
+  ...approvedLaundryServices,
+  // ── Coffee services — PLACEHOLDER ONLY, pricing not yet approved ──────────
+  // These items must NOT be treated as production-ready pricing.
+  // Do not use these prices in customer-facing laundry totals.
+  { id: 'svc-coffee-espresso', categoryId: 'coffee', name: 'Espresso Blend', shortDescription: 'Bold, rich South African roast', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', pricingModel: 'FIXED_SERVICE', basePrice: 0, unitLabel: '250g bag', isStartingPrice: false, loadPassEligible: false, featured: false },
+  { id: 'svc-coffee-filter', categoryId: 'coffee', name: 'Filter Roast', shortDescription: 'Light, fruity single-origin', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', pricingModel: 'FIXED_SERVICE', basePrice: 0, unitLabel: '250g bag', isStartingPrice: false, loadPassEligible: false, featured: false },
+  { id: 'svc-coffee-capsules', categoryId: 'coffee', name: 'Coffee Capsules', shortDescription: 'Compatible with Nespresso machines', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', pricingModel: 'FIXED_SERVICE', basePrice: 0, unitLabel: '10-pack', isStartingPrice: false, loadPassEligible: false, featured: false },
 ]
 
-export const mockAddOns: AddOnOption[] = [
-  { id: 'addon-express', name: 'Express turnaround', description: 'Priority same-day processing where available.', price: 79, suggestionTag: 'Top seller' },
-  { id: 'addon-fragrance-free', name: 'Fragrance-free wash', description: 'Sensitive-care detergent selection.', price: 25 },
-  { id: 'addon-stain-care', name: 'Stain treatment', description: 'Targeted pre-treatment for marks and spills.', price: 35, suggestionTag: 'Suggested add-on' },
-]
+// ─── Re-export approved add-ons as mockAddOns for backward-compat consumers ───
+export { approvedAddOns as mockAddOns }
 
+// ─── Basket sizes — preserved as future-ready infrastructure, NOT used in ─────
+// the active customer booking flow.  Do not expose to customers.           ─────
 export const mockBasketSizes: BasketSize[] = [
-  { id: 'basket-8kg', name: 'Small Basket', capacityLabel: '8kg', price: 129, recommendedFor: '1-2 people' },
-  { id: 'basket-12kg', name: 'Standard Basket', capacityLabel: '12kg', price: 169, recommendedFor: 'Family weekly load' },
-  { id: 'basket-18kg', name: 'Large Basket', capacityLabel: '18kg', price: 239, recommendedFor: 'Bulk household loads' },
+  { id: 'basket-8kg', name: 'Small Basket', capacityLabel: '8kg', price: 0, recommendedFor: 'Future use only — not active' },
+  { id: 'basket-12kg', name: 'Standard Basket', capacityLabel: '12kg', price: 0, recommendedFor: 'Future use only — not active' },
+  { id: 'basket-18kg', name: 'Large Basket', capacityLabel: '18kg', price: 0, recommendedFor: 'Future use only — not active' },
 ]
 
 export const mockPromotions: Promotion[] = [
@@ -104,9 +116,9 @@ export const mockOrders: LaundryOrder[] = [
     deliveryWindow: { date: '2026-08-08', windowLabel: 'Today, 14:00 - 16:00' },
     pickupAddress: { ...primaryAddress },
     deliveryAddress: { ...primaryAddress },
-    services: [{ serviceId: 'svc-basket-12kg', quantity: 1, unitLabel: '12kg basket' }],
-    estimatedTotal: 248,
-    confirmedTotal: 248,
+    services: [{ serviceId: 'ev-wash-dry-fold', quantity: 9, unitLabel: 'kg' }],
+    estimatedTotal: 420,
+    confirmedTotal: 420,
     confirmedWeightKg: 9.4,
     paymentStatus: 'CONFIRMED',
     invoiceId: 'inv-LD10235',
@@ -124,8 +136,8 @@ export const mockOrders: LaundryOrder[] = [
     deliveryWindow: { date: '2026-08-01', windowLabel: 'Fri, 14:00 - 16:00' },
     pickupAddress: { ...primaryAddress },
     deliveryAddress: { ...primaryAddress },
-    services: [{ serviceId: 'svc-dry-clean-shirt', quantity: 3, unitLabel: 'shirts' }],
-    estimatedTotal: 180,
+    services: [{ serviceId: 'dc-shirt-blouse', quantity: 3, unitLabel: 'items' }],
+    estimatedTotal: 420,
     paymentStatus: 'CONFIRMED',
     loyaltyPointsEarned: 120,
     promotionsApplied: [],
@@ -143,7 +155,7 @@ export const mockProductionOrders: ProductionOrder[] = [
     stageLabel: 'Washing',
     qualityCheckPending: false,
     internalNotes: ['Handle white shirts separately.'],
-    itemsSummary: ['1 × Standard basket', '1 × Express turnaround'],
+    itemsSummary: ['9 kg × Wash + Dry + Fold', '1 × Express turnaround'],
     quantityReviewStatus: 'CONFIRMED',
     receivedAtStore: true,
     authorisedAdjustmentAllowed: true,

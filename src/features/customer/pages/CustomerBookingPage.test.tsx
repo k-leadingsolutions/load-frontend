@@ -133,7 +133,7 @@ describe('CustomerBookingPage', () => {
 
     // Step 1: select per kg and add a service
     await user.click(await screen.findByRole('button', { name: /pay per kilogram/i }))
-    await user.click(screen.getByRole('button', { name: /increase wash & fold by weight/i }))
+    await user.click(screen.getByRole('button', { name: /increase wash \+ dry \+ fold/i }))
 
     // Step 1 → 2
     await user.click(screen.getByRole('button', { name: /Next: Schedule & address/i }))

@@ -8,7 +8,8 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { SkeletonCard } from '@/components/ui/LoadingState'
 import { mockCustomerOrderService, mockNotificationService } from '@/services/mock'
-import { mockPromotions, mockServices } from '@/services/mock/data'
+import { mockPromotions } from '@/services/mock/data'
+import { approvedCategories } from '@/services/mock/approvedLaundryCatalogue'
 import { formatCurrency, formatPoints } from '@/utils/format'
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
@@ -139,30 +140,29 @@ const LoyaltySummary = ({ points, balance, tier, rewards }: { points: number; ba
 )
 
 const QuickServices = () => {
-  const LAUNDRY_IDS = new Set(['wash-fold', 'dry-clean', 'home-care'])
-  const services = mockServices.filter((s) => s.featured && LAUNDRY_IDS.has(s.categoryId)).slice(0, 3)
+  // Show 4 featured laundry categories (no coffee — pending menu approval)
+  const featured = approvedCategories.filter((c) => c.isFeatured).slice(0, 4)
   return (
     <div className="space-y-2">
-      {services.map((svc) => (
+      {featured.map((cat) => (
         <Link
-          key={svc.id}
-          to={appPaths.customerBooking}
+          key={cat.id}
+          to={buildPath.customerServiceCategory(cat.id)}
           className="flex items-center gap-3 rounded-card border border-card-border bg-white p-3 shadow-card transition hover:border-load-300"
-          aria-label={`Book ${svc.name} – from ${formatCurrency(svc.basePrice)}`}
+          aria-label={`Browse ${cat.name} — ${cat.tagline}`}
         >
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-load-50 text-xl" aria-hidden="true">🧺</div>
+          <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xl ${cat.accent}`} aria-hidden="true">
+            {cat.icon}
+          </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-ink">{svc.name}</p>
-            <p className="text-caption text-muted">{svc.shortDescription}</p>
+            <p className="text-sm font-semibold text-ink">{cat.name}</p>
+            <p className="text-caption text-muted">{cat.tagline}</p>
           </div>
-          <div className="flex-shrink-0 text-right">
-            <p className="text-sm font-semibold text-ink">{formatCurrency(svc.basePrice)}</p>
-            <p className="text-caption text-muted">/{svc.unitLabel}</p>
-          </div>
+          <p className="flex-shrink-0 text-sm font-semibold text-load-700">{cat.startingPriceLabel}</p>
         </Link>
       ))}
       <Link
-        to={appPaths.customerBooking}
+        to={appPaths.customerServices}
         className="flex w-full items-center justify-center rounded-card border border-dashed border-load-300 py-3 text-sm font-semibold text-load-600 hover:bg-load-50 transition"
       >
         View all services →
@@ -186,24 +186,18 @@ const PromotionsSection = () => (
   </div>
 )
 
-const CoffeeCollapsible = () => {
-  const coffeeItems = mockServices.filter((s) => s.categoryId === 'coffee' && s.featured)
-  return (
-    <div className="space-y-2">
-      {coffeeItems.map((item) => (
-        <div key={item.id} className="flex items-center gap-3 rounded-card border border-card-border bg-white p-3 shadow-card">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-50 text-lg" aria-hidden="true">☕</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-ink">{item.name}</p>
-            <p className="text-caption text-muted">{item.shortDescription}</p>
-          </div>
-          <p className="flex-shrink-0 text-sm font-semibold text-load-700">{formatCurrency(item.basePrice)}</p>
-        </div>
-      ))}
-      <p className="text-caption text-muted text-center">Coffee ordering available in a future update.</p>
+const CoffeeCollapsible = () => (
+  <div className="space-y-2">
+    <div className="flex items-center gap-3 rounded-card border border-card-border bg-white p-3 shadow-card">
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-50 text-lg" aria-hidden="true">☕</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-ink">LOAD Coffee</p>
+        <p className="text-caption text-muted">Freshly roasted single-origin beans.</p>
+      </div>
     </div>
-  )
-}
+    <p className="text-caption text-muted text-center">Coffee ordering available once the menu is finalised.</p>
+  </div>
+)
 
 const LoadPassTeaser = () => (
   <section aria-label="LOAD Pass">

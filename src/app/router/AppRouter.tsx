@@ -23,6 +23,8 @@ import { CustomerNotificationsPage } from '@/features/customer/pages/CustomerNot
 import { CustomerOrdersPage } from '@/features/customer/pages/CustomerOrdersPage'
 import { CustomerProfilePage } from '@/features/customer/pages/CustomerProfilePage'
 import { CustomerRewardsPage } from '@/features/customer/pages/CustomerRewardsPage'
+import { CustomerServiceCategoryPage } from '@/features/customer/pages/CustomerServiceCategoryPage'
+import { CustomerServicesPage } from '@/features/customer/pages/CustomerServicesPage'
 import { FoundationPage } from '@/features/foundation/pages/FoundationPage'
 import { LandingPage } from '@/features/foundation/pages/LandingPage'
 import { DriverAssignmentsPage } from '@/features/driver/pages/DriverAssignmentsPage'
@@ -64,6 +66,7 @@ export const AppRouter = () => (
                 summary="Customer booking, loyalty, order tracking, and premium account interactions live within one modular app shell."
                 primaryLinks={[
                   { to: appPaths.customerHome, label: 'Home' },
+                  { to: appPaths.customerServices, label: 'Services' },
                   { to: appPaths.customerBooking, label: 'New order' },
                   { to: appPaths.customerOrders, label: 'Orders' },
                   { to: appPaths.customerRewards, label: 'Rewards / Wallet' },
@@ -71,15 +74,17 @@ export const AppRouter = () => (
                 ]}
                 mobileNavLinks={[
                   { to: appPaths.customerHome, label: 'Home', icon: '⌂' },
+                  { to: appPaths.customerServices, label: 'Services', icon: '◉' },
                   { to: appPaths.customerOrders, label: 'Orders', icon: '◷' },
                   { to: appPaths.customerBooking, label: 'New', icon: '+' },
-                  { to: appPaths.customerRewards, label: 'Rewards', icon: '★' },
                   { to: appPaths.customerProfile, label: 'More', icon: '☰' },
                 ]}
               />
             }
           >
             <Route path={appPaths.customerHome} element={<CustomerHomePage />} />
+            <Route path={appPaths.customerServices} element={<CustomerServicesPage />} />
+            <Route path={appPaths.customerServiceCategory} element={<CustomerServiceCategoryPage />} />
             <Route path={appPaths.customerBooking} element={<CustomerBookingPage />} />
             <Route path={appPaths.customerOrders} element={<CustomerOrdersPage />} />
             <Route path={appPaths.customerInvoice} element={<CustomerInvoicePage />} />
