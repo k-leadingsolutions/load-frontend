@@ -4,6 +4,7 @@ export * from '@/domain/models/events'
 export * from '@/domain/models/loyalty'
 export * from '@/domain/models/notification'
 export * from '@/domain/models/order'
+export * from '@/domain/models/payment'
 export * from '@/domain/models/pricing'
 export * from '@/domain/models/route'
 export type {

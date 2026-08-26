@@ -24,6 +24,26 @@ const renderPage = () =>
     </QueryClientProvider>,
   )
 
+const goToStepThree = async (user: ReturnType<typeof userEvent.setup>) => {
+  await screen.findByText('Choose pricing mode')
+  await user.click(screen.getByRole('button', { name: /Next: Schedule & address/i }))
+  await waitFor(() => screen.getByText('Pickup address'))
+  await user.click(screen.getByRole('button', { name: /Next: Review & pay/i }))
+  await waitFor(() => screen.getByText('Promotion & rewards'))
+}
+
+const fillCardForm = async (
+  user: ReturnType<typeof userEvent.setup>,
+  cardNumber = '4242 4242 4242 4242',
+) => {
+  await user.type(screen.getByLabelText(/Cardholder name/i), 'Thando Mokoena')
+  await user.clear(screen.getByLabelText(/Card number/i))
+  await user.type(screen.getByLabelText(/Card number/i), cardNumber)
+  await user.type(screen.getByLabelText(/Expiry month/i), '12')
+  await user.type(screen.getByLabelText(/Expiry year/i), '35')
+  await user.type(screen.getByLabelText(/CVV/i), '123')
+}
+
 describe('CustomerBookingPage', () => {
   beforeEach(() => {
     window.localStorage.clear()
@@ -47,7 +67,6 @@ describe('CustomerBookingPage', () => {
     renderPage()
 
     await screen.findByText('Choose pricing mode')
-
     await user.click(screen.getByRole('button', { name: /Next: Schedule & address/i }))
 
     await waitFor(() => {
@@ -63,7 +82,6 @@ describe('CustomerBookingPage', () => {
     await screen.findByText('Choose pricing mode')
     await user.click(screen.getByRole('button', { name: /Next: Schedule & address/i }))
     await waitFor(() => screen.getByText('Pickup address'))
-
     await user.click(screen.getByRole('button', { name: /← Back/i }))
 
     await waitFor(() => {
@@ -75,78 +93,165 @@ describe('CustomerBookingPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByText('Choose pricing mode')
+    await goToStepThree(user)
 
-    // Step 1 → 2
-    await user.click(screen.getByRole('button', { name: /Next: Schedule & address/i }))
-    await waitFor(() => screen.getByText('Pickup address'))
-
-    // Step 2 → 3
-    await user.click(screen.getByRole('button', { name: /Next: Review & pay/i }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Promotion & rewards')).toBeInTheDocument()
-    })
+    expect(screen.getByText('Promotion & rewards')).toBeInTheDocument()
   })
 
   it('places a seeded basket booking via all 3 steps', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByText('Choose pricing mode')
+    await goToStepThree(user)
+    await user.click(screen.getByRole('button', { name: /Apple Pay/i }))
+    await user.click(screen.getByRole('button', { name: /Pay .* with Apple Pay/i }))
 
-    // Step 1 → 2 (default basket already selected)
-    await user.click(screen.getByRole('button', { name: /Next: Schedule & address/i }))
-    await waitFor(() => screen.getByText('Pickup address'))
-
-    // Step 2 → 3 (default address + windows already set)
-    await user.click(screen.getByRole('button', { name: /Next: Review & pay/i }))
-    await waitFor(() => screen.getByText('Promotion & rewards'))
-
-    // Place order
-    await user.click(screen.getByRole('button', { name: /Place order|Placing order/i }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Order booked')).toBeInTheDocument()
-    })
+    expect(await screen.findByText('Payment successful', undefined, { timeout: 4000 })).toBeInTheDocument()
   })
 
   it('shows the Track order CTA on the confirmation screen', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByText('Choose pricing mode')
-    await user.click(screen.getByRole('button', { name: /Next: Schedule & address/i }))
-    await waitFor(() => screen.getByText('Pickup address'))
-    await user.click(screen.getByRole('button', { name: /Next: Review & pay/i }))
-    await waitFor(() => screen.getByText('Promotion & rewards'))
-    await user.click(screen.getByRole('button', { name: /Place order|Placing order/i }))
+    await goToStepThree(user)
+    await user.click(screen.getByRole('button', { name: /Apple Pay/i }))
+    await user.click(screen.getByRole('button', { name: /Pay .* with Apple Pay/i }))
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: 'Track order' })).toBeInTheDocument()
-    })
+    }, { timeout: 4000 })
   })
 
   it('shows weight-based estimate disclaimer on step 3 for per-kilogram flow', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    // Step 1: select per kg and add a service
     await user.click(await screen.findByRole('button', { name: /pay per kilogram/i }))
     await user.click(screen.getByRole('button', { name: /increase wash \+ dry \+ fold/i }))
-
-    // Step 1 → 2
     await user.click(screen.getByRole('button', { name: /Next: Schedule & address/i }))
     await waitFor(() => screen.getByText('Pickup address'))
-
-    // Step 2 → 3
     await user.click(screen.getByRole('button', { name: /Next: Review & pay/i }))
     await waitFor(() => screen.getByText('Promotion & rewards'))
 
+    expect(
+      await screen.findByText(/estimated amount — final total confirmed after collection and weighing\./i, undefined, {
+        timeout: 4000,
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows tip selector on step 3', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await goToStepThree(user)
+
+    expect(screen.getByText('Tip Your Driver')).toBeInTheDocument()
+  })
+
+  it('shows payment method selector on step 3', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await goToStepThree(user)
+
+    expect(screen.getByText('Payment Method')).toBeInTheDocument()
+  })
+
+  it('selecting Apple Pay shows correct CTA', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await goToStepThree(user)
+    await user.click(screen.getByRole('button', { name: /Apple Pay/i }))
+
+    expect(screen.getByRole('button', { name: /Pay .* with Apple Pay/i })).toBeInTheDocument()
+  })
+
+  it('selecting card payment shows card form', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await goToStepThree(user)
+    await user.click(screen.getByRole('button', { name: /Credit \/ Debit Card/i }))
+
+    expect(screen.getByLabelText(/Card number/i)).toBeInTheDocument()
+  })
+
+  it('driver tip does not affect free-delivery threshold', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await goToStepThree(user)
+    const freeDeliveryGap = await screen.findByText(/to go/i)
+    expect(freeDeliveryGap).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'R20' }))
+
+    expect(
+      screen.getByText((_, element) => element?.textContent === freeDeliveryGap.textContent),
+    ).toBeInTheDocument()
+  })
+
+  it('Apple Pay mock payment succeeds and shows confirmation', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await goToStepThree(user)
+    await user.click(screen.getByRole('button', { name: /Apple Pay/i }))
+    await user.click(screen.getByRole('button', { name: /Pay .* with Apple Pay/i }))
+
+    expect(await screen.findByText('Payment successful', undefined, { timeout: 4000 })).toBeInTheDocument()
+  })
+
+  it('card payment mock succeeds with valid card number', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await goToStepThree(user)
+    await user.click(screen.getByRole('button', { name: /Credit \/ Debit Card/i }))
+    await fillCardForm(user)
+    await user.click(screen.getByRole('button', { name: /Pay by card/i }))
+
+    expect(await screen.findByText('Payment successful', undefined, { timeout: 4000 })).toBeInTheDocument()
+  })
+
+  it('card payment fails with declined card ending 0000', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await goToStepThree(user)
+    await user.click(screen.getByRole('button', { name: /Credit \/ Debit Card/i }))
+    await fillCardForm(user, '4000 0000 0000 0000')
+    await user.click(screen.getByRole('button', { name: /Pay by card/i }))
+
+    expect(await screen.findByText('Payment failed', undefined, { timeout: 4000 })).toBeInTheDocument()
+    expect(screen.getByText('Card declined')).toBeInTheDocument()
+  })
+
+  it('retry after payment failure', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await goToStepThree(user)
+    await user.click(screen.getByRole('button', { name: /Credit \/ Debit Card/i }))
+    await fillCardForm(user, '4000 0000 0000 0000')
+    await user.click(screen.getByRole('button', { name: /Pay by card/i }))
+
+    expect(await screen.findByText('Payment failed', undefined, { timeout: 4000 })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Card number/i)).toHaveValue('4000 0000 0000 0000')
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+
     await waitFor(() => {
-      expect(
-        screen.getByText(/estimated price\. final amount will be confirmed after collection and weighing\./i),
-      ).toBeInTheDocument()
+      expect(screen.queryByText('Payment failed')).not.toBeInTheDocument()
     })
+    expect(screen.getByLabelText(/Card number/i)).toHaveValue('4000 0000 0000 0000')
+
+    await user.clear(screen.getByLabelText(/Card number/i))
+    await user.type(screen.getByLabelText(/Card number/i), '4242 4242 4242 4242')
+    await user.click(screen.getByRole('button', { name: /Pay by card/i }))
+
+    expect(await screen.findByText('Payment successful', undefined, { timeout: 4000 })).toBeInTheDocument()
   })
 })

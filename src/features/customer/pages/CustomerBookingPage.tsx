@@ -16,8 +16,12 @@ import { BookingSummaryCard } from '@/features/customer/booking/BookingSummaryCa
 import { AddressSetupForm } from '@/features/customer/booking/AddressSetupForm'
 import { bookingWindows } from '@/features/customer/booking/bookingOptions'
 import { QuantitySelector } from '@/features/customer/booking/QuantitySelector'
+import type { CardPaymentDetails, LaundryOrder, PaymentMethodType, PaymentResult, TipSelection } from '@/domain/models'
+import { DriverTipSelector } from '@/features/customer/checkout/DriverTipSelector'
+import { OrderSummaryPanel } from '@/features/customer/checkout/OrderSummaryPanel'
+import { PaymentMethodSelector } from '@/features/customer/checkout/PaymentMethodSelector'
 import { appPaths } from '@/app/router/paths'
-import { mockCatalogueService, mockCustomerOrderService } from '@/services/mock'
+import { mockCatalogueService, mockCustomerOrderService, mockPaymentService } from '@/services/mock'
 import { formatCurrency } from '@/utils/format'
 
 const bookingSchema = z
@@ -88,7 +92,11 @@ export const CustomerBookingPage = () => {
   const [step, setStep] = useState<BookingStep>(1)
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
-  const [placedOrderId, setPlacedOrderId] = useState<string | null>(null)
+  const [placedOrder, setPlacedOrder] = useState<LaundryOrder | null>(null)
+  const [tip, setTip] = useState<TipSelection>({ type: 'NONE', amount: 0 })
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType | null>(null)
+  const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null)
+  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false)
   const catalogueQuery = useQuery({
     queryKey: ['service-catalogue'],
     queryFn: () => mockCatalogueService.getCatalogue(),
@@ -189,11 +197,14 @@ export const CustomerBookingPage = () => {
           addOnId,
           quantity,
         }))
+      const finalAddOnSelections = values.expressRequested
+        ? [...addOnSelections, { addOnId: 'addon-express', quantity: 1 }]
+        : addOnSelections
       const response = await mockCustomerOrderService.placeOrder({
         customerId: user!.id,
         ...(values.pricingModel === 'PER_BASKET' && values.basketSizeId ? { basketSizeId: values.basketSizeId } : {}),
         serviceSelections,
-        addOnSelections,
+        addOnSelections: finalAddOnSelections,
         pickupAddressId: values.pickupAddressId,
         deliveryAddressId: values.deliveryAddressId,
         pickupWindow: values.pickupWindow,
@@ -205,11 +216,9 @@ export const CustomerBookingPage = () => {
       if (response.status === 'error' || !response.data) {
         throw new Error(response.error?.message ?? 'Unable to place order.')
       }
-
       return response.data
     },
-    onSuccess: (order) => {
-      setPlacedOrderId(order.id)
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customer-orders'] })
     },
   })
@@ -234,19 +243,18 @@ export const CustomerBookingPage = () => {
   const { basketSizes, services, addOns, promotions } = catalogueQuery.data.data
   const hasAddresses = user.addresses.length > 0
   const serviceQuantitiesError = typeof errors.serviceQuantities?.message === 'string' ? errors.serviceQuantities.message : null
+  const visibleAddOns = addOns.filter((addOn) => addOn.id !== 'addon-express')
+  const expressAddOn = addOns.find((addOn) => addOn.id === 'addon-express')
+  const isWeightBasedOrder = watchedValues.pricingModel === 'PER_KILOGRAM'
+  const payableTotal = (quoteQuery.data?.estimatedTotal ?? 0) + tip.amount
+  const showPaymentFailure = paymentResult?.status === 'FAILED' || paymentResult?.status === 'CANCELLED'
+  const showConfirmation = Boolean(placedOrder)
+    && (isWeightBasedOrder || paymentResult?.status === 'SUCCEEDED' || paymentResult?.status === 'AUTHORIZED')
 
   const updateQuantity = (field: 'serviceQuantities' | 'addOnQuantities', itemId: string, quantity: number) => {
     const current = getValues(field)
     setValue(field, { ...current, [itemId]: quantity }, { shouldDirty: true, shouldValidate: true })
   }
-
-  const onSubmit = handleSubmit(async (values) => {
-    try {
-      await placeOrderMutation.mutateAsync(values)
-    } catch (error) {
-      setToast({ message: error instanceof Error ? error.message : 'Unable to place order.', tone: 'error' })
-    }
-  })
 
   const goNext = () => {
     const values = getValues()
@@ -276,30 +284,132 @@ export const CustomerBookingPage = () => {
 
   const goBack = () => setStep((s) => (s - 1) as BookingStep)
 
+  const ensureOrder = async (values: BookingFormValues) => {
+    if (placedOrder) {
+      return placedOrder
+    }
+
+    const order = await placeOrderMutation.mutateAsync(values)
+    setPlacedOrder(order)
+    return order
+  }
+
+  const processCheckout = async (method: PaymentMethodType, cardDetails?: CardPaymentDetails) => {
+    const submitPayment = handleSubmit(async (values) => {
+      try {
+        setToast(null)
+        setPaymentResult(null)
+        const order = await ensureOrder(values)
+        setIsPaymentProcessing(true)
+
+        const result = method === 'APPLE_PAY'
+          ? await mockPaymentService.processApplePay({
+              orderId: order.id,
+              amount: payableTotal,
+              paymentMethod: 'APPLE_PAY',
+              tip,
+            })
+          : await mockPaymentService.processCardPayment({
+              orderId: order.id,
+              amount: payableTotal,
+              paymentMethod: 'CARD',
+              tip,
+              cardDetails: cardDetails!,
+            })
+
+        setPaymentMethod(method)
+        setPaymentResult(result)
+      } catch (error) {
+        setToast({ message: error instanceof Error ? error.message : 'Unable to complete payment.', tone: 'error' })
+      } finally {
+        setIsPaymentProcessing(false)
+      }
+    })
+
+    await submitPayment()
+  }
+
+  const confirmWeightBasedOrder = async () => {
+    const submitOrder = handleSubmit(async (values) => {
+      try {
+        setToast(null)
+        await ensureOrder(values)
+      } catch (error) {
+        setToast({ message: error instanceof Error ? error.message : 'Unable to place order.', tone: 'error' })
+      }
+    })
+
+    await submitOrder()
+  }
+
+  const resetBookingFlow = () => {
+    setPlacedOrder(null)
+    setPaymentMethod(null)
+    setPaymentResult(null)
+    setTip({ type: 'NONE', amount: 0 })
+    setIsPaymentProcessing(false)
+    setStep(1)
+  }
+
   // ── Confirmation screen ─────────────────────────────────────────────────────
-  if (placedOrderId) {
+  if (showConfirmation && placedOrder) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center p-4">
-        <Card variant="elevated" className="w-full max-w-md space-y-6 text-center">
+        <Card variant="elevated" className="w-full max-w-lg space-y-6 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-status-success/15">
             <span className="text-3xl text-status-success" aria-hidden="true">✓</span>
           </div>
           <div>
-            <h2 className="text-heading text-ink">Order booked</h2>
-            <p className="mt-2 text-body text-muted">Your booking has been received and is ready for the LOAD team.</p>
+            <h2 className="text-heading text-ink">{paymentResult ? 'Payment successful' : 'Order confirmed'}</h2>
+            <p className="mt-2 text-body text-muted">
+              {paymentResult
+                ? 'Your booking and payment are confirmed. We’ll keep you updated every step of the way.'
+                : 'Your booking has been confirmed. Final payment will be requested once the order is weighed.'}
+            </p>
           </div>
-          <div className="rounded-card bg-load-50 p-4 text-sm">
-            <p className="text-muted">Order reference</p>
-            <p className="mt-1 text-title text-ink">#{placedOrderId}</p>
-            {quoteQuery.data ? (
-              <p className="mt-2 font-semibold text-load-700">{formatCurrency(quoteQuery.data.estimatedTotal)}</p>
-            ) : null}
+          <div className="rounded-card bg-load-50 p-4 text-left text-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-load-100 pb-3">
+              <span className="text-muted">Order reference</span>
+              <span className="text-title text-ink">#{placedOrder.id}</span>
+            </div>
+            <div className="space-y-3 pt-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted">{paymentResult ? 'Amount paid' : 'Estimated amount'}</span>
+                <span className="font-semibold text-load-700">{formatCurrency(payableTotal)}</span>
+              </div>
+              {paymentResult ? (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted">Payment method</span>
+                  <span className="font-semibold text-ink">
+                    {paymentResult.paymentMethod === 'APPLE_PAY' ? 'Apple Pay' : 'Credit / Debit Card'}
+                  </span>
+                </div>
+              ) : null}
+              {tip.amount > 0 ? (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted">Driver tip</span>
+                  <span className="font-semibold text-ink">{formatCurrency(tip.amount)}</span>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted">Loyalty points earned</span>
+                <span className="font-semibold text-ink">{placedOrder.loyaltyPointsEarned}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted">Pickup window</span>
+                <span className="font-semibold text-ink">{placedOrder.pickupWindow.windowLabel}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted">Delivery window</span>
+                <span className="font-semibold text-ink">{placedOrder.deliveryWindow.windowLabel}</span>
+              </div>
+            </div>
           </div>
           <div className="space-y-3">
             <Link to={appPaths.customerOrders} className="block">
               <Button fullWidth>Track order</Button>
             </Link>
-            <Button variant="ghost" fullWidth onClick={() => { setPlacedOrderId(null); setStep(1) }}>
+            <Button variant="ghost" fullWidth onClick={resetBookingFlow}>
               Book another
             </Button>
           </div>
@@ -401,7 +511,7 @@ export const CustomerBookingPage = () => {
         </div>
       ) : null}
 
-      <form className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]" onSubmit={onSubmit}>
+      <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
         <div className="space-y-6">
 
           {/* ── Step 1: Service selection ──────────────────────────────────── */}
@@ -485,7 +595,7 @@ export const CustomerBookingPage = () => {
                 <h2 className="text-heading text-ink">Add-ons and upsells</h2>
                 <p className="mt-1 text-body text-muted">Boost order value with premium add-ons and express turnaround.</p>
                 <div className="mt-5 grid gap-4">
-                  {addOns.map((addOn) => (
+                  {visibleAddOns.map((addOn) => (
                     <QuantitySelector
                       key={addOn.id}
                       label={addOn.name}
@@ -684,30 +794,132 @@ export const CustomerBookingPage = () => {
                   <input type="checkbox" {...register('expressRequested')} />
                   <div>
                     <p className="text-sm font-semibold text-ink">Express turnaround</p>
-                    <p className="text-caption text-muted">Priority same-day processing where available — {formatCurrency(79)}</p>
+                    <p className="text-caption text-muted">
+                      Priority same-day processing where available — {formatCurrency(expressAddOn?.price ?? 79)}
+                    </p>
                   </div>
                 </label>
               </div>
 
-              <div className="flex items-center gap-3">
-                <Button variant="outline" type="button" onClick={goBack}>
+              <DriverTipSelector value={tip} onChange={setTip} />
+
+              {isWeightBasedOrder ? (
+                <Card className="space-y-3">
+                  <h3 className="text-title text-ink">Payment Method</h3>
+                  <p className="text-body text-muted">
+                    Final payment is not required yet. We’ll confirm the total after collection and weighing.
+                  </p>
+                </Card>
+              ) : (
+                <PaymentMethodSelector
+                  selected={paymentMethod}
+                  onChange={(method) => {
+                    setPaymentMethod(method)
+                    setPaymentResult(null)
+                  }}
+                  payableTotal={payableTotal}
+                  onApplePay={() => {
+                    void processCheckout('APPLE_PAY')
+                  }}
+                  onCardSubmit={(details) => {
+                    void processCheckout('CARD', details)
+                  }}
+                  onCardCancel={() => {
+                    setPaymentMethod(null)
+                    setPaymentResult(null)
+                  }}
+                  isProcessing={isPaymentProcessing || placeOrderMutation.isPending}
+                />
+              )}
+
+              {showPaymentFailure ? (
+                <Card className="space-y-4 border-status-error/40">
+                  <div>
+                    <h3 className="text-title text-status-error">
+                      {paymentResult?.status === 'CANCELLED' ? 'Payment cancelled' : 'Payment failed'}
+                    </h3>
+                    <p className="mt-1 text-body text-muted">
+                      {paymentResult?.failureReason ?? 'Please review your payment details and try again.'}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setPaymentResult(null)
+                        setToast({ message: 'Please review your payment details and try again.', tone: 'error' })
+                      }}
+                    >
+                      Retry
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setPaymentMethod(null)
+                        setPaymentResult(null)
+                      }}
+                    >
+                      Change method
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setPaymentResult(null)
+                        goBack()
+                      }}
+                    >
+                      Back to checkout
+                    </Button>
+                  </div>
+                </Card>
+              ) : null}
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button variant="outline" type="button" onClick={goBack} disabled={isPaymentProcessing}>
                   ← Back
                 </Button>
+                {isWeightBasedOrder ? (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      void confirmWeightBasedOrder()
+                    }}
+                    loading={placeOrderMutation.isPending}
+                    disabled={!quoteQuery.data || !hasAddresses}
+                  >
+                    Confirm Order
+                  </Button>
+                ) : paymentMethod === null ? (
+                  <Button type="button" disabled>
+                    Select payment method
+                  </Button>
+                ) : paymentMethod === 'CARD' ? (
+                  <p className="text-sm text-muted">Enter your card details above to complete your booking.</p>
+                ) : null}
               </div>
             </>
           ) : null}
 
         </div>
 
-        <BookingSummaryCard
-          canSubmit={step === 3 && Boolean(quoteQuery.data) && hasAddresses}
-          isSubmitting={isSubmitting || placeOrderMutation.isPending || quoteQuery.isFetching}
-          onSubmit={() => {
-            void onSubmit()
-          }}
-          quote={quoteQuery.data ?? null}
-        />
-      </form>
+        {step === 3 ? (
+          <OrderSummaryPanel
+            quote={quoteQuery.data ?? null}
+            tip={tip}
+            isWeightBased={Boolean(quoteQuery.data?.estimatedWeightKg) || isWeightBasedOrder}
+          />
+        ) : (
+          <BookingSummaryCard
+            canSubmit={false}
+            isSubmitting={isSubmitting || placeOrderMutation.isPending || quoteQuery.isFetching}
+            onSubmit={() => undefined}
+            quote={quoteQuery.data ?? null}
+          />
+        )}
+      </div>
     </div>
   )
 }

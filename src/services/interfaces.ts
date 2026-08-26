@@ -16,6 +16,9 @@ import type {
 } from '@/services/contracts'
 import type {
   AppNotification,
+  ApplePayPaymentRequest,
+  CardPaymentRequest,
+  CreatePaymentRequest,
   Invoice,
   Route,
   RouteStop,
@@ -28,6 +31,7 @@ import type {
   LoyaltyTransaction,
   DomainEvent,
   DomainEventType,
+  PaymentResult,
   PaymentStatus,
   PosSyncStatus,
 } from '@/domain/models'
@@ -58,6 +62,13 @@ export interface CustomerOrderService {
   listOrders(customerId: string): Promise<CustomerOrdersResponse>
   getOrder(orderId: string): Promise<CustomerOrderResponse>
   placeOrder(request: PlaceOrderRequest): Promise<CustomerOrderResponse>
+}
+
+export interface PaymentService {
+  createPayment(request: CreatePaymentRequest): Promise<PaymentResult>
+  processApplePay(request: ApplePayPaymentRequest): Promise<PaymentResult>
+  processCardPayment(request: CardPaymentRequest): Promise<PaymentResult>
+  getPaymentStatus(paymentId: string): Promise<PaymentResult>
 }
 
 // ─── Weight pricing ───────────────────────────────────────────────────────────

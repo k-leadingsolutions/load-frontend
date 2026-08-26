@@ -1,5 +1,6 @@
 import type { PricingQuote } from '@/domain/models'
 import { getFriendlyOrderStatus, ORDER_STATUS_MODEL } from '@/domain/orderStatus'
+import { approvedAddOns } from '@/services/mock/approvedLaundryCatalogue'
 import {
   mockAddOns,
   mockBasketSizes,
@@ -28,6 +29,7 @@ import {
   mockRouteService,
   mockWeightPricingService,
 } from '@/services/mock/extendedMocks'
+import { mockPaymentService } from '@/services/mock/mockPaymentService'
 import type {
   AdminService,
   AuthService,
@@ -89,7 +91,7 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
 
   const addOnItems = request.addOnSelections.flatMap((selection) => {
     const addOn = mockAddOns.find((item) => item.id === selection.addOnId)
-    if (!addOn) {
+    if (!addOn || addOn.id === 'addon-express') {
       return []
     }
 
@@ -114,7 +116,8 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
       }]
     : []
 
-  const expressFee = request.expressRequested ? 79 : 0
+  const expressAddOn = approvedAddOns.find((item) => item.id === 'addon-express')
+  const expressFee = request.expressRequested ? (expressAddOn?.price ?? 79) : 0
   const subtotal = [...basketItem, ...serviceItems, ...addOnItems].reduce(
     (sum, item) => sum + item.totalPrice,
     0,
@@ -561,6 +564,8 @@ export const mockAdminService: AdminService = {
     return successResponse(mockDashboardMetrics, 390)
   },
 }
+
+export { mockPaymentService }
 
 // Re-export extended mocks for convenience
 export {
