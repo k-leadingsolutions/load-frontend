@@ -1,0 +1,721 @@
+import { useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Link } from 'react-router-dom'
+import { useAuth } from '@/app/providers/useAuth'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState } from '@/components/ui/ErrorState'
+import { LoadingState } from '@/components/ui/LoadingState'
+import { Modal } from '@/components/ui/Modal'
+import { Toast } from '@/components/ui/Toast'
+import { BookingSummaryCard } from '@/features/customer/booking/BookingSummaryCard'
+import { AddressSetupForm } from '@/features/customer/booking/AddressSetupForm'
+import { bookingWindows } from '@/features/customer/booking/bookingOptions'
+import { QuantitySelector } from '@/features/customer/booking/QuantitySelector'
+import type { LaundryOrder } from '@/domain/models'
+import { appPaths } from '@/app/router/paths'
+import { mockCatalogueService, mockCustomerOrderService } from '@/services/mock'
+import { formatCurrency } from '@/utils/format'
+
+const bookingSchema = z
+  .object({
+    serviceQuantities: z.record(z.string(), z.number().int().min(0)),
+    addOnQuantities: z.record(z.string(), z.number().int().min(0)),
+    pickupAddressId: z.string().min(1, 'Pickup address is required.'),
+    deliveryAddressId: z.string().min(1, 'Delivery address is required.'),
+    pickupWindow: z.string().min(1, 'Pickup window is required.'),
+    deliveryWindow: z.string().min(1, 'Delivery window is required.'),
+    promotionCode: z.string().optional(),
+    expressRequested: z.boolean(),
+    useLoyaltyPoints: z.boolean(),
+  })
+  .superRefine((values, context) => {
+    const hasServiceSelection = Object.values(values.serviceQuantities).some((quantity) => quantity > 0)
+
+    if (!hasServiceSelection) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Select at least one service item.',
+        path: ['serviceQuantities'],
+      })
+    }
+  })
+
+type BookingFormValues = z.infer<typeof bookingSchema>
+type BookingStep = 1 | 2 | 3
+
+const STEP_LABELS: Record<BookingStep, string> = {
+  1: 'Services',
+  2: 'Collection & delivery',
+  3: 'Review',
+}
+
+export const CustomerBookingPage = () => {
+  const { user, saveAddress } = useAuth()
+  const queryClient = useQueryClient()
+  const [step, setStep] = useState<BookingStep>(1)
+  const [showAddressModal, setShowAddressModal] = useState(false)
+  const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
+  const [placedOrder, setPlacedOrder] = useState<LaundryOrder | null>(null)
+  const catalogueQuery = useQuery({
+    queryKey: ['service-catalogue'],
+    queryFn: () => mockCatalogueService.getCatalogue(),
+  })
+  const {
+    register,
+    handleSubmit,
+    control,
+    getValues,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<BookingFormValues>({
+    resolver: zodResolver(bookingSchema),
+    defaultValues: {
+      serviceQuantities: {},
+      addOnQuantities: {},
+      pickupAddressId: user?.defaultAddressId ?? '',
+      deliveryAddressId: user?.defaultAddressId ?? '',
+      pickupWindow: bookingWindows[0]!,
+      deliveryWindow: bookingWindows[1]!,
+      promotionCode: '',
+      expressRequested: false,
+      useLoyaltyPoints: false,
+    },
+  })
+  const watchedValues = useWatch({ control })
+
+  const quoteRequest = useMemo(() => {
+    const serviceSelections = Object.entries(watchedValues.serviceQuantities ?? {})
+      .filter(([, quantity]) => (quantity ?? 0) > 0)
+      .map(([serviceId, quantity]) => ({
+        serviceId,
+        quantity: quantity ?? 0,
+      }))
+
+    const addOnSelections = Object.entries(watchedValues.addOnQuantities ?? {})
+      .filter(([, quantity]) => (quantity ?? 0) > 0)
+      .map(([addOnId, quantity]) => ({
+        addOnId,
+        quantity: quantity ?? 0,
+      }))
+
+    if (serviceSelections.length === 0) {
+      return null
+    }
+
+    return {
+      serviceSelections,
+      addOnSelections,
+      ...(watchedValues.promotionCode ? { promotionCode: watchedValues.promotionCode } : {}),
+      expressRequested: watchedValues.expressRequested ?? false,
+      ...((watchedValues.useLoyaltyPoints ?? false) ? { useLoyaltyPoints: true } : {}),
+    }
+  }, [watchedValues])
+
+  const quoteQuery = useQuery({
+    queryKey: ['pricing-quote', quoteRequest],
+    queryFn: async () => {
+      if (!quoteRequest) {
+        return null
+      }
+
+      const response = await mockCatalogueService.getQuote(quoteRequest)
+      if (response.status === 'error' || !response.data) {
+        throw new Error(response.error?.message ?? 'Unable to calculate quote.')
+      }
+
+      return response.data
+    },
+    enabled: Boolean(quoteRequest),
+  })
+
+  const placeOrderMutation = useMutation({
+    mutationFn: async (values: BookingFormValues) => {
+      const serviceSelections = Object.entries(values.serviceQuantities)
+        .filter(([, quantity]) => quantity > 0)
+        .map(([serviceId, quantity]) => ({
+          serviceId,
+          quantity,
+        }))
+      const addOnSelections = Object.entries(values.addOnQuantities)
+        .filter(([, quantity]) => quantity > 0)
+        .map(([addOnId, quantity]) => ({
+          addOnId,
+          quantity,
+        }))
+      const finalAddOnSelections = values.expressRequested
+        ? [...addOnSelections, { addOnId: 'addon-express', quantity: 1 }]
+        : addOnSelections
+      const response = await mockCustomerOrderService.placeOrder({
+        customerId: user!.id,
+        serviceSelections,
+        addOnSelections: finalAddOnSelections,
+        pickupAddressId: values.pickupAddressId,
+        deliveryAddressId: values.deliveryAddressId,
+        pickupWindow: values.pickupWindow,
+        deliveryWindow: values.deliveryWindow,
+        ...(values.promotionCode ? { promotionCode: values.promotionCode } : {}),
+        ...(values.useLoyaltyPoints ? { useLoyaltyPoints: true } : {}),
+      })
+
+      if (response.status === 'error' || !response.data) {
+        throw new Error(response.error?.message ?? 'Unable to place order.')
+      }
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customer-orders'] })
+    },
+  })
+
+  if (!user) {
+    return <ErrorState title="Customer account unavailable" message="Please sign in again to continue." />
+  }
+
+  if (catalogueQuery.isLoading) {
+    return <LoadingState />
+  }
+
+  if (catalogueQuery.isError || catalogueQuery.data?.status === 'error' || !catalogueQuery.data?.data) {
+    return (
+      <ErrorState
+        title="Unable to load booking options"
+        message={catalogueQuery.error instanceof Error ? catalogueQuery.error.message : 'Unknown error'}
+      />
+    )
+  }
+
+  const { services, addOns } = catalogueQuery.data.data
+  const hasAddresses = user.addresses.length > 0
+  const serviceQuantitiesError = typeof errors.serviceQuantities?.message === 'string' ? errors.serviceQuantities.message : null
+  const visibleAddOns = addOns.filter((addOn) => addOn.id !== 'addon-express')
+  const expressAddOn = addOns.find((addOn) => addOn.id === 'addon-express')
+  // An order is weight-based if any selected service uses PER_KILOGRAM pricing
+  const selectedServiceIds = Object.entries(watchedValues.serviceQuantities ?? {})
+    .filter(([, qty]) => (qty ?? 0) > 0)
+    .map(([id]) => id)
+  const isWeightBasedOrder = services.some(
+    (s) => selectedServiceIds.includes(s.id) && s.pricingModel === 'PER_KILOGRAM',
+  )
+  const selectedServices = services.filter((service) => (watchedValues.serviceQuantities?.[service.id] ?? 0) > 0)
+  const selectedAddOns = visibleAddOns.filter((addOn) => (watchedValues.addOnQuantities?.[addOn.id] ?? 0) > 0)
+  const showConfirmation = placedOrder !== null
+
+  const updateQuantity = (field: 'serviceQuantities' | 'addOnQuantities', itemId: string, quantity: number) => {
+    const current = getValues(field)
+    setValue(field, { ...current, [itemId]: quantity }, { shouldDirty: true, shouldValidate: true })
+  }
+
+  const goNext = () => {
+    const values = getValues()
+    if (step === 1) {
+      const hasServiceSelection = Object.values(values.serviceQuantities).some((q) => q > 0)
+      if (!hasServiceSelection) {
+        setToast({ message: 'Please select at least one service to continue.', tone: 'error' })
+        return
+      }
+    }
+    if (step === 2) {
+      if (!values.pickupAddressId) {
+        setToast({ message: 'Please select a pickup address.', tone: 'error' })
+        return
+      }
+      if (!values.deliveryAddressId) {
+        setToast({ message: 'Please select a delivery address.', tone: 'error' })
+        return
+      }
+    }
+    setStep((s) => (s + 1) as BookingStep)
+  }
+
+  const goBack = () => setStep((s) => (s - 1) as BookingStep)
+
+  const ensureOrder = async (values: BookingFormValues) => {
+    if (placedOrder) {
+      return placedOrder
+    }
+
+    const order = await placeOrderMutation.mutateAsync(values)
+    setPlacedOrder(order)
+    return order
+  }
+
+  const confirmOrder = async () => {
+    const submitOrder = handleSubmit(async (values) => {
+      try {
+        setToast(null)
+        await ensureOrder(values)
+      } catch (error) {
+        setToast({ message: error instanceof Error ? error.message : 'Unable to place order.', tone: 'error' })
+      }
+    })
+
+    await submitOrder()
+  }
+
+  const confirmWeightBasedOrder = async () => {
+    await confirmOrder()
+  }
+
+  const resetBookingFlow = () => {
+    setPlacedOrder(null)
+    setToast(null)
+    setStep(1)
+  }
+
+  // ── Confirmation screen ─────────────────────────────────────────────────────
+  if (showConfirmation && placedOrder) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center p-4">
+        <Card variant="elevated" className="w-full max-w-lg space-y-6 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-status-success/15">
+            <span className="text-3xl text-status-success" aria-hidden="true">✓</span>
+          </div>
+          <div>
+            <h2 className="text-heading text-ink">Order confirmed</h2>
+            <p className="mt-2 text-body text-muted">
+              Your order is confirmed! Once your laundry is weighed we'll send you a payment request.
+            </p>
+          </div>
+          <div className="rounded-card bg-load-50 p-4 text-left text-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-load-100 pb-3">
+              <span className="text-muted">Order reference</span>
+              <span className="text-title text-ink">#{placedOrder.id}</span>
+            </div>
+            <div className="space-y-3 pt-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted">Estimated amount</span>
+                <span className="font-semibold text-load-700">
+                  {formatCurrency(quoteQuery.data?.estimatedTotal ?? placedOrder.estimatedTotal)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted">Pickup window</span>
+                <span className="font-semibold text-ink">{placedOrder.pickupWindow.windowLabel}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted">Delivery window</span>
+                <span className="font-semibold text-ink">{placedOrder.deliveryWindow.windowLabel}</span>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <Link to={appPaths.customerOrders} className="block">
+              <Button fullWidth>Track order</Button>
+            </Link>
+            <Button variant="ghost" fullWidth onClick={resetBookingFlow}>
+              Book another
+            </Button>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Address modal */}
+      <Modal open={showAddressModal} onClose={() => setShowAddressModal(false)} title="Add new address">
+        <AddressSetupForm
+          onSave={(values) => {
+            const address = saveAddress({
+              label: values.label,
+              line1: values.line1,
+              suburb: values.suburb,
+              city: values.city,
+              province: values.province,
+              postalCode: values.postalCode,
+              ...(values.deliveryInstructions ? { deliveryInstructions: values.deliveryInstructions } : {}),
+              isDefault: false,
+            })
+            if (address) {
+              setValue('pickupAddressId', address.id, { shouldValidate: true })
+              setValue('deliveryAddressId', address.id, { shouldValidate: true })
+            }
+            setShowAddressModal(false)
+          }}
+        />
+      </Modal>
+
+      {/* Toast notifications */}
+      {toast ? <Toast message={toast.message} tone={toast.tone} onDismiss={() => setToast(null)} /> : null}
+
+      {/* Stepper header */}
+      <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
+        <div className="flex items-center gap-2 overflow-x-auto">
+          {([1, 2, 3] as BookingStep[]).map((num) => {
+            const isDone = step > num
+            const isCurrent = step === num
+            return (
+              <div key={num} className="flex flex-shrink-0 items-center gap-2">
+                {num > 1 ? (
+                  <div className={`h-px w-8 transition ${step >= num ? 'bg-load-600' : 'bg-load-100'}`} />
+                ) : null}
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition ${
+                    isDone
+                      ? 'bg-load-600 text-white'
+                      : isCurrent
+                        ? 'bg-load-600 text-white ring-4 ring-load-100'
+                        : 'border border-load-200 bg-load-50 text-muted'
+                  }`}
+                >
+                  {isDone ? '✓' : num}
+                </div>
+                <span
+                  className={`text-sm font-semibold transition ${
+                    isCurrent ? 'text-load-700' : isDone ? 'text-ink' : 'text-muted'
+                  }`}
+                >
+                  {STEP_LABELS[num]}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* No addresses prompt (shown above stepper content when there are no saved addresses) */}
+      {!hasAddresses && step === 2 ? (
+        <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
+          <EmptyState
+            title="No saved addresses yet"
+            description="Add a pickup address before scheduling your collection."
+          />
+          <div className="mt-6">
+            <AddressSetupForm
+              onSave={(values) => {
+                const address = saveAddress({
+                  label: values.label,
+                  line1: values.line1,
+                  suburb: values.suburb,
+                  city: values.city,
+                  province: values.province,
+                  postalCode: values.postalCode,
+                  ...(values.deliveryInstructions ? { deliveryInstructions: values.deliveryInstructions } : {}),
+                  isDefault: true,
+                })
+                if (address) {
+                  setValue('pickupAddressId', address.id, { shouldValidate: true })
+                  setValue('deliveryAddressId', address.id, { shouldValidate: true })
+                }
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
+        <div className="space-y-6">
+
+          {/* ── Step 1: Services ──────────────────────────────────────────── */}
+          {step === 1 ? (
+            <>
+              <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
+                <h2 className="text-heading text-ink">Choose your services</h2>
+                <p className="mt-1 text-body text-muted">Choose the garment-care services you need for this order.</p>
+                <div className="mt-5 grid gap-4">
+                  {services.map((service) => (
+                    <QuantitySelector
+                      key={service.id}
+                      label={service.name}
+                      description={`${service.shortDescription} · ${service.turnaroundLabel}${service.pricingModel === 'PER_KILOGRAM' ? ' · Final amount confirmed after weighing' : ''}`}
+                      priceLabel={`${formatCurrency(service.basePrice)} / ${service.unitLabel}`}
+                      quantity={watchedValues.serviceQuantities?.[service.id] ?? 0}
+                      onChange={(quantity) => updateQuantity('serviceQuantities', service.id, quantity)}
+                    />
+                  ))}
+                </div>
+                {serviceQuantitiesError ? (
+                  <p className="mt-3 text-caption text-status-error">{serviceQuantitiesError}</p>
+                ) : null}
+              </div>
+
+              {/* Add-ons */}
+              <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
+                <h2 className="text-heading text-ink">Add-ons and upsells</h2>
+                <p className="mt-1 text-body text-muted">Boost order value with premium add-ons and express turnaround.</p>
+                <div className="mt-5 grid gap-4">
+                  {visibleAddOns.map((addOn) => (
+                    <QuantitySelector
+                      key={addOn.id}
+                      label={addOn.name}
+                      description={addOn.description}
+                      priceLabel={formatCurrency(addOn.price)}
+                      quantity={watchedValues.addOnQuantities?.[addOn.id] ?? 0}
+                      suggestionTag={addOn.suggestionTag}
+                      onChange={(quantity) => updateQuantity('addOnQuantities', addOn.id, quantity)}
+                    />
+                  ))}
+                </div>
+                {expressAddOn ? (
+                  <label
+                    className={`mt-5 flex cursor-pointer items-center gap-3 rounded-card border p-4 transition ${
+                      watchedValues.expressRequested ? 'border-load-500 bg-load-50' : 'border-card-border bg-white'
+                    }`}
+                  >
+                    <input type="checkbox" {...register('expressRequested')} />
+                    <div>
+                      <p className="text-sm font-semibold text-ink">Express turnaround</p>
+                      <p className="text-caption text-muted">
+                        Priority same-day processing where available — {formatCurrency(expressAddOn.price)}
+                      </p>
+                    </div>
+                  </label>
+                ) : null}
+              </div>
+
+              <div className="flex justify-end">
+                <Button type="button" onClick={goNext}>
+                  Next: Collection &amp; delivery →
+                </Button>
+              </div>
+            </>
+          ) : null}
+
+          {/* ── Step 2: Schedule & address ─────────────────────────────────── */}
+          {step === 2 ? (
+            <>
+              {/* Pickup address */}
+              <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-heading text-ink">Pickup address</h2>
+                    <p className="mt-1 text-body text-muted">Where should the driver collect?</p>
+                  </div>
+                  <Button variant="outline" size="sm" type="button" onClick={() => setShowAddressModal(true)}>
+                    Add address
+                  </Button>
+                </div>
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  {user.addresses.map((address) => (
+                    <button
+                      key={address.id}
+                      type="button"
+                      onClick={() => setValue('pickupAddressId', address.id, { shouldValidate: true })}
+                      className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
+                        watchedValues.pickupAddressId === address.id
+                          ? 'border-load-500 bg-load-50 shadow-card'
+                          : 'border-card-border bg-white hover:border-load-200'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-ink">{address.label}</p>
+                      <p className="mt-1 text-body text-muted">{address.line1}, {address.suburb}</p>
+                      {address.city ? <p className="text-caption text-muted">{address.city}</p> : null}
+                    </button>
+                  ))}
+                </div>
+                {errors.pickupAddressId?.message ? (
+                  <p className="mt-3 text-caption text-status-error">{errors.pickupAddressId.message}</p>
+                ) : null}
+              </div>
+
+              {/* Delivery address */}
+              <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
+                <h2 className="text-heading text-ink">Delivery address</h2>
+                <p className="mt-1 text-body text-muted">Where should clean laundry be delivered?</p>
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  {user.addresses.map((address) => (
+                    <button
+                      key={address.id}
+                      type="button"
+                      onClick={() => setValue('deliveryAddressId', address.id, { shouldValidate: true })}
+                      className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
+                        watchedValues.deliveryAddressId === address.id
+                          ? 'border-load-500 bg-load-50 shadow-card'
+                          : 'border-card-border bg-white hover:border-load-200'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-ink">{address.label}</p>
+                      <p className="mt-1 text-body text-muted">{address.line1}, {address.suburb}</p>
+                    </button>
+                  ))}
+                </div>
+                {errors.deliveryAddressId?.message ? (
+                  <p className="mt-3 text-caption text-status-error">{errors.deliveryAddressId.message}</p>
+                ) : null}
+              </div>
+
+              {/* Pickup window */}
+              <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
+                <h2 className="text-heading text-ink">Pickup window</h2>
+                <p className="mt-1 text-body text-muted">Choose a convenient collection time.</p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {bookingWindows.map((windowLabel) => (
+                    <button
+                      key={windowLabel}
+                      type="button"
+                      onClick={() => setValue('pickupWindow', windowLabel, { shouldValidate: true })}
+                      className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
+                        watchedValues.pickupWindow === windowLabel
+                          ? 'border-load-500 bg-load-50 shadow-card'
+                          : 'border-card-border bg-white hover:border-load-200'
+                      }`}
+                    >
+                      <p className="text-body text-ink">{windowLabel}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Delivery window */}
+              <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
+                <h2 className="text-heading text-ink">Delivery window</h2>
+                <p className="mt-1 text-body text-muted">Choose a convenient delivery time.</p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {bookingWindows.map((windowLabel) => (
+                    <button
+                      key={windowLabel}
+                      type="button"
+                      onClick={() => setValue('deliveryWindow', windowLabel, { shouldValidate: true })}
+                      className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
+                        watchedValues.deliveryWindow === windowLabel
+                          ? 'border-load-500 bg-load-50 shadow-card'
+                          : 'border-card-border bg-white hover:border-load-200'
+                      }`}
+                    >
+                      <p className="text-body text-ink">{windowLabel}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <Button variant="outline" type="button" onClick={goBack}>
+                  ← Back
+                </Button>
+                <Button type="button" onClick={goNext}>
+                  Next: Review →
+                </Button>
+              </div>
+            </>
+          ) : null}
+
+          {/* ── Step 3: Review & confirm ───────────────────────────────────── */}
+          {step === 3 ? (
+            <>
+              <div className="rounded-panel border border-card-border bg-white p-5 shadow-card space-y-6">
+                <div>
+                  <h2 className="text-heading text-ink">Review your order</h2>
+                  <p className="mt-1 text-body text-muted">Check your booking details before confirming your LOAD order.</p>
+                </div>
+
+                <Card variant="flat" className="space-y-4">
+                  <div>
+                    <h3 className="text-title text-ink">Selected services</h3>
+                    <p className="mt-1 text-body text-muted">These items will be collected during your chosen pickup window.</p>
+                  </div>
+                  <ul className="space-y-3">
+                    {selectedServices.map((service) => (
+                      <li key={service.id} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-slate-600">
+                          {service.name} × {watchedValues.serviceQuantities?.[service.id] ?? 0}
+                        </span>
+                        <span className="font-semibold text-ink">
+                          {formatCurrency((watchedValues.serviceQuantities?.[service.id] ?? 0) * service.basePrice)}
+                        </span>
+                      </li>
+                    ))}
+                    {selectedAddOns.map((addOn) => (
+                      <li key={addOn.id} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-slate-600">
+                          {addOn.name} × {watchedValues.addOnQuantities?.[addOn.id] ?? 0}
+                        </span>
+                        <span className="font-semibold text-ink">
+                          {formatCurrency((watchedValues.addOnQuantities?.[addOn.id] ?? 0) * addOn.price)}
+                        </span>
+                      </li>
+                    ))}
+                    {watchedValues.expressRequested && expressAddOn ? (
+                      <li className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-slate-600">Express turnaround</span>
+                        <span className="font-semibold text-ink">{formatCurrency(expressAddOn.price)}</span>
+                      </li>
+                    ) : null}
+                  </ul>
+                </Card>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card variant="flat" className="space-y-2">
+                    <h3 className="text-title text-ink">Collection</h3>
+                    <p className="text-sm text-slate-600">{watchedValues.pickupWindow}</p>
+                    <p className="text-sm text-slate-600">
+                      {user.addresses.find((address) => address.id === watchedValues.pickupAddressId)?.line1 ?? 'Address pending'}
+                    </p>
+                  </Card>
+                  <Card variant="flat" className="space-y-2">
+                    <h3 className="text-title text-ink">Delivery</h3>
+                    <p className="text-sm text-slate-600">{watchedValues.deliveryWindow}</p>
+                    <p className="text-sm text-slate-600">
+                      {user.addresses.find((address) => address.id === watchedValues.deliveryAddressId)?.line1 ?? 'Address pending'}
+                    </p>
+                  </Card>
+                </div>
+
+                <Card variant="flat" className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-slate-500">Estimated total</span>
+                    <span className="text-xl font-semibold text-ink">
+                      {formatCurrency(quoteQuery.data?.estimatedTotal ?? 0)}
+                    </span>
+                  </div>
+                  {isWeightBasedOrder ? (
+                    <div className="rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      Estimated amount — final total confirmed after collection and weighing.
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-600">
+                      Payment will be requested after weighing and invoice confirmation.
+                    </p>
+                  )}
+                </Card>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button variant="outline" type="button" onClick={goBack} disabled={placeOrderMutation.isPending}>
+                  ← Back
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    void (isWeightBasedOrder ? confirmWeightBasedOrder() : confirmOrder())
+                  }}
+                  loading={placeOrderMutation.isPending}
+                  disabled={!quoteQuery.data || !hasAddresses}
+                >
+                  Confirm order →
+                </Button>
+              </div>
+            </>
+          ) : null}
+
+        </div>
+
+        {step === 3 ? (
+          <Card className="space-y-4 xl:sticky xl:top-6">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-load-600">Order estimate</p>
+              <h2 className="mt-2 text-2xl font-semibold text-ink">
+                {quoteQuery.data ? formatCurrency(quoteQuery.data.estimatedTotal) : 'Awaiting quote'}
+              </h2>
+            </div>
+            <p className="text-sm text-slate-500">
+              Your payment request will be sent once your laundry is weighed and your invoice is ready.
+            </p>
+          </Card>
+        ) : (
+          <BookingSummaryCard
+            canSubmit={false}
+            isSubmitting={isSubmitting || placeOrderMutation.isPending || quoteQuery.isFetching}
+            onSubmit={() => undefined}
+            quote={quoteQuery.data ?? null}
+          />
+        )}
+      </div>
+    </div>
+  )
+}

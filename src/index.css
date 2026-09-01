@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* ── Brand colours ───────────────────────────────────────────── */
+  --color-load-primary:    #A8D8FF;   /* load-300 — primary brand */
+  --color-load-interactive: #2a8fd4;  /* load-600 — CTAs / links */
+  --color-load-deep:       #1d72ab;   /* load-700 — dark text blue */
+  --color-load-soft:       #daf0ff;   /* load-100 — light surface */
+  --color-load-bg:         #f5faff;   /* page background */
+  --color-white:           #ffffff;
+
+  /* ── Text colours ────────────────────────────────────────────── */
+  --color-text-primary:    #0f172a;   /* ink */
+  --color-text-muted:      #5e7a93;   /* muted */
+
+  /* ── Status soft surfaces ────────────────────────────────────── */
+  --color-success-soft:    #dcfce7;
+  --color-warning-soft:    #fef3c7;
+  --color-error-soft:      #fee2e2;
+  --color-info-soft:       #daf0ff;
+
+  /* ── Status foregrounds ──────────────────────────────────────── */
+  --color-success:         #16a34a;
+  --color-warning:         #d97706;
+  --color-error:           #dc2626;
+  --color-info:            #2a8fd4;
+
+  /* ── Borders / dividers ──────────────────────────────────────── */
+  --color-card-border:     #daf0ff;
+  --color-divider:         #e1eef8;
+  --color-input-border:    #c0d9ee;
+  --color-input-focus:     #A8D8FF;
+
+  /* ── Control / component tokens ──────────────────────────────── */
+  --color-disabled:        #b8cfe0;
+  --radius-card:           1rem;
+  --radius-panel:          1.5rem;
+  --radius-input:          0.75rem;
+  --radius-modal:          1.25rem;
+  --height-control:        3rem;
+  --height-control-sm:     2.25rem;
+  --height-control-lg:     3.5rem;
+
+  /* ── Shadow tokens ───────────────────────────────────────────── */
+  --shadow-card:  0 2px 12px rgba(15, 23, 42, 0.04);
+  --shadow-panel: 0 4px 24px rgba(15, 23, 42, 0.06);
+  --shadow-glow:  0 8px 32px rgba(168, 216, 255, 0.35);
+  --shadow-modal: 0 20px 60px rgba(15, 23, 42, 0.18);
+  --shadow-input: 0 0 0 3px rgba(168, 216, 255, 0.45);
+
+  color: var(--color-text-primary);
+  background: var(--color-load-bg);
+  font-family: Inter, system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html { scroll-behavior: smooth; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--color-load-bg);
+}
+
+* { box-sizing: border-box; }
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font: inherit; }
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role='button']:focus-visible {
+  outline: 2px solid var(--color-load-interactive);
+  outline-offset: 2px;
+}
+
+#root { min-height: 100vh; }

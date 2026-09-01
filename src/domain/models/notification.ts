@@ -1,0 +1,55 @@
+export type NotificationRole = 'CUSTOMER' | 'DRIVER' | 'OPERATIONS'
+
+export type NotificationType =
+  // Customer
+  | 'PICKUP_SCHEDULED'
+  | 'DRIVER_ASSIGNED'
+  | 'DRIVER_APPROACHING'
+  | 'DRIVER_ARRIVED'
+  | 'WEIGHT_CONFIRMED'
+  | 'PRICE_UPDATED'
+  | 'PAYMENT_REQUIRED'
+  | 'PAYMENT_CONFIRMED'
+  | 'LAUNDRY_RECEIVED'
+  | 'WASHING_STARTED'
+  | 'DRYING_STARTED'
+  | 'QUALITY_ISSUE'
+  | 'READY_FOR_DELIVERY'
+  | 'DELIVERY_SCHEDULED'
+  | 'DELIVERY_RESCHEDULED'
+  | 'DRIVER_OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'LOYALTY_POINTS_EARNED'
+  | 'PROMOTION_AVAILABLE'
+  | 'COFFEE_OFFER'
+  | 'LOAD_PASS_OFFER'
+  // Driver
+  | 'NEW_JOB_ASSIGNED'
+  | 'ROUTE_UPDATED'
+  | 'PICKUP_RESCHEDULED'
+  | 'DRIVER_DELIVERY_RESCHEDULED'
+  | 'DRIVER_PAYMENT_CONFIRMED'
+  | 'CUSTOMER_NOTE_UPDATED'
+  | 'OPERATIONS_INSTRUCTION'
+  | 'STOP_CANCELLED'
+  // Operations
+  | 'OPS_WEIGHT_CAPTURED'
+  | 'OPS_PRICE_ADJUSTMENT'
+  | 'OPS_PAYMENT_PENDING'
+  | 'OPS_PAYMENT_CONFIRMED'
+  | 'OPS_FAILED_COLLECTION'
+  | 'OPS_FAILED_DELIVERY'
+  | 'OPS_DRIVER_DELAY'
+  | 'OPS_QUALITY_ISSUE'
+  | 'OPS_DELIVERY_RESCHEDULED'
+
+export interface AppNotification {
+  id: string
+  type: NotificationType
+  targetRole: NotificationRole
+  title: string
+  body: string
+  orderId?: string
+  isRead: boolean
+  createdAt: string
+}
