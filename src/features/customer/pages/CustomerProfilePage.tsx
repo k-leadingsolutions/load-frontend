@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
+import { Link } from 'react-router-dom'
 import { z } from 'zod'
+import { appPaths } from '@/app/router/paths'
 import { useAuth } from '@/app/providers/useAuth'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { AddressSetupForm } from '@/features/customer/booking/AddressSetupForm'
@@ -136,6 +138,15 @@ export const CustomerProfilePage = () => {
             ))}
           </div>
         </div>
+      </SectionCard>
+
+      <SectionCard title="Support" description="Get help with pricing, payments, and order tracking.">
+        <Link
+          to={appPaths.customerHelp}
+          className="inline-flex items-center justify-center rounded-pill border-2 border-load-600 bg-white px-5 py-3 text-sm font-semibold text-load-600 transition hover:bg-load-50"
+        >
+          Help &amp; Support
+        </Link>
       </SectionCard>
     </div>
   )

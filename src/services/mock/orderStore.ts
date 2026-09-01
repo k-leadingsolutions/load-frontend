@@ -51,6 +51,19 @@ export const listAllStoredOrders = () => readOrdersFromStorage()
 export const getStoredOrder = (orderId: string) =>
   readOrdersFromStorage().find((order) => order.id === orderId)
 
+export const updateStoredOrder = (orderId: string, updater: (order: LaundryOrder) => LaundryOrder) => {
+  const orders = readOrdersFromStorage()
+  const targetOrder = orders.find((order) => order.id === orderId)
+
+  if (!targetOrder) {
+    return null
+  }
+
+  const updatedOrder = updater(targetOrder)
+  writeOrders(orders.map((order) => (order.id === orderId ? updatedOrder : order)))
+  return updatedOrder
+}
+
 export const prependStoredOrder = (order: LaundryOrder) => {
   const orders = readOrdersFromStorage()
   const nextOrders = [order, ...orders.filter((item) => item.id !== order.id)]

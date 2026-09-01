@@ -16,12 +16,15 @@ import { SetNewPasswordPage } from '@/features/auth/pages/SetNewPasswordPage'
 import { SplashPage } from '@/features/auth/pages/SplashPage'
 import { WelcomePage } from '@/features/auth/pages/WelcomePage'
 import { CustomerBookingPage } from '@/features/customer/pages/CustomerBookingPage'
+import { CustomerHelpPage } from '@/features/customer/pages/CustomerHelpPage'
 import { CustomerHomePage } from '@/features/customer/pages/CustomerHomePage'
 import { CustomerInvoicePage } from '@/features/customer/pages/CustomerInvoicePage'
+import { CustomerInvoicePayPage } from '@/features/customer/pages/CustomerInvoicePayPage'
 import { CustomerLoadPassPage } from '@/features/customer/pages/CustomerLoadPassPage'
 import { CustomerNotificationsPage } from '@/features/customer/pages/CustomerNotificationsPage'
 import { CustomerOrdersPage } from '@/features/customer/pages/CustomerOrdersPage'
 import { CustomerProfilePage } from '@/features/customer/pages/CustomerProfilePage'
+import { CustomerRateDriverPage } from '@/features/customer/pages/CustomerRateDriverPage'
 import { CustomerRewardsPage } from '@/features/customer/pages/CustomerRewardsPage'
 import { CustomerServiceCategoryPage } from '@/features/customer/pages/CustomerServiceCategoryPage'
 import { CustomerServicesPage } from '@/features/customer/pages/CustomerServicesPage'
@@ -78,7 +81,10 @@ export const AppRouter = () => (
             <Route path={appPaths.customerServiceCategory} element={<CustomerServiceCategoryPage />} />
             <Route path={appPaths.customerBooking} element={<CustomerBookingPage />} />
             <Route path={appPaths.customerOrders} element={<CustomerOrdersPage />} />
+            <Route path={appPaths.customerRateDriver} element={<CustomerRateDriverPage />} />
+            <Route path={appPaths.customerHelp} element={<CustomerHelpPage />} />
             <Route path={appPaths.customerInvoice} element={<CustomerInvoicePage />} />
+            <Route path={appPaths.customerInvoicePay} element={<CustomerInvoicePayPage />} />
             <Route path={appPaths.customerProfile} element={<CustomerProfilePage />} />
             <Route path={appPaths.customerRewards} element={<CustomerRewardsPage />} />
             <Route path={appPaths.customerLoadPass} element={<CustomerLoadPassPage />} />

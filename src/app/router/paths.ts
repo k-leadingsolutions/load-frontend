@@ -23,7 +23,10 @@ export const appPaths = {
   customerBooking: '/customer/booking',
   customerOrders: '/customer/orders',
   customerProfile: '/customer/profile',
+  customerHelp: '/customer/help',
   customerInvoice: '/customer/invoice/:invoiceId',
+  customerInvoicePay: '/customer/invoice/:invoiceId/pay',
+  customerRateDriver: '/customer/orders/:orderId/rate',
   customerRewards: '/customer/rewards',
   customerLoadPass: '/customer/load-pass',
   customerNotifications: '/customer/notifications',
@@ -53,6 +56,8 @@ export const appPaths = {
 /** Helper to build parameterised paths */
 export const buildPath = {
   customerInvoice: (invoiceId: string) => `/customer/invoice/${invoiceId}`,
+  customerInvoicePay: (invoiceId: string) => `/customer/invoice/${invoiceId}/pay`,
+  customerRateDriver: (orderId: string) => `/customer/orders/${orderId}/rate`,
   customerServiceCategory: (categoryId: string) => `/customer/services/${categoryId}`,
   driverStop: (stopId: string) => `/driver/stop/${stopId}`,
   driverOrder: (orderId: string) => `/driver/order/${orderId}`,

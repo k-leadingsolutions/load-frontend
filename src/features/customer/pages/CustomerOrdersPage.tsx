@@ -13,6 +13,7 @@ import { SectionCard } from '@/components/ui/SectionCard'
 import { OrderStatusTimeline } from '@/features/customer/components/OrderStatusTimeline'
 import { ORDER_STATUS_MODEL } from '@/domain/orderStatus'
 import { mockCustomerOrderService } from '@/services/mock'
+import { getStoredDriverRating } from '@/services/mock/driverRatings'
 import { formatCurrency } from '@/utils/format'
 import type { LaundryOrder, PaymentStatus } from '@/domain/models/order'
 
@@ -205,6 +206,8 @@ export const CustomerOrdersPage = () => {
             {orders.map((order) => {
               const payBadge = PAYMENT_BADGE[order.paymentStatus]
               const stage = STAGE_FROM_MODEL[ORDER_STATUS_MODEL[order.status]?.stage ?? 'BOOKING'] ?? 'Booking'
+              const canRateDriver = ['DELIVERED', 'COMPLETED'].includes(order.status)
+                && !getStoredDriverRating(order.id)
               return (
                 <Card key={order.id} variant="elevated">
                   <div className="flex items-start justify-between gap-3">
@@ -241,6 +244,11 @@ export const CustomerOrdersPage = () => {
                     {order.invoiceId ? (
                       <Link to={buildPath.customerInvoice(order.invoiceId)}>
                         <Button variant="ghost" size="sm">Open invoice</Button>
+                      </Link>
+                    ) : null}
+                    {canRateDriver ? (
+                      <Link to={buildPath.customerRateDriver(order.id)}>
+                        <Button variant="ghost" size="sm">Rate driver</Button>
                       </Link>
                     ) : null}
                   </div>

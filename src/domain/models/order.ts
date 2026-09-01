@@ -84,6 +84,14 @@ export interface LaundryOrder {
   canRepeat: boolean
 }
 
+export interface DriverRating {
+  orderId: string
+  rating: 1 | 2 | 3 | 4 | 5
+  comment?: string
+  tipAmount: number
+  submittedAt: string
+}
+
 // ─── Order status history ─────────────────────────────────────────────────────
 
 export interface OrderStatusHistoryEntry {

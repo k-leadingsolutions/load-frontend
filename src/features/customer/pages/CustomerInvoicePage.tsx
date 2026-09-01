@@ -1,16 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { appPaths } from '@/app/router/paths'
+import { appPaths, buildPath } from '@/app/router/paths'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
-import { mockInvoiceService, mockPosService } from '@/services/mock'
+import { mockInvoiceService } from '@/services/mock'
 import { formatCurrency } from '@/utils/format'
 
 export const CustomerInvoicePage = () => {
   const { invoiceId } = useParams<{ invoiceId: string }>()
-  const queryClient = useQueryClient()
   const invoiceQuery = useQuery({
     queryKey: ['customer-invoice', invoiceId],
     queryFn: async () => {
@@ -21,15 +20,6 @@ export const CustomerInvoicePage = () => {
       return mockInvoiceService.getInvoice(invoiceId)
     },
     enabled: Boolean(invoiceId),
-  })
-  const confirmPaymentMutation = useMutation({
-    mutationFn: async (currentInvoiceId: string) => {
-      await mockPosService.confirmPayment(currentInvoiceId)
-      return mockInvoiceService.getInvoice(currentInvoiceId)
-    },
-    onSuccess: async (_, currentInvoiceId) => {
-      await queryClient.invalidateQueries({ queryKey: ['customer-invoice', currentInvoiceId] })
-    },
   })
 
   if (!invoiceId) {
@@ -129,14 +119,12 @@ export const CustomerInvoicePage = () => {
         </dl>
 
         {paymentPending ? (
-          <button
-            type="button"
-            onClick={() => confirmPaymentMutation.mutate(invoice.id)}
-            disabled={confirmPaymentMutation.isPending}
-            className="mt-6 rounded-full bg-load-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-load-700 disabled:cursor-not-allowed disabled:opacity-60"
+          <Link
+            to={buildPath.customerInvoicePay(invoice.id)}
+            className="mt-6 inline-flex rounded-full bg-load-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-load-700"
           >
-            {confirmPaymentMutation.isPending ? 'Confirming payment…' : 'Confirm payment'}
-          </button>
+            Pay now →
+          </Link>
         ) : (
           <p className="mt-6 rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
             Payment confirmed. Your order will continue through the LOAD workflow.
