@@ -26,9 +26,6 @@ import { formatCurrency } from '@/utils/format'
 
 const bookingSchema = z
   .object({
-    pricingModel: z.enum(['PER_BASKET', 'PER_ITEM', 'PER_KILOGRAM']),
-    basketSizeId: z.string().optional(),
-    basketQuantity: z.number().int().min(1),
     serviceQuantities: z.record(z.string(), z.number().int().min(0)),
     addOnQuantities: z.record(z.string(), z.number().int().min(0)),
     pickupAddressId: z.string().min(1, 'Pickup address is required.'),
@@ -42,15 +39,7 @@ const bookingSchema = z
   .superRefine((values, context) => {
     const hasServiceSelection = Object.values(values.serviceQuantities).some((quantity) => quantity > 0)
 
-    if (values.pricingModel === 'PER_BASKET' && !values.basketSizeId) {
-      context.addIssue({
-        code: 'custom',
-        message: 'Choose a basket size.',
-        path: ['basketSizeId'],
-      })
-    }
-
-    if (values.pricingModel !== 'PER_BASKET' && !hasServiceSelection) {
+    if (!hasServiceSelection) {
       context.addIssue({
         code: 'custom',
         message: 'Select at least one service item.',
@@ -63,28 +52,10 @@ type BookingFormValues = z.infer<typeof bookingSchema>
 type BookingStep = 1 | 2 | 3
 
 const STEP_LABELS: Record<BookingStep, string> = {
-  1: 'Service selection',
-  2: 'Schedule & address',
-  3: 'Review & pay',
+  1: 'Services',
+  2: 'Collection & delivery',
+  3: 'Review',
 }
-
-const PRICING_OPTIONS = [
-  {
-    key: 'PER_BASKET' as const,
-    title: 'Pay per basket',
-    description: 'Best for mixed household loads with predictable pricing.',
-  },
-  {
-    key: 'PER_ITEM' as const,
-    title: 'Pay per item or service',
-    description: 'Best for garment-specific cleaning and ironing.',
-  },
-  {
-    key: 'PER_KILOGRAM' as const,
-    title: 'Pay per kilogram',
-    description: 'Estimated now, confirmed after collection and weighing.',
-  },
-]
 
 export const CustomerBookingPage = () => {
   const { user, saveAddress } = useAuth()
@@ -111,9 +82,6 @@ export const CustomerBookingPage = () => {
   } = useForm<BookingFormValues>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
-      pricingModel: 'PER_BASKET',
-      basketSizeId: 'basket-12kg',
-      basketQuantity: 1,
       serviceQuantities: {},
       addOnQuantities: {},
       pickupAddressId: user?.defaultAddressId ?? '',
@@ -142,23 +110,12 @@ export const CustomerBookingPage = () => {
         quantity: quantity ?? 0,
       }))
 
-    const hasBasketSelection = watchedValues.pricingModel === 'PER_BASKET' && Boolean(watchedValues.basketSizeId)
-    const hasItemSelection = serviceSelections.length > 0
-
-    if (!hasBasketSelection && !hasItemSelection) {
+    if (serviceSelections.length === 0) {
       return null
     }
 
     return {
-      ...(watchedValues.pricingModel === 'PER_BASKET' && watchedValues.basketSizeId
-        ? { basketSizeId: watchedValues.basketSizeId }
-        : {}),
-      ...(watchedValues.pricingModel === 'PER_BASKET'
-        ? { basketQuantity: watchedValues.basketQuantity }
-        : {}),
-      serviceSelections: watchedValues.pricingModel === 'PER_BASKET'
-        ? []
-        : serviceSelections,
+      serviceSelections,
       addOnSelections,
       ...(watchedValues.promotionCode ? { promotionCode: watchedValues.promotionCode } : {}),
       expressRequested: watchedValues.expressRequested ?? false,
@@ -202,7 +159,6 @@ export const CustomerBookingPage = () => {
         : addOnSelections
       const response = await mockCustomerOrderService.placeOrder({
         customerId: user!.id,
-        ...(values.pricingModel === 'PER_BASKET' && values.basketSizeId ? { basketSizeId: values.basketSizeId } : {}),
         serviceSelections,
         addOnSelections: finalAddOnSelections,
         pickupAddressId: values.pickupAddressId,
@@ -240,12 +196,18 @@ export const CustomerBookingPage = () => {
     )
   }
 
-  const { basketSizes, services, addOns, promotions } = catalogueQuery.data.data
+  const { services, addOns, promotions } = catalogueQuery.data.data
   const hasAddresses = user.addresses.length > 0
   const serviceQuantitiesError = typeof errors.serviceQuantities?.message === 'string' ? errors.serviceQuantities.message : null
   const visibleAddOns = addOns.filter((addOn) => addOn.id !== 'addon-express')
   const expressAddOn = addOns.find((addOn) => addOn.id === 'addon-express')
-  const isWeightBasedOrder = watchedValues.pricingModel === 'PER_KILOGRAM'
+  // An order is weight-based if any selected service uses PER_KILOGRAM pricing
+  const selectedServiceIds = Object.entries(watchedValues.serviceQuantities ?? {})
+    .filter(([, qty]) => (qty ?? 0) > 0)
+    .map(([id]) => id)
+  const isWeightBasedOrder = services.some(
+    (s) => selectedServiceIds.includes(s.id) && s.pricingModel === 'PER_KILOGRAM',
+  )
   const payableTotal = (quoteQuery.data?.estimatedTotal ?? 0) + tip.amount
   const showPaymentFailure = paymentResult?.status === 'FAILED' || paymentResult?.status === 'CANCELLED'
   const showConfirmation = Boolean(placedOrder)
@@ -260,11 +222,7 @@ export const CustomerBookingPage = () => {
     const values = getValues()
     if (step === 1) {
       const hasServiceSelection = Object.values(values.serviceQuantities).some((q) => q > 0)
-      if (values.pricingModel === 'PER_BASKET' && !values.basketSizeId) {
-        setToast({ message: 'Please choose a basket size to continue.', tone: 'error' })
-        return
-      }
-      if (values.pricingModel !== 'PER_BASKET' && !hasServiceSelection) {
+      if (!hasServiceSelection) {
         setToast({ message: 'Please select at least one service to continue.', tone: 'error' })
         return
       }
@@ -514,81 +472,28 @@ export const CustomerBookingPage = () => {
       <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
         <div className="space-y-6">
 
-          {/* ── Step 1: Service selection ──────────────────────────────────── */}
+          {/* ── Step 1: Services ──────────────────────────────────────────── */}
           {step === 1 ? (
             <>
-              {/* Pricing model tiles */}
               <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
-                <h2 className="text-heading text-ink">Choose pricing mode</h2>
-                <p className="mt-1 text-body text-muted">Switch between basket pricing and pay-per-item pricing without leaving the booking flow.</p>
-                <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  {PRICING_OPTIONS.map((option) => (
-                    <button
-                      key={option.key}
-                      type="button"
-                      onClick={() => setValue('pricingModel', option.key, { shouldDirty: true, shouldValidate: true })}
-                      className={`rounded-card border p-5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
-                        watchedValues.pricingModel === option.key
-                          ? 'border-load-500 bg-load-50 shadow-card'
-                          : 'border-card-border bg-white hover:border-load-200'
-                      }`}
-                    >
-                      <p className="text-title text-ink">{option.title}</p>
-                      <p className="mt-2 text-body text-muted">{option.description}</p>
-                    </button>
+                <h2 className="text-heading text-ink">Choose your services</h2>
+                <p className="mt-1 text-body text-muted">Choose the garment-care services you need for this order.</p>
+                <div className="mt-5 grid gap-4">
+                  {services.map((service) => (
+                    <QuantitySelector
+                      key={service.id}
+                      label={service.name}
+                      description={`${service.shortDescription} · ${service.turnaroundLabel}${service.pricingModel === 'PER_KILOGRAM' ? ' · Final amount confirmed after weighing' : ''}`}
+                      priceLabel={`${formatCurrency(service.basePrice)} / ${service.unitLabel}`}
+                      quantity={watchedValues.serviceQuantities?.[service.id] ?? 0}
+                      onChange={(quantity) => updateQuantity('serviceQuantities', service.id, quantity)}
+                    />
                   ))}
                 </div>
+                {serviceQuantitiesError ? (
+                  <p className="mt-3 text-caption text-status-error">{serviceQuantitiesError}</p>
+                ) : null}
               </div>
-
-              {/* Basket sizes or per-item services */}
-              {watchedValues.pricingModel === 'PER_BASKET' ? (
-                <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
-                  <h2 className="text-heading text-ink">Basket pricing</h2>
-                  <p className="mt-1 text-body text-muted">Choose the basket size that best matches this collection.</p>
-                  <div className="mt-5 grid gap-4 lg:grid-cols-3">
-                    {basketSizes.map((basket) => (
-                      <button
-                        key={basket.id}
-                        type="button"
-                        onClick={() => setValue('basketSizeId', basket.id, { shouldDirty: true, shouldValidate: true })}
-                        className={`rounded-card border p-5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
-                          watchedValues.basketSizeId === basket.id
-                            ? 'border-load-500 bg-load-50 shadow-card'
-                            : 'border-card-border bg-white hover:border-load-200'
-                        }`}
-                      >
-                        <p className="text-title text-ink">{basket.name}</p>
-                        <p className="mt-1 text-body text-muted">{basket.recommendedFor}</p>
-                        <p className="mt-4 text-lg font-semibold text-load-700">{formatCurrency(basket.price)}</p>
-                        <p className="text-body text-muted">{basket.capacityLabel}</p>
-                      </button>
-                    ))}
-                  </div>
-                  {errors.basketSizeId?.message ? (
-                    <p className="mt-3 text-caption text-status-error">{errors.basketSizeId.message}</p>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
-                  <h2 className="text-heading text-ink">Item and service pricing</h2>
-                  <p className="mt-1 text-body text-muted">Pick the exact garment-care services needed for this order.</p>
-                  <div className="mt-5 grid gap-4">
-                    {services.map((service) => (
-                      <QuantitySelector
-                        key={service.id}
-                        label={service.name}
-                        description={`${service.shortDescription} · ${service.turnaroundLabel}${service.pricingModel === 'PER_KILOGRAM' ? ' · Final amount confirmed after weighing' : ''}`}
-                        priceLabel={`${formatCurrency(service.basePrice)} / ${service.unitLabel}`}
-                        quantity={watchedValues.serviceQuantities?.[service.id] ?? 0}
-                        onChange={(quantity) => updateQuantity('serviceQuantities', service.id, quantity)}
-                      />
-                    ))}
-                  </div>
-                  {serviceQuantitiesError ? (
-                    <p className="mt-3 text-caption text-status-error">{serviceQuantitiesError}</p>
-                  ) : null}
-                </div>
-              )}
 
               {/* Add-ons */}
               <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
@@ -611,7 +516,7 @@ export const CustomerBookingPage = () => {
 
               <div className="flex justify-end">
                 <Button type="button" onClick={goNext}>
-                  Next: Schedule &amp; address →
+                  Next: Collection &amp; delivery →
                 </Button>
               </div>
             </>
@@ -729,7 +634,7 @@ export const CustomerBookingPage = () => {
                   ← Back
                 </Button>
                 <Button type="button" onClick={goNext}>
-                  Next: Review &amp; pay →
+                  Next: Review →
                 </Button>
               </div>
             </>

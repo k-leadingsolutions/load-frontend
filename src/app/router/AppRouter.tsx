@@ -62,21 +62,12 @@ export const AppRouter = () => (
             element={
               <RoleLayout
                 roleLabel="Customer"
-                title="Customer experience"
-                summary="Customer booking, loyalty, order tracking, and premium account interactions live within one modular app shell."
-                primaryLinks={[
-                  { to: appPaths.customerHome, label: 'Home' },
-                  { to: appPaths.customerServices, label: 'Services' },
-                  { to: appPaths.customerBooking, label: 'New order' },
-                  { to: appPaths.customerOrders, label: 'Orders' },
-                  { to: appPaths.customerRewards, label: 'Rewards / Wallet' },
-                  { to: appPaths.customerProfile, label: 'More / Account' },
-                ]}
+                greetingMode
                 mobileNavLinks={[
                   { to: appPaths.customerHome, label: 'Home', icon: '⌂' },
-                  { to: appPaths.customerServices, label: 'Services', icon: '◉' },
                   { to: appPaths.customerOrders, label: 'Orders', icon: '◷' },
-                  { to: appPaths.customerBooking, label: 'New', icon: '+' },
+                  { to: appPaths.customerServices, label: 'New Order', icon: '+', emphasis: true },
+                  { to: appPaths.customerRewards, label: 'Rewards', icon: '⭐' },
                   { to: appPaths.customerProfile, label: 'More', icon: '☰' },
                 ]}
               />

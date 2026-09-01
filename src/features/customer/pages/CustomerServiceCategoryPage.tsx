@@ -23,37 +23,27 @@ const pricingLabel = (service: CatalogService): string => {
   return `${service.isStartingPrice ? 'from ' : ''}${formatCurrency(service.basePrice)}${service.unitLabel !== 'item' && service.unitLabel !== 'pair' ? `/${service.unitLabel}` : ''}`
 }
 
-const ctaLabel = (service: CatalogService): string => {
-  if (service.pricingModel === 'ASSESSMENT_REQUIRED' || service.pricingModel === 'QUOTE_REQUIRED') {
-    return service.basePrice === 0 ? 'Request Quote' : 'Request Assessment'
-  }
-  if (service.pricingModel === 'PER_KILOGRAM') {
-    return 'Select'
-  }
-  return 'Add'
+const ctaLabel = (_service: CatalogService): string => {
+  return 'Select'
 }
 
-const ctaTone = (service: CatalogService): 'primary' | 'outline' | 'ghost' => {
-  if (service.pricingModel === 'ASSESSMENT_REQUIRED' || service.pricingModel === 'QUOTE_REQUIRED') {
-    return 'outline'
-  }
+const ctaTone = (_service: CatalogService): 'primary' | 'outline' | 'ghost' => {
   return 'primary'
 }
 
 const pricingBadgeTone = (service: CatalogService): 'info' | 'warning' | 'muted' => {
-  if (service.pricingModel === 'ASSESSMENT_REQUIRED' || service.pricingModel === 'QUOTE_REQUIRED') {
-    return 'warning'
-  }
   if (service.pricingModel === 'PER_KILOGRAM') {
     return 'info'
+  }
+  if (service.pricingModel === 'ASSESSMENT_REQUIRED' || service.pricingModel === 'QUOTE_REQUIRED') {
+    return 'muted'
   }
   return 'muted'
 }
 
 const pricingBadgeText = (service: CatalogService): string | null => {
-  if (service.pricingModel === 'ASSESSMENT_REQUIRED') return 'Assessment'
-  if (service.pricingModel === 'QUOTE_REQUIRED') return 'Quote required'
   if (service.pricingModel === 'PER_KILOGRAM') return 'Per kg'
+  if (service.pricingModel === 'ASSESSMENT_REQUIRED' || service.pricingModel === 'QUOTE_REQUIRED') return 'from'
   return null
 }
 
@@ -89,8 +79,8 @@ const ServiceCard = ({ service }: { service: CatalogService }) => {
       ) : null}
 
       {isAssessment ? (
-        <p className="mt-2 text-caption text-amber-700">
-          Final price confirmed after assessment.
+        <p className="mt-2 text-caption text-muted">
+          Final price confirmed after inspection.
         </p>
       ) : null}
 
@@ -117,13 +107,13 @@ const ServiceCard = ({ service }: { service: CatalogService }) => {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 /** Filters used on the service list */
-type FilterId = 'all' | 'fixed' | 'kg' | 'assessment'
+type FilterId = 'all' | 'fixed' | 'kg' | 'from'
 
 const FILTERS: Array<{ id: FilterId; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'fixed', label: 'Fixed price' },
   { id: 'kg', label: 'Per kg' },
-  { id: 'assessment', label: 'Assessment' },
+  { id: 'from', label: 'From' },
 ]
 
 export const CustomerServiceCategoryPage = () => {
@@ -163,7 +153,7 @@ export const CustomerServiceCategoryPage = () => {
         activeFilter === 'all' ||
         (activeFilter === 'fixed' && s.pricingModel === 'FIXED_SERVICE') ||
         (activeFilter === 'kg' && s.pricingModel === 'PER_KILOGRAM') ||
-        (activeFilter === 'assessment' &&
+        (activeFilter === 'from' &&
           (s.pricingModel === 'ASSESSMENT_REQUIRED' || s.pricingModel === 'QUOTE_REQUIRED'))
 
       return matchesSearch && matchesFilter

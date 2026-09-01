@@ -24,11 +24,13 @@ const renderPage = () =>
     </QueryClientProvider>,
   )
 
+/** Navigate from step 1 → step 2 → step 3, selecting a service along the way */
 const goToStepThree = async (user: ReturnType<typeof userEvent.setup>) => {
-  await screen.findByText('Choose pricing mode')
-  await user.click(screen.getByRole('button', { name: /Next: Schedule & address/i }))
+  await screen.findByText('Choose your services')
+  await user.click(screen.getByRole('button', { name: /increase shirt \/ blouse/i }))
+  await user.click(screen.getByRole('button', { name: /Next: Collection & delivery/i }))
   await waitFor(() => screen.getByText('Pickup address'))
-  await user.click(screen.getByRole('button', { name: /Next: Review & pay/i }))
+  await user.click(screen.getByRole('button', { name: /Next: Review/i }))
   await waitFor(() => screen.getByText('Promotion & rewards'))
 }
 
@@ -52,44 +54,61 @@ describe('CustomerBookingPage', () => {
 
   it('shows the three-step stepper header on load', async () => {
     renderPage()
-    expect(await screen.findByText('Service selection')).toBeInTheDocument()
-    expect(screen.getByText('Schedule & address')).toBeInTheDocument()
-    expect(screen.getByText('Review & pay')).toBeInTheDocument()
+    expect(await screen.findByText('Services')).toBeInTheDocument()
+    expect(screen.getByText('Collection & delivery')).toBeInTheDocument()
+    expect(screen.getByText('Review')).toBeInTheDocument()
   })
 
-  it('shows step 1 service selection content on load', async () => {
+  it('shows step 1 service list on load', async () => {
     renderPage()
-    expect(await screen.findByText('Choose pricing mode')).toBeInTheDocument()
+    expect(await screen.findByText('Choose your services')).toBeInTheDocument()
+  })
+
+  it('does not show pricing-model choice tiles', async () => {
+    renderPage()
+    await screen.findByText('Choose your services')
+    expect(screen.queryByText('Choose pricing mode')).not.toBeInTheDocument()
+    expect(screen.queryByText('Pay per basket')).not.toBeInTheDocument()
+    expect(screen.queryByText('Pay per kilogram')).not.toBeInTheDocument()
+  })
+
+  it('does not show basket size tiles', async () => {
+    renderPage()
+    await screen.findByText('Choose your services')
+    expect(screen.queryByText('Basket pricing')).not.toBeInTheDocument()
   })
 
   it('navigates from step 1 to step 2 using Next button', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByText('Choose pricing mode')
-    await user.click(screen.getByRole('button', { name: /Next: Schedule & address/i }))
+    await screen.findByText('Choose your services')
+    await user.click(screen.getByRole('button', { name: /increase shirt \/ blouse/i }))
+    await user.click(screen.getByRole('button', { name: /Next: Collection & delivery/i }))
 
     await waitFor(() => {
       expect(screen.getByText('Pickup address')).toBeInTheDocument()
     })
-    expect(screen.queryByText('Choose pricing mode')).not.toBeInTheDocument()
+    expect(screen.queryByText('Choose your services')).not.toBeInTheDocument()
   })
 
   it('navigates back from step 2 to step 1 using Back button', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    await screen.findByText('Choose pricing mode')
-    await user.click(screen.getByRole('button', { name: /Next: Schedule & address/i }))
+    await screen.findByText('Choose your services')
+    await user.click(screen.getByRole('button', { name: /increase shirt \/ blouse/i }))
+    await user.click(screen.getByRole('button', { name: /Next: Collection & delivery/i }))
     await waitFor(() => screen.getByText('Pickup address'))
+
     await user.click(screen.getByRole('button', { name: /← Back/i }))
 
     await waitFor(() => {
-      expect(screen.getByText('Choose pricing mode')).toBeInTheDocument()
+      expect(screen.getByText('Choose your services')).toBeInTheDocument()
     })
   })
 
-  it('navigates to step 3 and shows Review & pay heading', async () => {
+  it('navigates to step 3 and shows Promotion & rewards section', async () => {
     const user = userEvent.setup()
     renderPage()
 
@@ -98,7 +117,7 @@ describe('CustomerBookingPage', () => {
     expect(screen.getByText('Promotion & rewards')).toBeInTheDocument()
   })
 
-  it('places a seeded basket booking via all 3 steps', async () => {
+  it('places an order with Apple Pay via all 3 steps', async () => {
     const user = userEvent.setup()
     renderPage()
 
@@ -122,15 +141,15 @@ describe('CustomerBookingPage', () => {
     }, { timeout: 4000 })
   })
 
-  it('shows weight-based estimate disclaimer on step 3 for per-kilogram flow', async () => {
+  it('shows weight-based estimate disclaimer on step 3 for a per-kilogram service', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: /pay per kilogram/i }))
-    await user.click(screen.getByRole('button', { name: /increase wash \+ dry \+ fold/i }))
-    await user.click(screen.getByRole('button', { name: /Next: Schedule & address/i }))
+    // Wash + Dry + Fold is PER_KILOGRAM — select it directly
+    await user.click(await screen.findByRole('button', { name: /increase wash \+ dry \+ fold/i }))
+    await user.click(screen.getByRole('button', { name: /Next: Collection & delivery/i }))
     await waitFor(() => screen.getByText('Pickup address'))
-    await user.click(screen.getByRole('button', { name: /Next: Review & pay/i }))
+    await user.click(screen.getByRole('button', { name: /Next: Review/i }))
     await waitFor(() => screen.getByText('Promotion & rewards'))
 
     expect(
