@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { appPaths } from '@/app/router/paths'
 import { CustomerServicesPage } from '@/features/customer/pages/CustomerServicesPage'
 import { CustomerServiceCategoryPage } from '@/features/customer/pages/CustomerServiceCategoryPage'
+import { CoffeeCartProvider } from '@/features/customer/coffee/CoffeeCartContext'
 import { formatCurrency } from '@/utils/format'
 
 /** DOM text is whitespace-normalized (nbsp → space) by Testing Library queries. */
@@ -13,12 +14,14 @@ const pricePattern = (amount: number) => formatCurrency(amount).replace(/\u00a0/
 
 const renderServices = (initialEntry: string) =>
   render(
-    <MemoryRouter initialEntries={[initialEntry]}>
-      <Routes>
-        <Route path={appPaths.customerServices} element={<CustomerServicesPage />} />
-        <Route path={appPaths.customerServiceCategory} element={<CustomerServiceCategoryPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <CoffeeCartProvider>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path={appPaths.customerServices} element={<CustomerServicesPage />} />
+          <Route path={appPaths.customerServiceCategory} element={<CustomerServiceCategoryPage />} />
+        </Routes>
+      </MemoryRouter>
+    </CoffeeCartProvider>,
   )
 
 describe('LOAD Coffee category', () => {

@@ -50,3 +50,37 @@ export interface FoodProduct {
   note?: string
   icon?: string
 }
+
+// ─── Coffee cart / order ────────────────────────────────────────────────────
+//
+// Coffee has no pickup/delivery lifecycle, so it deliberately uses its own
+// lightweight cart + order shape rather than `LaundryOrder`. This is an
+// additive "Add to Order" flow, not a replacement for the laundry booking
+// stepper — see `CoffeeCartContext.tsx` / `coffeeOrderStore.ts`.
+
+/** A single line in the customer's coffee cart. */
+export interface CoffeeCartLine {
+  /** Stable identity for this exact selection (product + size + modifiers) */
+  id: string
+  productId: string
+  name: string
+  /** Present for drinks with a size choice; omitted for fixed-price food items */
+  size?: CoffeeSize
+  modifierIds: string[]
+  modifierLabel?: string
+  /** Unit price already including size + modifiers, in Rand */
+  unitPrice: number
+  quantity: number
+}
+
+export type CoffeeOrderStatus = 'RECEIVED' | 'PREPARING' | 'READY' | 'COMPLETED'
+
+/** A placed coffee order — confirmed instantly, no driver/production pipeline. */
+export interface CoffeeOrder {
+  id: string
+  customerId: string
+  status: CoffeeOrderStatus
+  items: CoffeeCartLine[]
+  total: number
+  placedAt: string
+}

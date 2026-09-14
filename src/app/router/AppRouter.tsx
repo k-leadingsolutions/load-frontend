@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { GuestOnlyRoute } from '@/app/router/GuestOnlyRoute'
 import { RequireCustomerAuth } from '@/app/router/RequireCustomerAuth'
 import { RequireRole } from '@/app/router/RequireRole'
@@ -29,6 +29,8 @@ import { CustomerRateDriverPage } from '@/features/customer/pages/CustomerRateDr
 import { CustomerRewardsPage } from '@/features/customer/pages/CustomerRewardsPage'
 import { CustomerServiceCategoryPage } from '@/features/customer/pages/CustomerServiceCategoryPage'
 import { CustomerServicesPage } from '@/features/customer/pages/CustomerServicesPage'
+import { CoffeeCartPage } from '@/features/customer/coffee/CoffeeCartPage'
+import { CoffeeCartProvider } from '@/features/customer/coffee/CoffeeCartContext'
 import { FoundationPage } from '@/features/foundation/pages/FoundationPage'
 import { LandingPage } from '@/features/foundation/pages/LandingPage'
 import { DriverAssignmentsPage } from '@/features/driver/pages/DriverAssignmentsPage'
@@ -63,6 +65,7 @@ export const AppRouter = () => (
           <Route path={appPaths.biometricLogin} element={<BiometricLoginPage />} />
         </Route>
         <Route element={<RequireCustomerAuth />}>
+          <Route element={<CoffeeCartProvider><Outlet /></CoffeeCartProvider>}>
           <Route
             element={
               <RoleLayout
@@ -82,6 +85,7 @@ export const AppRouter = () => (
             <Route path={appPaths.customerServices} element={<CustomerServicesPage />} />
             <Route path={appPaths.customerServiceCategory} element={<CustomerServiceCategoryPage />} />
             <Route path={appPaths.customerBooking} element={<CustomerBookingPage />} />
+            <Route path={appPaths.customerCoffeeCart} element={<CoffeeCartPage />} />
             <Route path={appPaths.customerOrders} element={<CustomerOrdersPage />} />
             <Route path={appPaths.customerRateDriver} element={<CustomerRateDriverPage />} />
             <Route path={appPaths.customerHelp} element={<CustomerHelpPage />} />
@@ -92,6 +96,7 @@ export const AppRouter = () => (
             <Route path={appPaths.customerLoadPass} element={<CustomerLoadPassPage />} />
             <Route path={appPaths.customerNotifications} element={<CustomerNotificationsPage />} />
             <Route path={appPaths.manageDevices} element={<ManageDevicesPage />} />
+          </Route>
           </Route>
         </Route>
         <Route element={<RequireRole allowedRoles={['OPERATIONS']} />}>

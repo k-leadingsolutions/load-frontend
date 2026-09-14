@@ -1,5 +1,13 @@
 export * from '@/domain/models/admin'
-export type { CoffeeProduct, CoffeeSize, FoodProduct, Modifier } from '@/domain/models/coffee'
+export type {
+  CoffeeCartLine,
+  CoffeeOrder,
+  CoffeeOrderStatus,
+  CoffeeProduct,
+  CoffeeSize,
+  FoodProduct,
+  Modifier,
+} from '@/domain/models/coffee'
 export * from '@/domain/models/customer'
 export * from '@/domain/models/events'
 export * from '@/domain/models/loyalty'

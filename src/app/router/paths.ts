@@ -22,6 +22,7 @@ export const appPaths = {
   customerServices: '/customer/services',
   customerServiceCategory: '/customer/services/:categoryId',
   customerBooking: '/customer/booking',
+  customerCoffeeCart: '/customer/coffee/cart',
   customerOrders: '/customer/orders',
   customerProfile: '/customer/profile',
   customerHelp: '/customer/help',

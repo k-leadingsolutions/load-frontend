@@ -12,6 +12,7 @@ import {
   foodProducts,
   loadCoffeeCategory,
 } from '@/services/mock/approvedCoffeeCatalogue'
+import { useCoffeeCart, type AddCoffeeCartItemInput } from '@/features/customer/coffee/CoffeeCartContext'
 import type { CoffeeProduct, CoffeeSize, FoodProduct, Modifier } from '@/domain/models/coffee'
 
 // ─── Coffee/tea drink card — size + modifier selection ────────────────────────
@@ -21,7 +22,7 @@ const CoffeeProductCard = ({
   onAdd,
 }: {
   product: CoffeeProduct
-  onAdd: (label: string, price: number) => void
+  onAdd: (input: AddCoffeeCartItemInput) => void
 }) => {
   const [size, setSize] = useState<CoffeeSize>('REGULAR')
   const [selectedModifierIds, setSelectedModifierIds] = useState<string[]>([])
@@ -33,16 +34,29 @@ const CoffeeProductCard = ({
   )
 
   const basePrice = size === 'LARGE' && product.largePrice !== undefined ? product.largePrice : product.regularPrice
-  const modifierTotal = selectedModifierIds.reduce((sum, id) => {
-    const modifier = coffeeModifiers.find((m) => m.id === id)
-    return sum + (modifier?.priceAdjustment ?? 0)
-  }, 0)
+  const selectedModifiers = selectedModifierIds
+    .map((id) => coffeeModifiers.find((m) => m.id === id))
+    .filter((m): m is Modifier => Boolean(m))
+  const modifierTotal = selectedModifiers.reduce((sum, m) => sum + m.priceAdjustment, 0)
   const totalPrice = basePrice + modifierTotal
 
   const toggleModifier = (id: string) => {
     setSelectedModifierIds((prev) =>
       prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id],
     )
+  }
+
+  const handleAdd = () => {
+    onAdd({
+      productId: product.id,
+      name: product.name,
+      ...(hasLargeSize ? { size } : {}),
+      modifierIds: selectedModifierIds,
+      ...(selectedModifiers.length > 0
+        ? { modifierLabel: selectedModifiers.map((m) => m.name).join(', ') }
+        : {}),
+      unitPrice: totalPrice,
+    })
   }
 
   return (
@@ -105,7 +119,7 @@ const CoffeeProductCard = ({
 
       <div className="mt-4 flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-load-700">{formatCurrency(totalPrice)}</p>
-        <Button size="sm" onClick={() => onAdd(product.name, totalPrice)}>
+        <Button size="sm" onClick={handleAdd}>
           Add
         </Button>
       </div>
@@ -120,7 +134,7 @@ const FoodProductCard = ({
   onAdd,
 }: {
   product: FoodProduct
-  onAdd: (label: string, price: number) => void
+  onAdd: (input: AddCoffeeCartItemInput) => void
 }) => (
   <article
     className="flex flex-col rounded-card border border-card-border bg-white p-4 shadow-card"
@@ -130,7 +144,17 @@ const FoodProductCard = ({
     {product.note ? <p className="mt-1 text-caption text-muted">{product.note}</p> : null}
     <div className="mt-4 flex items-center justify-between gap-3">
       <p className="text-sm font-semibold text-load-700">{formatCurrency(product.fixedPrice)}</p>
-      <Button size="sm" onClick={() => onAdd(product.name, product.fixedPrice)}>
+      <Button
+        size="sm"
+        onClick={() =>
+          onAdd({
+            productId: product.id,
+            name: product.name,
+            modifierIds: [],
+            unitPrice: product.fixedPrice,
+          })
+        }
+      >
         Add
       </Button>
     </div>
@@ -141,6 +165,7 @@ const FoodProductCard = ({
 
 export const CoffeeCategoryDetail = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const { addItem, itemCount, subtotal } = useCoffeeCart()
 
   const groupedDrinks = useMemo(() => {
     const map = new Map<string, CoffeeProduct[]>()
@@ -160,14 +185,13 @@ export const CoffeeCategoryDetail = () => {
     return map
   }, [])
 
-  const handleAdd = (label: string, price: number) => {
-    // Phase D wires additions into a persisted Customer order/cart flow.
-    // For now this confirms the selection and computed price to the customer.
-    setToastMessage(`Added ${label} — ${formatCurrency(price)}`)
+  const handleAdd = (input: AddCoffeeCartItemInput) => {
+    addItem(input)
+    setToastMessage(`Added ${input.name} — ${formatCurrency(input.unitPrice)}`)
   }
 
   return (
-    <div className="space-y-6">
+    <div className={itemCount > 0 ? 'space-y-6 pb-24' : 'space-y-6'}>
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
         <Link to={appPaths.customerServices} className="font-semibold text-load-600 hover:text-load-700">
@@ -221,6 +245,22 @@ export const CoffeeCategoryDetail = () => {
           )
         })}
       </div>
+
+      {itemCount > 0 ? (
+        <div className="fixed inset-x-0 bottom-16 z-40 flex justify-center px-4 sm:bottom-4">
+          <Link
+            to={appPaths.customerCoffeeCart}
+            className="flex w-full max-w-md items-center justify-between gap-3 rounded-pill bg-load-700 px-5 py-3 text-white shadow-panel transition hover:bg-load-800"
+          >
+            <span className="text-sm font-semibold">
+              {itemCount} {itemCount === 1 ? 'item' : 'items'} in cart
+            </span>
+            <span className="text-sm font-semibold">
+              View cart · {formatCurrency(subtotal)}
+            </span>
+          </Link>
+        </div>
+      ) : null}
 
       {toastMessage ? (
         <Toast message={toastMessage} tone="success" onDismiss={() => setToastMessage(null)} />
