@@ -61,29 +61,11 @@ export const mockCustomerProfile: CustomerProfile = {
 export const mockCategories: ServiceCategory[] = [
   // ── Approved laundry categories ──────────────────────────────────────────
   ...approvedCategories,
-  // ── Coffee category — PLACEHOLDER, pricing not yet approved ─────────────
-  // Keep isolated so laundry module sign-off is not blocked by pending coffee menu.
-  {
-    id: 'coffee',
-    name: 'LOAD Coffee',
-    description: 'Freshly roasted single-origin beans delivered to your door.',
-    tagline: 'Coming soon',
-    startingPriceLabel: 'Pending',
-    accent: 'bg-amber-100 text-amber-800',
-    icon: '☕',
-    isFeatured: false,
-  },
 ]
 
 export const mockServices: CatalogService[] = [
   // ── Approved laundry services (sourced from approvedLaundryCatalogue.ts) ──
   ...approvedLaundryServices,
-  // ── Coffee services — PLACEHOLDER ONLY, pricing not yet approved ──────────
-  // These items must NOT be treated as production-ready pricing.
-  // Do not use these prices in customer-facing laundry totals.
-  { id: 'svc-coffee-espresso', categoryId: 'coffee', name: 'Espresso Blend', shortDescription: 'Bold, rich South African roast', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', pricingModel: 'FIXED_SERVICE', basePrice: 0, unitLabel: '250g bag', isStartingPrice: false, loadPassEligible: false, featured: false },
-  { id: 'svc-coffee-filter', categoryId: 'coffee', name: 'Filter Roast', shortDescription: 'Light, fruity single-origin', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', pricingModel: 'FIXED_SERVICE', basePrice: 0, unitLabel: '250g bag', isStartingPrice: false, loadPassEligible: false, featured: false },
-  { id: 'svc-coffee-capsules', categoryId: 'coffee', name: 'Coffee Capsules', shortDescription: 'Compatible with Nespresso machines', turnaroundLabel: 'Same-day delivery', pricingMode: 'PAY_PER_ITEM', pricingModel: 'FIXED_SERVICE', basePrice: 0, unitLabel: '10-pack', isStartingPrice: false, loadPassEligible: false, featured: false },
 ]
 
 // ─── Re-export approved add-ons as mockAddOns for backward-compat consumers ───

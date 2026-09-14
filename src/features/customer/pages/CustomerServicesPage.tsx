@@ -3,9 +3,10 @@ import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
 import { buildPath } from '@/app/router/paths'
 import { approvedCategories } from '@/services/mock/approvedLaundryCatalogue'
+import { loadCoffeeCategory } from '@/services/mock/approvedCoffeeCatalogue'
 
-// Laundry categories available to customers — coffee excluded until pricing approved
-const customerCategories = approvedCategories
+// All customer-facing categories: approved laundry categories plus LOAD Coffee
+const customerCategories = [...approvedCategories, loadCoffeeCategory]
 
 export const CustomerServicesPage = () => (
   <div className="space-y-6">
@@ -66,9 +67,5 @@ export const CustomerServicesPage = () => (
         </Link>
       ))}
     </div>
-
-    <p className="text-caption text-muted text-center">
-      Coffee ordering will be available once the menu is finalised.
-    </p>
   </div>
 )

@@ -188,14 +188,17 @@ const PromotionsSection = () => (
 
 const CoffeeCollapsible = () => (
   <div className="space-y-2">
-    <div className="flex items-center gap-3 rounded-card border border-card-border bg-white p-3 shadow-card">
+    <Link
+      to={buildPath.customerServiceCategory('coffee')}
+      className="flex items-center gap-3 rounded-card border border-card-border bg-white p-3 shadow-card transition hover:border-load-300"
+    >
       <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-50 text-lg" aria-hidden="true">☕</div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-ink">LOAD Coffee</p>
-        <p className="text-caption text-muted">Freshly roasted single-origin beans.</p>
+        <p className="text-caption text-muted">Coffee, matcha, refreshers, pastries and donuts.</p>
       </div>
-    </div>
-    <p className="text-caption text-muted text-center">Coffee ordering available once the menu is finalised.</p>
+    </Link>
+    <p className="text-caption text-muted text-center">from R17</p>
   </div>
 )
 

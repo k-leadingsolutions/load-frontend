@@ -10,6 +10,8 @@ import {
 } from '@/services/mock/approvedLaundryCatalogue'
 import { formatCurrency } from '@/utils/format'
 import type { CatalogService } from '@/domain/models/service'
+import { CoffeeCategoryDetail } from '@/features/customer/coffee/CoffeeCategoryDetail'
+import { loadCoffeeCategory } from '@/services/mock/approvedCoffeeCatalogue'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -122,7 +124,7 @@ export const CustomerServiceCategoryPage = () => {
   const [activeFilter, setActiveFilter] = useState<FilterId>('all')
 
   const category = useMemo(
-    () => approvedCategories.find((c) => c.id === categoryId),
+    () => [...approvedCategories, loadCoffeeCategory].find((c) => c.id === categoryId),
     [categoryId],
   )
 
@@ -179,6 +181,10 @@ export const CustomerServiceCategoryPage = () => {
         <EmptyState title="Category not found" description="This service category does not exist." />
       </div>
     )
+  }
+
+  if (category.id === 'coffee') {
+    return <CoffeeCategoryDetail />
   }
 
   const hasMultipleSubGroups = subGroups.size > 1 || (subGroups.size === 1 && ![...subGroups.keys()][0])
