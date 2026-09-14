@@ -3,6 +3,7 @@ export const appPaths = {
   home: '/',
   foundation: '/foundation',
   roadmap: '/roadmap/:moduleId',
+  unauthorized: '/unauthorized',
 
   // Auth
   splash: '/auth/splash',

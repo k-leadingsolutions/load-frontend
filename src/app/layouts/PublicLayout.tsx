@@ -2,13 +2,13 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '@/app/providers/useAuth'
 import { appPaths } from '@/app/router/paths'
 
-const navItems = [
-  { to: appPaths.home, label: 'Home' },
-  { to: appPaths.foundation, label: 'Blueprint' },
-  { to: appPaths.operationsDashboard, label: 'Operations' },
-  { to: appPaths.driverDashboard, label: 'Driver' },
-  { to: appPaths.adminOverview, label: 'Admin' },
-]
+/*
+ * Production navigation must only expose links appropriate for the current
+ * visitor. Operations, Driver, Admin, and the internal Blueprint page are
+ * role-scoped or development-only and must never appear as global links here
+ * (see LOAD hardening master instruction, "PRODUCTION RULE").
+ */
+const navItems = [{ to: appPaths.home, label: 'Home' }]
 
 export const PublicLayout = () => {
   const { isAuthenticated, logout, user } = useAuth()
