@@ -43,7 +43,7 @@ const getStageIndex = (progress: number) => {
 
 const QuickActions = () => {
   const actions = [
-    { to: appPaths.customerBooking, label: 'New Order',   icon: '🧺' },
+    { to: appPaths.customerServices, label: 'New Order',  icon: '🧺' },
     { to: appPaths.customerOrders,  label: 'My Orders',   icon: '📦' },
     { to: appPaths.customerRewards, label: 'Rewards',     icon: '⭐' },
     { to: appPaths.customerProfile, label: 'Profile',     icon: '👤' },
@@ -317,7 +317,7 @@ export const CustomerHomePage = () => {
           <p className="mt-1 text-caption text-muted">Fast pickup. Fresh delivery. Every time.</p>
           <div className="mt-4">
             <Link
-              to={appPaths.customerBooking}
+              to={appPaths.customerServices}
               className="flex h-control w-full items-center justify-center rounded-pill bg-load-600 text-sm font-semibold text-white transition hover:bg-load-700 active:bg-load-800"
             >
               New Order
