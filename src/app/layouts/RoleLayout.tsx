@@ -66,7 +66,7 @@ export const RoleLayout = ({
     {mobileNavLinks.length > 0 ? (
       <nav
         aria-label={`${roleLabel} navigation`}
-        className="fixed inset-x-4 bottom-4 z-20 mx-auto flex max-w-lg items-center justify-between rounded-panel border border-card-border bg-white/95 px-4 py-2 shadow-panel backdrop-blur"
+        className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-20 mx-auto flex max-w-lg items-center justify-between rounded-panel border border-card-border bg-white/95 px-4 py-2 shadow-panel backdrop-blur"
       >
         {mobileNavLinks.map((item) => (
           <NavLink

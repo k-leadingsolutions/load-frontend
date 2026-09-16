@@ -195,11 +195,11 @@ export const CustomerBookingPage = () => {
           <div>
             <h2 className="text-heading text-ink">Your booking is confirmed.</h2>
             <p className="mt-2 text-body text-muted">
-              Once your items are received and processed at LOAD, we&apos;ll notify you when your final invoice is ready.
+              Once your items are received and processed at LOAD, we&apos;ll notify you when your final invoice is ready
               {' '}
               {placedOrder.fulfilmentType === 'STORE_COLLECTION'
-                ? 'You can pay at the LOAD store when collecting your completed order.'
-                : "We'll notify you when your final invoice is ready for payment."}
+                ? '— you can pay at the LOAD store when collecting your completed order.'
+                : 'for payment.'}
             </p>
           </div>
           <div className="rounded-card bg-load-50 p-4 text-left text-sm">

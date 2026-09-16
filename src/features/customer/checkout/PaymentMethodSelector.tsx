@@ -16,7 +16,7 @@ interface PaymentMethodSelectorProps {
 }
 
 const tileClassName = (selected: boolean) =>
-  `rounded-card border p-4 text-left transition ${
+  `rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 focus-visible:ring-offset-2 ${
     selected ? 'border-load-500 bg-load-50 shadow-card' : 'border-card-border bg-white hover:border-load-200'
   }`
 
@@ -39,12 +39,12 @@ export const PaymentMethodSelector = ({
     </div>
 
     <div className="grid gap-3 md:grid-cols-2">
-      <button type="button" className={tileClassName(selected === 'APPLE_PAY')} onClick={() => onChange('APPLE_PAY')}>
+      <button type="button" className={tileClassName(selected === 'APPLE_PAY')} onClick={() => onChange('APPLE_PAY')} aria-pressed={selected === 'APPLE_PAY'}>
         <p className="text-lg font-semibold text-ink"> Apple Pay</p>
         <p className="mt-1 text-body text-muted">Fast checkout using Apple Pay.</p>
       </button>
 
-      <button type="button" className={tileClassName(selected === 'CARD')} onClick={() => onChange('CARD')}>
+      <button type="button" className={tileClassName(selected === 'CARD')} onClick={() => onChange('CARD')} aria-pressed={selected === 'CARD'}>
         <p className="text-lg font-semibold text-ink">💳 Credit / Debit Card</p>
         <p className="mt-1 text-body text-muted">Pay securely with your saved or new card.</p>
       </button>

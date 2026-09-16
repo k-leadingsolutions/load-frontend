@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import type { LaundryOrder } from '@/domain/models'
 import { appPaths, buildPath } from '@/app/router/paths'
 import { useAuth } from '@/app/providers/useAuth'
 import { Badge } from '@/components/ui/Badge'
@@ -52,7 +53,7 @@ const QuickActions = () => {
     <div className="grid grid-cols-4 gap-2">
       {actions.map(({ to, label, icon }) => (
         <Link
-          key={label}
+          key={to}
           to={to}
           className="flex flex-col items-center gap-2 rounded-card border border-card-border bg-white p-3 text-center shadow-card transition hover:border-load-300 hover:shadow-panel"
         >
@@ -66,7 +67,7 @@ const QuickActions = () => {
   )
 }
 
-const ActiveOrderCard = ({ order }: { order: NonNullable<ReturnType<typeof useActiveOrder>> }) => {
+const ActiveOrderCard = ({ order }: { order: LaundryOrder }) => {
   const progress = ORDER_PROGRESS[order.status] ?? 0
   const stageIdx = getStageIndex(progress)
 
@@ -223,16 +224,6 @@ const LoadPassTeaser = () => (
   </section>
 )
 
-/* ── Hook ─────────────────────────────────────────────────────────── */
-
-const useActiveOrder = (userId: string | undefined) => {
-  const { data } = useQuery({
-    queryKey: ['customer-orders', userId],
-    queryFn: () => mockCustomerOrderService.listOrders(userId!),
-    enabled: Boolean(userId),
-  })
-  return data?.data?.find((o) => o.status !== 'DELIVERED' && o.status !== 'COMPLETED' && o.status !== 'CANCELLED') ?? null
-}
 
 /* ── Page ─────────────────────────────────────────────────────────── */
 

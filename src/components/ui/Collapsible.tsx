@@ -1,4 +1,4 @@
-import { useState, type PropsWithChildren, type ReactNode } from 'react'
+import { useId, useState, type PropsWithChildren, type ReactNode } from 'react'
 
 interface CollapsibleProps extends PropsWithChildren {
   title: string
@@ -9,14 +9,16 @@ interface CollapsibleProps extends PropsWithChildren {
 
 export const Collapsible = ({ title, defaultOpen = false, badge, children, className = '' }: CollapsibleProps) => {
   const [open, setOpen] = useState(defaultOpen)
+  const panelId = useId()
 
   return (
     <div className={['rounded-card border border-card-border bg-white shadow-card overflow-hidden', className].join(' ')}>
       <button
         type="button"
         aria-expanded={open}
+        aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 px-card-pad py-4 text-left"
+        className="flex w-full items-center justify-between gap-3 px-card-pad py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 focus-visible:ring-offset-2"
       >
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-ink">{title}</span>
@@ -36,7 +38,7 @@ export const Collapsible = ({ title, defaultOpen = false, badge, children, class
         </svg>
       </button>
       {open ? (
-        <div className="animate-slide-down border-t border-divider px-card-pad pb-4 pt-3">
+        <div id={panelId} className="animate-slide-down border-t border-divider px-card-pad pb-4 pt-3">
           {children}
         </div>
       ) : null}

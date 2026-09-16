@@ -31,7 +31,7 @@ export const CustomerServicesPage = () => {
       ) : null}
     </div>
 
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {customerCategories.map((category) => (
         <Link
           key={category.id}
