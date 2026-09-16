@@ -21,7 +21,6 @@ import type {
   InvoiceService,
   LoyaltyService,
   NotificationService,
-  PosService,
   RouteService,
   VerificationService,
   WeightPricingService,
@@ -243,10 +242,28 @@ const notificationTemplates: Partial<Record<DomainEventType, Array<Omit<AppNotif
   ],
 }
 
-const appendNotificationsForEvent = (eventType: DomainEventType, orderId: string) => {
+const appendNotificationsForEvent = (eventType: DomainEventType, orderId: string, payload?: Record<string, unknown>) => {
+  const createdAt = new Date().toISOString()
+
+  if (eventType === 'INVOICE_READY') {
+    const finalTotal = typeof payload?.finalTotal === 'number' ? payload.finalTotal : undefined
+    const amountLabel = finalTotal !== undefined ? `R${finalTotal.toFixed(2)}` : 'your final amount'
+    const notification: AppNotification = {
+      id: `notif-INVOICE_READY-${Date.now()}`,
+      type: 'INVOICE_READY',
+      targetRole: 'CUSTOMER',
+      title: 'Your LOAD invoice is ready',
+      body: `Order #${orderId} — ${amountLabel}. View your invoice for details.`,
+      orderId,
+      isRead: false,
+      createdAt,
+    }
+    notifMem = [notification, ...notifMem]
+    return
+  }
+
   const templates = notificationTemplates[eventType]
   if (!templates) return
-  const createdAt = new Date().toISOString()
   const next = templates.map((template, index) => ({
     id: `notif-${eventType}-${Date.now()}-${index}`,
     createdAt,
@@ -286,7 +303,7 @@ export const mockDomainEventService: DomainEventService = {
       ...(payload ? { payload } : {}),
     }
     eventMem = [event, ...eventMem]
-    appendNotificationsForEvent(type, orderId)
+    appendNotificationsForEvent(type, orderId, payload)
     return event
   },
   async listByOrder(orderId) {
@@ -295,7 +312,7 @@ export const mockDomainEventService: DomainEventService = {
   },
 }
 
-// ─── Invoice service mock ─────────────────────────────────────────────────────
+// ─── Invoice service mock (LOAD-owned invoice cache) ──────────────────────────
 
 export const mockInvoiceService: InvoiceService = {
   async getInvoice(invoiceId) {
@@ -329,84 +346,35 @@ export const mockInvoiceService: InvoiceService = {
     if (!inv) throw new Error('Invoice not found.')
     return inv
   },
-}
-
-// ─── POS service mock (API contract pending) ──────────────────────────────────
-
-/** @note POS API contract pending. This is a mock-only implementation. */
-export const mockPosService: PosService = {
-  async getQuote(orderId) {
-    await sleep(400)
-    return { quoteId: `quote-${orderId}`, amount: 248 }
-  },
-  async updateQuote(_quoteId, _amount) {
-    await sleep(350)
-    return { updated: true }
-  },
-  async createInvoice(orderId) {
-    await sleep(500)
-    const existing = invoiceMem.find((i) => i.orderId === orderId)
-    if (existing) return existing
-    const newInv: Invoice = {
-      id: `inv-${orderId}`,
-      invoiceNumber: `INV-2026-${orderId.replace('LD', '')}`,
-      orderId,
-      customerId: 'cust-thando-001',
-      customerName: 'Customer',
-      serviceLabel: 'Laundry service',
-      lines: [],
-      pickupFee: 0,
-      deliveryFee: 45,
-      subtotal: 169,
-      adjustmentTotal: 0,
-      discountTotal: 0,
-      loyaltyRedemptionTotal: 0,
-      taxTotal: 0,
-      finalTotal: 214,
-      status: 'ISSUED',
-      paymentStatus: 'PENDING',
-      posSyncStatus: 'SYNCED',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    invoiceMem = [...invoiceMem, newInv]
-    return newInv
-  },
-  async updateInvoice(invoiceId, updates) {
-    await sleep(350)
-    invoiceMem = invoiceMem.map((i) => i.id === invoiceId ? { ...i, ...updates, updatedAt: new Date().toISOString() } : i)
-    const inv = invoiceMem.find((i) => i.id === invoiceId)
-    if (!inv) throw new Error('Invoice not found.')
-    return inv
-  },
-  async getInvoice(invoiceId) {
-    await sleep(320)
-    const inv = invoiceMem.find((i) => i.id === invoiceId)
-    if (!inv) throw new Error(`Invoice ${invoiceId} not found.`)
-    return inv
-  },
-  async getPaymentStatus(invoiceId) {
-    await sleep(280)
-    const inv = invoiceMem.find((i) => i.id === invoiceId)
-    return { status: inv?.paymentStatus ?? 'PENDING' }
-  },
-  async confirmPayment(invoiceId) {
-    await sleep(500)
+  async markPaid(invoiceId) {
+    await sleep(300)
     const existing = invoiceMem.find((i) => i.id === invoiceId)
     invoiceMem = invoiceMem.map((i) =>
       i.id === invoiceId
-        ? { ...i, status: 'PAID', paymentStatus: 'CONFIRMED', posSyncStatus: 'SYNCED', updatedAt: new Date().toISOString() }
+        ? { ...i, status: 'PAID', paymentStatus: 'CONFIRMED', updatedAt: new Date().toISOString() }
         : i
     )
+    const inv = invoiceMem.find((i) => i.id === invoiceId)
+    if (!inv) throw new Error('Invoice not found.')
     if (existing) {
       await mockDomainEventService.emit('PAYMENT_CONFIRMED', existing.orderId, { invoiceId })
     }
-    return { confirmed: true, status: 'CONFIRMED' }
+    return inv
   },
-  async syncOrderCharges(_orderId) {
-    await sleep(600)
-    return { synced: true, posSyncStatus: 'SYNCED' }
-  },
+}
+
+/**
+ * Upserts a LOAD-owned invoice into the in-memory cache. Used only by the
+ * Customer invoice-retrieval boundary (`src/features/customer/invoice`) after
+ * mapping a POS vendor record — this is LOAD writing to its OWN cached
+ * representation, never to the POS system itself.
+ */
+export const upsertLoadInvoice = (invoice: Invoice): Invoice => {
+  const exists = invoiceMem.some((i) => i.id === invoice.id)
+  invoiceMem = exists
+    ? invoiceMem.map((i) => (i.id === invoice.id ? invoice : i))
+    : [...invoiceMem, invoice]
+  return invoice
 }
 
 // ─── Weight pricing service mock ──────────────────────────────────────────────

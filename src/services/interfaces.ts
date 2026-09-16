@@ -32,8 +32,6 @@ import type {
   DomainEvent,
   DomainEventType,
   PaymentResult,
-  PaymentStatus,
-  PosSyncStatus,
 } from '@/domain/models'
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -78,18 +76,26 @@ export interface WeightPricingService {
   confirmWeight(orderId: string, measurement: Omit<WeightMeasurement, 'id'>): Promise<WeightMeasurement>
 }
 
-// ─── POS  (API contract pending – mock only) ──────────────────────────────────
+// ─── POS (read-only integration boundary — API contract pending) ─────────────
 
-/** @note POS API contract pending. Production implementation blocked until vendor provides spec. */
-export interface PosService {
-  getQuote(orderId: string): Promise<{ quoteId: string; amount: number }>
-  updateQuote(quoteId: string, amount: number): Promise<{ updated: boolean }>
-  createInvoice(orderId: string): Promise<Invoice>
-  updateInvoice(invoiceId: string, updates: Partial<Invoice>): Promise<Invoice>
-  getInvoice(invoiceId: string): Promise<Invoice>
-  getPaymentStatus(invoiceId: string): Promise<{ status: PaymentStatus }>
-  confirmPayment(invoiceId: string): Promise<{ confirmed: boolean; status: PaymentStatus }>
-  syncOrderCharges(orderId: string): Promise<{ synced: boolean; posSyncStatus: PosSyncStatus }>
+/**
+ * Strictly READ-ONLY boundary onto the store-side POS system.
+ *
+ * HARD ARCHITECTURAL RULE: LOAD never creates, updates, or deletes POS
+ * records. Store staff own the commercial transaction, physical tag, and
+ * final invoice inside the POS after physical intake. This interface must
+ * never gain a create-, update-, delete-, confirm-, or sync-style mutation
+ * method — see the PosReadService contract test in
+ * `src/services/pos/posReadService.test.ts`.
+ *
+ * @note POS vendor API contract pending. Production implementation blocked
+ * until the vendor provides a spec; this is a mock-only read boundary that
+ * the future Spring Boot backend will implement for real.
+ */
+export interface PosReadService {
+  getOrderIntakeStatus(loadOrderId: string): Promise<import('@/services/pos/posContracts').PosVendorOrderRecord | null>
+  getInvoiceForOrder(loadOrderId: string): Promise<import('@/services/pos/posContracts').PosVendorInvoiceRecord | null>
+  getCustomerRewards(customerId: string): Promise<import('@/services/pos/posContracts').PosVendorRewardsSummary | null>
 }
 
 // ─── Invoice ─────────────────────────────────────────────────────────────────
@@ -98,6 +104,13 @@ export interface InvoiceService {
   getInvoice(invoiceId: string): Promise<Invoice>
   listInvoicesForOrder(orderId: string): Promise<Invoice[]>
   applyAdjustment(invoiceId: string, amount: number, reason: string): Promise<Invoice>
+  /**
+   * Marks a LOAD-owned invoice record as paid after a successful online
+   * payment. This mutates LOAD's own cached Invoice representation only —
+   * it never calls the POS system, which remains authoritative for the
+   * store-side commercial transaction and is never written to by LOAD.
+   */
+  markPaid(invoiceId: string): Promise<Invoice>
 }
 
 // ─── Operations ───────────────────────────────────────────────────────────────

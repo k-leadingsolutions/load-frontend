@@ -221,7 +221,7 @@ export const CustomerBookingPage = () => {
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted">Fulfilment</span>
                 <span className="font-semibold text-ink">
-                  {placedOrder.fulfilmentType === 'STORE_COLLECTION' ? 'Collect from LOAD' : placedOrder.deliveryWindow.windowLabel}
+                  {placedOrder.fulfilmentType === 'STORE_COLLECTION' ? 'Collect from LOAD' : (placedOrder.deliveryWindow?.windowLabel ?? 'To be confirmed')}
                 </span>
               </div>
             </div>

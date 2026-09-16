@@ -314,17 +314,17 @@ export const mockCustomerOrderService: CustomerOrderService = {
     })
     const fulfilmentType = request.fulfilmentType ?? 'DELIVERY'
     const pickupAddress = customer.addresses.find((address) => address.id === request.pickupAddressId)
-    // STORE_COLLECTION has no delivery leg — the Customer collects from LOAD, so the
-    // pickup address doubles as the record's "delivery" address until the backend
-    // models fulfilment as a first-class relation (see fulfilmentType).
+    // STORE_COLLECTION has no delivery leg — deliveryAddress/deliveryWindow are
+    // structurally absent (never synthesised from the pickup address) because
+    // the Customer collects from LOAD rather than receiving a delivery.
     const deliveryAddress = fulfilmentType === 'STORE_COLLECTION'
-      ? pickupAddress
+      ? undefined
       : customer.addresses.find((address) => address.id === request.deliveryAddressId)
     const basket = request.basketSizeId
       ? mockBasketSizes.find((item) => item.id === request.basketSizeId)
       : undefined
 
-    if (!pickupAddress || !deliveryAddress) {
+    if (!pickupAddress || (fulfilmentType === 'DELIVERY' && !deliveryAddress)) {
       return errorResponse({ code: 'ADDRESS_NOT_FOUND', message: 'Select valid pickup and delivery addresses.' }, 700)
     }
 
@@ -338,14 +338,16 @@ export const mockCustomerOrderService: CustomerOrderService = {
         date: request.pickupWindow.split('|')[0] ?? request.pickupWindow,
         windowLabel: request.pickupWindow,
       },
-      deliveryWindow: fulfilmentType === 'STORE_COLLECTION'
-        ? { date: request.pickupWindow.split('|')[0] ?? request.pickupWindow, windowLabel: 'Collect from LOAD' }
+      ...(fulfilmentType === 'STORE_COLLECTION'
+        ? {}
         : {
-            date: (request.deliveryWindow ?? '').split('|')[0] ?? request.deliveryWindow ?? '',
-            windowLabel: request.deliveryWindow ?? '',
-          },
+            deliveryWindow: {
+              date: (request.deliveryWindow ?? '').split('|')[0] ?? request.deliveryWindow ?? '',
+              windowLabel: request.deliveryWindow ?? '',
+            },
+          }),
       pickupAddress,
-      deliveryAddress,
+      ...(deliveryAddress ? { deliveryAddress } : {}),
       services: [
         ...(basket
           ? [{
@@ -361,7 +363,12 @@ export const mockCustomerOrderService: CustomerOrderService = {
         })),
       ],
       estimatedTotal: quote.estimatedTotal,
-      paymentStatus: 'PENDING',
+      // A newly confirmed booking has no invoice yet — the invoice only
+      // becomes available once the POS commercial transaction is finalised
+      // and LOAD retrieves it (read-only). No online payment is required
+      // until then.
+      paymentStatus: 'NOT_REQUIRED',
+      invoiceStatus: 'NOT_AVAILABLE',
       loyaltyPointsEarned: quote.loyaltyPreviewPoints,
       promotionsApplied: request.promotionCode ? [request.promotionCode] : [],
       internalNotes: [],
@@ -606,8 +613,9 @@ export {
   mockInvoiceService,
   mockLoyaltyService,
   mockNotificationService,
-  mockPosService,
   mockRouteService,
   mockVerificationService,
   mockWeightPricingService,
+  upsertLoadInvoice,
 } from '@/services/mock/extendedMocks'
+export { mockPosReadService, __setMockPosScenario, __resetMockPosScenarios } from '@/services/pos/mockPosReadService'

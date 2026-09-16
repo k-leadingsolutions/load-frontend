@@ -69,7 +69,11 @@ export const CustomerHomePreview = () => {
             <p className="font-semibold">Active order #{activeOrder.id}</p>
             <Badge tone="success">{activeOrder.friendlyStatus}</Badge>
           </div>
-          <p className="mt-3 text-sm text-white/80">Estimated delivery {activeOrder.deliveryWindow.windowLabel}</p>
+          <p className="mt-3 text-sm text-white/80">
+            {activeOrder.fulfilmentType === 'STORE_COLLECTION'
+              ? 'Ready to collect from LOAD'
+              : `Estimated delivery ${activeOrder.deliveryWindow?.windowLabel ?? 'to be confirmed'}`}
+          </p>
           <div className="mt-4 h-2 rounded-full bg-white/20">
             <div className="h-2 w-3/5 rounded-full bg-white" />
           </div>

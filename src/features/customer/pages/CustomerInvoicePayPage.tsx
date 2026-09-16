@@ -11,11 +11,14 @@ import { SectionCard } from '@/components/ui/SectionCard'
 import { Toast } from '@/components/ui/Toast'
 import type { CardPaymentDetails, PaymentMethodType, PaymentResult, TipSelection } from '@/domain/models'
 import { CardPaymentForm } from '@/features/customer/checkout/CardPaymentForm'
-import { DriverTipSelector } from '@/features/customer/checkout/DriverTipSelector'
 import { PaymentMethodSelector } from '@/features/customer/checkout/PaymentMethodSelector'
-import { mockDomainEventService, mockInvoiceService, mockPaymentService, mockPosService } from '@/services/mock'
+import { mockCustomerOrderService, mockInvoiceService, mockPaymentService } from '@/services/mock'
 import { updateStoredOrder } from '@/services/mock/orderStore'
 import { formatCurrency } from '@/utils/format'
+
+// Payment always uses the invoice, never customer tip — tipping happens only
+// after successful delivery (see DriverTipSelector on CustomerRateDriverPage).
+const NO_TIP: TipSelection = { type: 'NONE', amount: 0 }
 
 const isSuccessfulPayment = (result: PaymentResult) =>
   result.status === 'SUCCEEDED' || result.status === 'AUTHORIZED'
@@ -24,7 +27,6 @@ export const CustomerInvoicePayPage = () => {
   const { invoiceId } = useParams<{ invoiceId: string }>()
   const queryClient = useQueryClient()
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
-  const [tip, setTip] = useState<TipSelection>({ type: 'NONE', amount: 0 })
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType | null>('APPLE_PAY')
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null)
   const invoiceQuery = useQuery({
@@ -39,6 +41,14 @@ export const CustomerInvoicePayPage = () => {
     enabled: Boolean(invoiceId),
     retry: false,
   })
+  const orderQuery = useQuery({
+    queryKey: ['customer-order-for-invoice', invoiceQuery.data?.orderId],
+    queryFn: async () => {
+      const response = await mockCustomerOrderService.getOrder(invoiceQuery.data!.orderId)
+      return response.data ?? null
+    },
+    enabled: Boolean(invoiceQuery.data?.orderId),
+  })
   const paymentMutation = useMutation({
     mutationFn: async ({
       method,
@@ -52,33 +62,33 @@ export const CustomerInvoicePayPage = () => {
         throw new Error('Invoice unavailable.')
       }
 
+      // Payment amount MUST originate from the authoritative Invoice.finalTotal
+      // — never estimatedTotal or any catalogue/minimum-charge calculation.
       const result = method === 'APPLE_PAY'
         ? await mockPaymentService.processApplePay({
             orderId: invoice.orderId,
             amount: invoice.finalTotal,
             paymentMethod: 'APPLE_PAY',
-            tip,
+            tip: NO_TIP,
           })
         : await mockPaymentService.processCardPayment({
             orderId: invoice.orderId,
             amount: invoice.finalTotal,
             paymentMethod: 'CARD',
-            tip,
+            tip: NO_TIP,
             cardDetails: cardDetails!,
           })
 
       if (isSuccessfulPayment(result)) {
-        await mockPosService.updateInvoice(invoice.id, {
-          status: 'PAID',
-          paymentStatus: 'CONFIRMED',
-          posSyncStatus: 'SYNCED',
-        })
+        // Updates LOAD's OWN cached invoice/payment state only. This never
+        // calls the POS boundary — the POS read adapter is never mutated by
+        // the Customer app.
+        await mockInvoiceService.markPaid(invoice.id)
         updateStoredOrder(invoice.orderId, (order) => ({
           ...order,
           paymentStatus: 'CONFIRMED',
           ...(order.invoiceId ? {} : { invoiceId: invoice.id }),
         }))
-        await mockDomainEventService.emit('PAYMENT_CONFIRMED', invoice.orderId, { invoiceId: invoice.id })
       }
 
       return result
@@ -165,12 +175,6 @@ export const CustomerInvoicePayPage = () => {
               <span className="text-slate-500">Final total</span>
               <span className="font-semibold text-ink">{formatCurrency(invoice.finalTotal)}</span>
             </div>
-            {tip.amount > 0 ? (
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-slate-500">Tip</span>
-                <span className="font-semibold text-ink">{formatCurrency(tip.amount)}</span>
-              </div>
-            ) : null}
           </Card>
           <Link
             to={appPaths.customerOrders}
@@ -192,6 +196,28 @@ export const CustomerInvoicePayPage = () => {
         <EmptyState
           title="Invoice already paid"
           description="This invoice has already been confirmed."
+        />
+        <div>
+          <Link
+            to={appPaths.customerOrders}
+            className="inline-flex items-center justify-center rounded-pill bg-load-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-load-700"
+          >
+            Back to orders
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // Online payment is never required for STORE_COLLECTION — the Customer
+  // pays at the store when collecting. This page must not render a payment
+  // form for that fulfilment type.
+  if (orderQuery.data?.fulfilmentType === 'STORE_COLLECTION') {
+    return (
+      <div className="space-y-4">
+        <EmptyState
+          title="Pay at store"
+          description="You've chosen to collect your order from LOAD. Payment can be made at the store when you collect — no online payment is required."
         />
         <div>
           <Link
@@ -232,8 +258,6 @@ export const CustomerInvoicePayPage = () => {
           </div>
         </div>
       </SectionCard>
-
-      <DriverTipSelector value={tip} onChange={setTip} />
 
       <PaymentMethodSelector
         selected={paymentMethod}

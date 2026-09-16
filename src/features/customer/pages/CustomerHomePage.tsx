@@ -96,7 +96,7 @@ const ActiveOrderCard = ({ order }: { order: NonNullable<ReturnType<typeof useAc
 
       <div className="mt-4 grid grid-cols-2 gap-2 text-caption text-muted border-t border-divider pt-4">
         <div><span className="font-medium text-ink">Pickup</span><br />{order.pickupWindow.windowLabel}</div>
-        <div><span className="font-medium text-ink">Delivery</span><br />{order.deliveryWindow.windowLabel}</div>
+        <div><span className="font-medium text-ink">Delivery</span><br />{order.fulfilmentType === 'STORE_COLLECTION' ? 'Collect from LOAD' : (order.deliveryWindow?.windowLabel ?? 'To be confirmed')}</div>
       </div>
 
       <div className="mt-4 flex gap-2">
@@ -374,7 +374,9 @@ export const CustomerHomePage = () => {
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-load-100 text-sm" aria-hidden="true">🧺</div>
                   <div>
                     <p className="text-sm font-semibold text-ink">#{order.id}</p>
-                    <p className="text-caption text-muted">{order.deliveryWindow.windowLabel}</p>
+                    <p className="text-caption text-muted">
+                      {order.fulfilmentType === 'STORE_COLLECTION' ? 'Collect from LOAD' : (order.deliveryWindow?.windowLabel ?? 'To be confirmed')}
+                    </p>
                   </div>
                 </div>
                 <div className="text-right">

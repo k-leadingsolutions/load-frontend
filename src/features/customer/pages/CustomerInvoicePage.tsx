@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
-import { mockInvoiceService } from '@/services/mock'
+import { mockCustomerOrderService, mockInvoiceService } from '@/services/mock'
 import { formatCurrency } from '@/utils/format'
 
 export const CustomerInvoicePage = () => {
@@ -20,6 +20,14 @@ export const CustomerInvoicePage = () => {
       return mockInvoiceService.getInvoice(invoiceId)
     },
     enabled: Boolean(invoiceId),
+  })
+  const orderQuery = useQuery({
+    queryKey: ['customer-order-for-invoice', invoiceQuery.data?.orderId],
+    queryFn: async () => {
+      const response = await mockCustomerOrderService.getOrder(invoiceQuery.data!.orderId)
+      return response.data ?? null
+    },
+    enabled: Boolean(invoiceQuery.data?.orderId),
   })
 
   if (!invoiceId) {
@@ -41,6 +49,10 @@ export const CustomerInvoicePage = () => {
   }
 
   const paymentPending = invoice.paymentStatus !== 'CONFIRMED' && invoice.status !== 'PAID'
+  const isStoreCollection = orderQuery.data?.fulfilmentType === 'STORE_COLLECTION'
+  // Pay Now is only ever offered for DELIVERY orders — STORE_COLLECTION is
+  // always settled at the store, regardless of invoice/payment state.
+  const showPayNow = paymentPending && !isStoreCollection
 
   return (
     <div className="space-y-6">
@@ -118,13 +130,17 @@ export const CustomerInvoicePage = () => {
           </div>
         </dl>
 
-        {paymentPending ? (
+        {showPayNow ? (
           <Link
             to={buildPath.customerInvoicePay(invoice.id)}
             className="mt-6 inline-flex rounded-full bg-load-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-load-700"
           >
             Pay now →
           </Link>
+        ) : isStoreCollection && paymentPending ? (
+          <p className="mt-6 rounded-3xl border border-load-200 bg-load-50 p-4 text-sm text-load-700">
+            You've chosen to collect your order from LOAD. Payment can be made at the store when you collect.
+          </p>
         ) : (
           <p className="mt-6 rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
             Payment confirmed. Your order will continue through the LOAD workflow.

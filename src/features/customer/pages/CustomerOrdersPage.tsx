@@ -11,6 +11,7 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { OrderStatusTimeline } from '@/features/customer/components/OrderStatusTimeline'
+import { InvoiceStatusSection } from '@/features/customer/invoice/InvoiceStatusSection'
 import { ORDER_STATUS_MODEL } from '@/domain/orderStatus'
 import { mockCustomerOrderService } from '@/services/mock'
 import { getStoredDriverRating } from '@/services/mock/driverRatings'
@@ -101,10 +102,11 @@ export const CustomerOrdersPage = () => {
             quantity: service.quantity,
           })),
         addOnSelections: [],
+        fulfilmentType: order.fulfilmentType ?? 'DELIVERY',
         pickupAddressId: order.pickupAddress.id,
-        deliveryAddressId: order.deliveryAddress.id,
+        ...(order.deliveryAddress ? { deliveryAddressId: order.deliveryAddress.id } : {}),
         pickupWindow: order.pickupWindow.windowLabel,
-        deliveryWindow: order.deliveryWindow.windowLabel,
+        ...(order.deliveryWindow ? { deliveryWindow: order.deliveryWindow.windowLabel } : {}),
       })
 
       if (response.status === 'error' || !response.data) {
@@ -162,27 +164,24 @@ export const CustomerOrdersPage = () => {
                   <p className="text-caption text-muted">Order #{activeOrder.id}</p>
                   <h3 className="mt-1 text-heading text-ink">{activeOrder.friendlyStatus}</h3>
                 </div>
-                <Badge tone={PAYMENT_BADGE[activeOrder.paymentStatus].tone}>
-                  {PAYMENT_BADGE[activeOrder.paymentStatus].label}
-                </Badge>
               </div>
 
               <StageProgressBar order={activeOrder} />
 
               <div className="space-y-1 text-body text-muted">
-                <p>Delivery: {activeOrder.deliveryWindow.windowLabel}</p>
+                <p>
+                  {activeOrder.fulfilmentType === 'STORE_COLLECTION'
+                    ? 'Collect from LOAD'
+                    : `Delivery: ${activeOrder.deliveryWindow?.windowLabel ?? 'To be confirmed'}`}
+                </p>
                 {activeOrder.confirmedWeightKg ? (
                   <p>Confirmed weight: {activeOrder.confirmedWeightKg.toFixed(1)} kg</p>
                 ) : null}
               </div>
 
-              <p className="text-lg font-semibold text-ink">{formatCurrency(activeOrder.estimatedTotal)}</p>
+              <p className="text-caption text-muted">Estimated total: {formatCurrency(activeOrder.estimatedTotal)}</p>
 
-              {activeOrder.invoiceId ? (
-                <Link to={buildPath.customerInvoice(activeOrder.invoiceId)}>
-                  <Button variant="outline" size="sm">View invoice</Button>
-                </Link>
-              ) : null}
+              <InvoiceStatusSection order={activeOrder} />
             </Card>
             <OrderStatusTimeline status={activeOrder.status} />
           </div>
@@ -223,13 +222,21 @@ export const CustomerOrdersPage = () => {
 
                   <div className="mt-3 space-y-1 text-body text-muted">
                     <p>Pickup: {order.pickupWindow.windowLabel}</p>
-                    <p>Delivery: {order.deliveryWindow.windowLabel}</p>
+                    <p>
+                      {order.fulfilmentType === 'STORE_COLLECTION'
+                        ? 'Collect from LOAD'
+                        : `Delivery: ${order.deliveryWindow?.windowLabel ?? 'To be confirmed'}`}
+                    </p>
                     {order.confirmedWeightKg ? (
                       <p>Confirmed weight: {order.confirmedWeightKg.toFixed(1)} kg</p>
                     ) : null}
                   </div>
 
-                  <p className="mt-3 text-lg font-semibold text-ink">{formatCurrency(order.estimatedTotal)}</p>
+                  <p className="mt-3 text-caption text-muted">Estimated total: {formatCurrency(order.estimatedTotal)}</p>
+
+                  <div className="mt-3">
+                    <InvoiceStatusSection order={order} />
+                  </div>
 
                   <div className="mt-4 flex flex-wrap gap-3">
                     <Button
@@ -241,11 +248,6 @@ export const CustomerOrdersPage = () => {
                     >
                       Repeat order
                     </Button>
-                    {order.invoiceId ? (
-                      <Link to={buildPath.customerInvoice(order.invoiceId)}>
-                        <Button variant="ghost" size="sm">Open invoice</Button>
-                      </Link>
-                    ) : null}
                     {canRateDriver ? (
                       <Link to={buildPath.customerRateDriver(order.id)}>
                         <Button variant="ghost" size="sm">Rate driver</Button>

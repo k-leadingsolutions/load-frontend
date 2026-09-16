@@ -100,14 +100,19 @@ export const mockOrders: LaundryOrder[] = [
     deliveryAddress: { ...primaryAddress },
     services: [{ serviceId: 'ev-wash-dry-fold', quantity: 9, unitLabel: 'kg' }],
     estimatedTotal: 420,
-    confirmedTotal: 420,
     confirmedWeightKg: 9.4,
     paymentStatus: 'CONFIRMED',
     invoiceId: 'inv-LD10235',
+    externalInvoiceId: 'INV-2026-10235',
+    invoiceStatus: 'READY',
+    // Read-only projection of the authoritative Invoice.finalTotal (see
+    // invoiceStore in extendedMocks.ts) — never independently calculated.
+    finalInvoiceTotal: 248,
     loyaltyPointsEarned: 1240,
     promotionsApplied: ['FIRSTLOAD'],
     internalNotes: ['Handle white shirts separately.'],
     canRepeat: false,
+    fulfilmentType: 'DELIVERY',
   },
   {
     id: 'LD10234',
@@ -121,10 +126,12 @@ export const mockOrders: LaundryOrder[] = [
     services: [{ serviceId: 'dc-shirt-blouse', quantity: 3, unitLabel: 'items' }],
     estimatedTotal: 420,
     paymentStatus: 'CONFIRMED',
+    invoiceStatus: 'NOT_AVAILABLE',
     loyaltyPointsEarned: 120,
     promotionsApplied: [],
     internalNotes: [],
     canRepeat: true,
+    fulfilmentType: 'DELIVERY',
   },
 ]
 

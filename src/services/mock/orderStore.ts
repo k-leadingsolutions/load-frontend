@@ -24,7 +24,8 @@ const readOrdersFromStorage = () => {
     // Migrate orders persisted before paymentStatus was added to the model
     return parsed.map((order) => ({
       ...order,
-      paymentStatus: order.paymentStatus ?? ('PENDING' as const),
+      paymentStatus: order.paymentStatus ?? ('NOT_REQUIRED' as const),
+      invoiceStatus: order.invoiceStatus ?? ('NOT_AVAILABLE' as const),
     }))
   } catch {
     window.localStorage.removeItem(ORDER_STORAGE_KEY)
