@@ -8,6 +8,7 @@ import { RoleLayout } from '@/app/layouts/RoleLayout'
 import { appPaths } from '@/app/router/paths'
 import { CustomerHomePage } from '@/features/customer/pages/CustomerHomePage'
 import { CustomerServicesPage } from '@/features/customer/pages/CustomerServicesPage'
+import { CustomerOrderDraftProvider } from '@/features/customer/booking/CustomerOrderDraftContext'
 import { mockCustomerProfile } from '@/services/mock/data'
 import { AUTH_STORAGE_KEY } from '@/services/mock/sessionStore'
 
@@ -21,27 +22,29 @@ const renderCustomerArea = (initialEntry: string) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <AuthProvider>
-        <MemoryRouter initialEntries={[initialEntry]}>
-          <Routes>
-            <Route element={<RequireCustomerAuth />}>
-              <Route
-                element={
-                  <RoleLayout
-                    roleLabel="Customer"
-                    greetingMode
-                    mobileNavLinks={[
-                      { to: appPaths.customerHome, label: 'Home', icon: '⌂' },
-                      { to: appPaths.customerServices, label: 'New Order', icon: '+', emphasis: true },
-                    ]}
-                  />
-                }
-              >
-                <Route path={appPaths.customerHome} element={<CustomerHomePage />} />
-                <Route path={appPaths.customerServices} element={<CustomerServicesPage />} />
+        <CustomerOrderDraftProvider>
+          <MemoryRouter initialEntries={[initialEntry]}>
+            <Routes>
+              <Route element={<RequireCustomerAuth />}>
+                <Route
+                  element={
+                    <RoleLayout
+                      roleLabel="Customer"
+                      greetingMode
+                      mobileNavLinks={[
+                        { to: appPaths.customerHome, label: 'Home', icon: '⌂' },
+                        { to: appPaths.customerServices, label: 'New Order', icon: '+', emphasis: true },
+                      ]}
+                    />
+                  }
+                >
+                  <Route path={appPaths.customerHome} element={<CustomerHomePage />} />
+                  <Route path={appPaths.customerServices} element={<CustomerServicesPage />} />
+                </Route>
               </Route>
-            </Route>
-          </Routes>
-        </MemoryRouter>
+            </Routes>
+          </MemoryRouter>
+        </CustomerOrderDraftProvider>
       </AuthProvider>
     </QueryClientProvider>,
   )

@@ -1,20 +1,34 @@
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
-import { buildPath } from '@/app/router/paths'
+import { buildPath, appPaths } from '@/app/router/paths'
 import { approvedCategories } from '@/services/mock/approvedLaundryCatalogue'
 import { loadCoffeeCategory } from '@/services/mock/approvedCoffeeCatalogue'
+import { useCustomerOrderDraft } from '@/features/customer/booking/CustomerOrderDraftContext'
 
 // All customer-facing categories: approved laundry categories plus LOAD Coffee
 const customerCategories = [...approvedCategories, loadCoffeeCategory]
 
-export const CustomerServicesPage = () => (
+export const CustomerServicesPage = () => {
+  const { selectedCount, hasSelectedServices } = useCustomerOrderDraft()
+
+  return (
   <div className="space-y-6">
-    <div>
-      <h1 className="text-heading text-ink">Services</h1>
-      <p className="mt-1 text-body text-muted">
-        Choose a category to explore individual services and pricing.
-      </p>
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <h1 className="text-heading text-ink">Services</h1>
+        <p className="mt-1 text-body text-muted">
+          Choose a category to explore individual services and pricing.
+        </p>
+      </div>
+      {hasSelectedServices ? (
+        <Link
+          to={appPaths.customerBooking}
+          className="inline-flex flex-shrink-0 items-center gap-1 rounded-pill bg-load-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-load-700"
+        >
+          View order · {selectedCount}
+        </Link>
+      ) : null}
     </div>
 
     <div className="grid gap-4 sm:grid-cols-2">
@@ -68,4 +82,5 @@ export const CustomerServicesPage = () => (
       ))}
     </div>
   </div>
-)
+  )
+}

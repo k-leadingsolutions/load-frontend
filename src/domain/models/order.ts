@@ -1,4 +1,5 @@
 import type { Address } from '@/domain/models/customer'
+import type { FulfilmentType } from '@/domain/models/booking'
 
 // ─── Core status enum ─────────────────────────────────────────────────────────
 
@@ -82,6 +83,8 @@ export interface LaundryOrder {
   promotionsApplied: string[]
   internalNotes: string[]
   canRepeat: boolean
+  /** How the completed order returns to the Customer. Defaults to DELIVERY when absent (legacy orders). */
+  fulfilmentType?: FulfilmentType
 }
 
 export interface DriverRating {

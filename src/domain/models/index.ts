@@ -1,4 +1,5 @@
 export * from '@/domain/models/admin'
+export * from '@/domain/models/booking'
 export type {
   CoffeeCartLine,
   CoffeeOrder,

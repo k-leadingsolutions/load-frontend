@@ -1,9 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useForm, useWatch } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '@/app/providers/useAuth'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -15,48 +12,34 @@ import { Toast } from '@/components/ui/Toast'
 import { BookingSummaryCard } from '@/features/customer/booking/BookingSummaryCard'
 import { AddressSetupForm } from '@/features/customer/booking/AddressSetupForm'
 import { bookingWindows } from '@/features/customer/booking/bookingOptions'
-import { QuantitySelector } from '@/features/customer/booking/QuantitySelector'
+import { useCustomerOrderDraft } from '@/features/customer/booking/CustomerOrderDraftContext'
 import type { LaundryOrder } from '@/domain/models'
+import type { FulfilmentType } from '@/domain/models/booking'
 import { appPaths } from '@/app/router/paths'
 import { mockCatalogueService, mockCustomerOrderService } from '@/services/mock'
 import { formatCurrency } from '@/utils/format'
 
-const bookingSchema = z
-  .object({
-    serviceQuantities: z.record(z.string(), z.number().int().min(0)),
-    addOnQuantities: z.record(z.string(), z.number().int().min(0)),
-    pickupAddressId: z.string().min(1, 'Pickup address is required.'),
-    deliveryAddressId: z.string().min(1, 'Delivery address is required.'),
-    pickupWindow: z.string().min(1, 'Pickup window is required.'),
-    deliveryWindow: z.string().min(1, 'Delivery window is required.'),
-    promotionCode: z.string().optional(),
-    expressRequested: z.boolean(),
-    useLoyaltyPoints: z.boolean(),
-  })
-  .superRefine((values, context) => {
-    const hasServiceSelection = Object.values(values.serviceQuantities).some((quantity) => quantity > 0)
-
-    if (!hasServiceSelection) {
-      context.addIssue({
-        code: 'custom',
-        message: 'Select at least one service item.',
-        path: ['serviceQuantities'],
-      })
-    }
-  })
-
-type BookingFormValues = z.infer<typeof bookingSchema>
-type BookingStep = 1 | 2 | 3
+type BookingStep = 1 | 2
 
 const STEP_LABELS: Record<BookingStep, string> = {
-  1: 'Services',
-  2: 'Collection & delivery',
-  3: 'Review',
+  1: 'Collection & delivery',
+  2: 'Review',
 }
 
 export const CustomerBookingPage = () => {
   const { user, saveAddress } = useAuth()
   const queryClient = useQueryClient()
+  const {
+    draft,
+    hasSelectedServices,
+    setFulfilmentType,
+    setPickupAddressId,
+    setDeliveryAddressId,
+    setPickupWindow,
+    setDeliveryWindow,
+    setCustomerInstructions,
+    resetDraft,
+  } = useCustomerOrderDraft()
   const [step, setStep] = useState<BookingStep>(1)
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
@@ -65,56 +48,18 @@ export const CustomerBookingPage = () => {
     queryKey: ['service-catalogue'],
     queryFn: () => mockCatalogueService.getCatalogue(),
   })
-  const {
-    register,
-    handleSubmit,
-    control,
-    getValues,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<BookingFormValues>({
-    resolver: zodResolver(bookingSchema),
-    defaultValues: {
-      serviceQuantities: {},
-      addOnQuantities: {},
-      pickupAddressId: user?.defaultAddressId ?? '',
-      deliveryAddressId: user?.defaultAddressId ?? '',
-      pickupWindow: bookingWindows[0]!,
-      deliveryWindow: bookingWindows[1]!,
-      promotionCode: '',
-      expressRequested: false,
-      useLoyaltyPoints: false,
-    },
-  })
-  const watchedValues = useWatch({ control })
 
   const quoteRequest = useMemo(() => {
-    const serviceSelections = Object.entries(watchedValues.serviceQuantities ?? {})
-      .filter(([, quantity]) => (quantity ?? 0) > 0)
-      .map(([serviceId, quantity]) => ({
-        serviceId,
-        quantity: quantity ?? 0,
-      }))
-
-    const addOnSelections = Object.entries(watchedValues.addOnQuantities ?? {})
-      .filter(([, quantity]) => (quantity ?? 0) > 0)
-      .map(([addOnId, quantity]) => ({
-        addOnId,
-        quantity: quantity ?? 0,
-      }))
-
-    if (serviceSelections.length === 0) {
+    if (draft.serviceSelections.length === 0) {
       return null
     }
 
     return {
-      serviceSelections,
-      addOnSelections,
-      ...(watchedValues.promotionCode ? { promotionCode: watchedValues.promotionCode } : {}),
-      expressRequested: watchedValues.expressRequested ?? false,
-      ...((watchedValues.useLoyaltyPoints ?? false) ? { useLoyaltyPoints: true } : {}),
+      serviceSelections: draft.serviceSelections,
+      addOnSelections: draft.addOnSelections,
+      expressRequested: draft.expressRequested,
     }
-  }, [watchedValues])
+  }, [draft.serviceSelections, draft.addOnSelections, draft.expressRequested])
 
   const quoteQuery = useQuery({
     queryKey: ['pricing-quote', quoteRequest],
@@ -134,32 +79,19 @@ export const CustomerBookingPage = () => {
   })
 
   const placeOrderMutation = useMutation({
-    mutationFn: async (values: BookingFormValues) => {
-      const serviceSelections = Object.entries(values.serviceQuantities)
-        .filter(([, quantity]) => quantity > 0)
-        .map(([serviceId, quantity]) => ({
-          serviceId,
-          quantity,
-        }))
-      const addOnSelections = Object.entries(values.addOnQuantities)
-        .filter(([, quantity]) => quantity > 0)
-        .map(([addOnId, quantity]) => ({
-          addOnId,
-          quantity,
-        }))
-      const finalAddOnSelections = values.expressRequested
-        ? [...addOnSelections, { addOnId: 'addon-express', quantity: 1 }]
-        : addOnSelections
+    mutationFn: async () => {
       const response = await mockCustomerOrderService.placeOrder({
         customerId: user!.id,
-        serviceSelections,
-        addOnSelections: finalAddOnSelections,
-        pickupAddressId: values.pickupAddressId,
-        deliveryAddressId: values.deliveryAddressId,
-        pickupWindow: values.pickupWindow,
-        deliveryWindow: values.deliveryWindow,
-        ...(values.promotionCode ? { promotionCode: values.promotionCode } : {}),
-        ...(values.useLoyaltyPoints ? { useLoyaltyPoints: true } : {}),
+        serviceSelections: draft.serviceSelections,
+        addOnSelections: draft.expressRequested
+          ? [...draft.addOnSelections, { addOnId: 'addon-express', quantity: 1 }]
+          : draft.addOnSelections,
+        fulfilmentType: draft.fulfilmentType,
+        pickupAddressId: draft.pickupAddressId,
+        pickupWindow: draft.pickupWindow,
+        ...(draft.fulfilmentType === 'DELIVERY'
+          ? { deliveryAddressId: draft.deliveryAddressId, deliveryWindow: draft.deliveryWindow }
+          : {}),
       })
 
       if (response.status === 'error' || !response.data) {
@@ -174,6 +106,12 @@ export const CustomerBookingPage = () => {
 
   if (!user) {
     return <ErrorState title="Customer account unavailable" message="Please sign in again to continue." />
+  }
+
+  // Route safety: a Customer must have selected at least one service via the
+  // category catalogue before reaching Collection & Delivery or Review.
+  if (!hasSelectedServices && !placedOrder) {
+    return <Navigate to={appPaths.customerServices} replace />
   }
 
   if (catalogueQuery.isLoading) {
@@ -191,74 +129,53 @@ export const CustomerBookingPage = () => {
 
   const { services, addOns } = catalogueQuery.data.data
   const hasAddresses = user.addresses.length > 0
-  const serviceQuantitiesError = typeof errors.serviceQuantities?.message === 'string' ? errors.serviceQuantities.message : null
-  const visibleAddOns = addOns.filter((addOn) => addOn.id !== 'addon-express')
   const expressAddOn = addOns.find((addOn) => addOn.id === 'addon-express')
-  // An order is weight-based if any selected service uses PER_KILOGRAM pricing
-  const selectedServiceIds = Object.entries(watchedValues.serviceQuantities ?? {})
-    .filter(([, qty]) => (qty ?? 0) > 0)
-    .map(([id]) => id)
-  const isWeightBasedOrder = services.some(
-    (s) => selectedServiceIds.includes(s.id) && s.pricingModel === 'PER_KILOGRAM',
-  )
-  const selectedServices = services.filter((service) => (watchedValues.serviceQuantities?.[service.id] ?? 0) > 0)
-  const selectedAddOns = visibleAddOns.filter((addOn) => (watchedValues.addOnQuantities?.[addOn.id] ?? 0) > 0)
+  const selectedServices = draft.serviceSelections.flatMap((selection) => {
+    const service = services.find((item) => item.id === selection.serviceId)
+    return service ? [{ service, quantity: selection.quantity }] : []
+  })
+  const selectedAddOns = draft.addOnSelections.flatMap((selection) => {
+    const addOn = addOns.find((item) => item.id === selection.addOnId)
+    return addOn ? [{ addOn, quantity: selection.quantity }] : []
+  })
   const showConfirmation = placedOrder !== null
 
-  const updateQuantity = (field: 'serviceQuantities' | 'addOnQuantities', itemId: string, quantity: number) => {
-    const current = getValues(field)
-    setValue(field, { ...current, [itemId]: quantity }, { shouldDirty: true, shouldValidate: true })
-  }
-
   const goNext = () => {
-    const values = getValues()
     if (step === 1) {
-      const hasServiceSelection = Object.values(values.serviceQuantities).some((q) => q > 0)
-      if (!hasServiceSelection) {
-        setToast({ message: 'Please select at least one service to continue.', tone: 'error' })
-        return
-      }
-    }
-    if (step === 2) {
-      if (!values.pickupAddressId) {
+      if (!draft.pickupAddressId) {
         setToast({ message: 'Please select a pickup address.', tone: 'error' })
         return
       }
-      if (!values.deliveryAddressId) {
-        setToast({ message: 'Please select a delivery address.', tone: 'error' })
+      if (!draft.pickupWindow) {
+        setToast({ message: 'Please select a pickup window.', tone: 'error' })
         return
       }
+      if (draft.fulfilmentType === 'DELIVERY') {
+        if (!draft.deliveryAddressId) {
+          setToast({ message: 'Please select a delivery address.', tone: 'error' })
+          return
+        }
+        if (!draft.deliveryWindow) {
+          setToast({ message: 'Please select a delivery window.', tone: 'error' })
+          return
+        }
+      }
     }
+    setToast(null)
     setStep((s) => (s + 1) as BookingStep)
   }
 
   const goBack = () => setStep((s) => (s - 1) as BookingStep)
 
-  const ensureOrder = async (values: BookingFormValues) => {
-    if (placedOrder) {
-      return placedOrder
-    }
-
-    const order = await placeOrderMutation.mutateAsync(values)
-    setPlacedOrder(order)
-    return order
-  }
-
   const confirmOrder = async () => {
-    const submitOrder = handleSubmit(async (values) => {
-      try {
-        setToast(null)
-        await ensureOrder(values)
-      } catch (error) {
-        setToast({ message: error instanceof Error ? error.message : 'Unable to place order.', tone: 'error' })
-      }
-    })
-
-    await submitOrder()
-  }
-
-  const confirmWeightBasedOrder = async () => {
-    await confirmOrder()
+    try {
+      setToast(null)
+      const order = await placeOrderMutation.mutateAsync()
+      setPlacedOrder(order)
+      resetDraft()
+    } catch (error) {
+      setToast({ message: error instanceof Error ? error.message : 'Unable to place order.', tone: 'error' })
+    }
   }
 
   const resetBookingFlow = () => {
@@ -276,9 +193,13 @@ export const CustomerBookingPage = () => {
             <span className="text-3xl text-status-success" aria-hidden="true">✓</span>
           </div>
           <div>
-            <h2 className="text-heading text-ink">Order confirmed</h2>
+            <h2 className="text-heading text-ink">Your booking is confirmed.</h2>
             <p className="mt-2 text-body text-muted">
-              Your order is confirmed! Once your laundry is weighed we'll send you a payment request.
+              Once your items are received and processed at LOAD, we&apos;ll notify you when your final invoice is ready.
+              {' '}
+              {placedOrder.fulfilmentType === 'STORE_COLLECTION'
+                ? 'You can pay at the LOAD store when collecting your completed order.'
+                : "We'll notify you when your final invoice is ready for payment."}
             </p>
           </div>
           <div className="rounded-card bg-load-50 p-4 text-left text-sm">
@@ -290,7 +211,7 @@ export const CustomerBookingPage = () => {
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted">Estimated amount</span>
                 <span className="font-semibold text-load-700">
-                  {formatCurrency(quoteQuery.data?.estimatedTotal ?? placedOrder.estimatedTotal)}
+                  {formatCurrency(placedOrder.estimatedTotal)}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3">
@@ -298,8 +219,10 @@ export const CustomerBookingPage = () => {
                 <span className="font-semibold text-ink">{placedOrder.pickupWindow.windowLabel}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <span className="text-muted">Delivery window</span>
-                <span className="font-semibold text-ink">{placedOrder.deliveryWindow.windowLabel}</span>
+                <span className="text-muted">Fulfilment</span>
+                <span className="font-semibold text-ink">
+                  {placedOrder.fulfilmentType === 'STORE_COLLECTION' ? 'Collect from LOAD' : placedOrder.deliveryWindow.windowLabel}
+                </span>
               </div>
             </div>
           </div>
@@ -333,8 +256,8 @@ export const CustomerBookingPage = () => {
               isDefault: false,
             })
             if (address) {
-              setValue('pickupAddressId', address.id, { shouldValidate: true })
-              setValue('deliveryAddressId', address.id, { shouldValidate: true })
+              setPickupAddressId(address.id)
+              setDeliveryAddressId(address.id)
             }
             setShowAddressModal(false)
           }}
@@ -347,7 +270,7 @@ export const CustomerBookingPage = () => {
       {/* Stepper header */}
       <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
         <div className="flex items-center gap-2 overflow-x-auto">
-          {([1, 2, 3] as BookingStep[]).map((num) => {
+          {([1, 2] as BookingStep[]).map((num) => {
             const isDone = step > num
             const isCurrent = step === num
             return (
@@ -380,7 +303,7 @@ export const CustomerBookingPage = () => {
       </div>
 
       {/* No addresses prompt (shown above stepper content when there are no saved addresses) */}
-      {!hasAddresses && step === 2 ? (
+      {!hasAddresses && step === 1 ? (
         <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
           <EmptyState
             title="No saved addresses yet"
@@ -400,8 +323,8 @@ export const CustomerBookingPage = () => {
                   isDefault: true,
                 })
                 if (address) {
-                  setValue('pickupAddressId', address.id, { shouldValidate: true })
-                  setValue('deliveryAddressId', address.id, { shouldValidate: true })
+                  setPickupAddressId(address.id)
+                  setDeliveryAddressId(address.id)
                 }
               }}
             />
@@ -412,74 +335,36 @@ export const CustomerBookingPage = () => {
       <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
         <div className="space-y-6">
 
-          {/* ── Step 1: Services ──────────────────────────────────────────── */}
+          {/* ── Step 1: Collection & delivery ─────────────────────────────── */}
           {step === 1 ? (
             <>
+              {/* Fulfilment choice */}
               <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
-                <h2 className="text-heading text-ink">Choose your services</h2>
-                <p className="mt-1 text-body text-muted">Choose the garment-care services you need for this order.</p>
-                <div className="mt-5 grid gap-4">
-                  {services.map((service) => (
-                    <QuantitySelector
-                      key={service.id}
-                      label={service.name}
-                      description={`${service.shortDescription} · ${service.turnaroundLabel}${service.pricingModel === 'PER_KILOGRAM' ? ' · Final amount confirmed after weighing' : ''}`}
-                      priceLabel={`${formatCurrency(service.basePrice)} / ${service.unitLabel}`}
-                      quantity={watchedValues.serviceQuantities?.[service.id] ?? 0}
-                      onChange={(quantity) => updateQuantity('serviceQuantities', service.id, quantity)}
-                    />
+                <h2 className="text-heading text-ink">How should we return your order?</h2>
+                <p className="mt-1 text-body text-muted">LOAD always collects from you first — choose how the completed order comes back.</p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {([
+                    { value: 'DELIVERY' as FulfilmentType, label: 'Pickup & Delivery', description: 'We deliver your completed order back to you.' },
+                    { value: 'STORE_COLLECTION' as FulfilmentType, label: 'Pickup & Collect In Store', description: 'Collect your completed order from the LOAD store.' },
+                  ]).map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setFulfilmentType(option.value)}
+                      aria-pressed={draft.fulfilmentType === option.value}
+                      className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
+                        draft.fulfilmentType === option.value
+                          ? 'border-load-500 bg-load-50 shadow-card'
+                          : 'border-card-border bg-white hover:border-load-200'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-ink">{option.label}</p>
+                      <p className="mt-1 text-caption text-muted">{option.description}</p>
+                    </button>
                   ))}
                 </div>
-                {serviceQuantitiesError ? (
-                  <p className="mt-3 text-caption text-status-error">{serviceQuantitiesError}</p>
-                ) : null}
               </div>
 
-              {/* Add-ons */}
-              <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
-                <h2 className="text-heading text-ink">Add-ons and upsells</h2>
-                <p className="mt-1 text-body text-muted">Boost order value with premium add-ons and express turnaround.</p>
-                <div className="mt-5 grid gap-4">
-                  {visibleAddOns.map((addOn) => (
-                    <QuantitySelector
-                      key={addOn.id}
-                      label={addOn.name}
-                      description={addOn.description}
-                      priceLabel={formatCurrency(addOn.price)}
-                      quantity={watchedValues.addOnQuantities?.[addOn.id] ?? 0}
-                      suggestionTag={addOn.suggestionTag}
-                      onChange={(quantity) => updateQuantity('addOnQuantities', addOn.id, quantity)}
-                    />
-                  ))}
-                </div>
-                {expressAddOn ? (
-                  <label
-                    className={`mt-5 flex cursor-pointer items-center gap-3 rounded-card border p-4 transition ${
-                      watchedValues.expressRequested ? 'border-load-500 bg-load-50' : 'border-card-border bg-white'
-                    }`}
-                  >
-                    <input type="checkbox" {...register('expressRequested')} />
-                    <div>
-                      <p className="text-sm font-semibold text-ink">Express turnaround</p>
-                      <p className="text-caption text-muted">
-                        Priority same-day processing where available — {formatCurrency(expressAddOn.price)}
-                      </p>
-                    </div>
-                  </label>
-                ) : null}
-              </div>
-
-              <div className="flex justify-end">
-                <Button type="button" onClick={goNext}>
-                  Next: Collection &amp; delivery →
-                </Button>
-              </div>
-            </>
-          ) : null}
-
-          {/* ── Step 2: Schedule & address ─────────────────────────────────── */}
-          {step === 2 ? (
-            <>
               {/* Pickup address */}
               <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
                 <div className="flex items-start justify-between gap-3">
@@ -496,9 +381,9 @@ export const CustomerBookingPage = () => {
                     <button
                       key={address.id}
                       type="button"
-                      onClick={() => setValue('pickupAddressId', address.id, { shouldValidate: true })}
+                      onClick={() => setPickupAddressId(address.id)}
                       className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
-                        watchedValues.pickupAddressId === address.id
+                        draft.pickupAddressId === address.id
                           ? 'border-load-500 bg-load-50 shadow-card'
                           : 'border-card-border bg-white hover:border-load-200'
                       }`}
@@ -509,36 +394,32 @@ export const CustomerBookingPage = () => {
                     </button>
                   ))}
                 </div>
-                {errors.pickupAddressId?.message ? (
-                  <p className="mt-3 text-caption text-status-error">{errors.pickupAddressId.message}</p>
-                ) : null}
               </div>
 
-              {/* Delivery address */}
-              <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
-                <h2 className="text-heading text-ink">Delivery address</h2>
-                <p className="mt-1 text-body text-muted">Where should clean laundry be delivered?</p>
-                <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  {user.addresses.map((address) => (
-                    <button
-                      key={address.id}
-                      type="button"
-                      onClick={() => setValue('deliveryAddressId', address.id, { shouldValidate: true })}
-                      className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
-                        watchedValues.deliveryAddressId === address.id
-                          ? 'border-load-500 bg-load-50 shadow-card'
-                          : 'border-card-border bg-white hover:border-load-200'
-                      }`}
-                    >
-                      <p className="text-sm font-semibold text-ink">{address.label}</p>
-                      <p className="mt-1 text-body text-muted">{address.line1}, {address.suburb}</p>
-                    </button>
-                  ))}
+              {/* Delivery address — only relevant for DELIVERY fulfilment */}
+              {draft.fulfilmentType === 'DELIVERY' ? (
+                <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
+                  <h2 className="text-heading text-ink">Delivery address</h2>
+                  <p className="mt-1 text-body text-muted">Where should clean laundry be delivered?</p>
+                  <div className="mt-5 grid gap-3 md:grid-cols-2">
+                    {user.addresses.map((address) => (
+                      <button
+                        key={address.id}
+                        type="button"
+                        onClick={() => setDeliveryAddressId(address.id)}
+                        className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
+                          draft.deliveryAddressId === address.id
+                            ? 'border-load-500 bg-load-50 shadow-card'
+                            : 'border-card-border bg-white hover:border-load-200'
+                        }`}
+                      >
+                        <p className="text-sm font-semibold text-ink">{address.label}</p>
+                        <p className="mt-1 text-body text-muted">{address.line1}, {address.suburb}</p>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                {errors.deliveryAddressId?.message ? (
-                  <p className="mt-3 text-caption text-status-error">{errors.deliveryAddressId.message}</p>
-                ) : null}
-              </div>
+              ) : null}
 
               {/* Pickup window */}
               <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
@@ -549,9 +430,9 @@ export const CustomerBookingPage = () => {
                     <button
                       key={windowLabel}
                       type="button"
-                      onClick={() => setValue('pickupWindow', windowLabel, { shouldValidate: true })}
+                      onClick={() => setPickupWindow(windowLabel)}
                       className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
-                        watchedValues.pickupWindow === windowLabel
+                        draft.pickupWindow === windowLabel
                           ? 'border-load-500 bg-load-50 shadow-card'
                           : 'border-card-border bg-white hover:border-load-200'
                       }`}
@@ -562,41 +443,55 @@ export const CustomerBookingPage = () => {
                 </div>
               </div>
 
-              {/* Delivery window */}
+              {/* Delivery window — only relevant for DELIVERY fulfilment */}
+              {draft.fulfilmentType === 'DELIVERY' ? (
+                <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
+                  <h2 className="text-heading text-ink">Delivery window</h2>
+                  <p className="mt-1 text-body text-muted">Choose a convenient delivery time.</p>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    {bookingWindows.map((windowLabel) => (
+                      <button
+                        key={windowLabel}
+                        type="button"
+                        onClick={() => setDeliveryWindow(windowLabel)}
+                        className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
+                          draft.deliveryWindow === windowLabel
+                            ? 'border-load-500 bg-load-50 shadow-card'
+                            : 'border-card-border bg-white hover:border-load-200'
+                        }`}
+                      >
+                        <p className="text-body text-ink">{windowLabel}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Customer instructions */}
               <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
-                <h2 className="text-heading text-ink">Delivery window</h2>
-                <p className="mt-1 text-body text-muted">Choose a convenient delivery time.</p>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  {bookingWindows.map((windowLabel) => (
-                    <button
-                      key={windowLabel}
-                      type="button"
-                      onClick={() => setValue('deliveryWindow', windowLabel, { shouldValidate: true })}
-                      className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
-                        watchedValues.deliveryWindow === windowLabel
-                          ? 'border-load-500 bg-load-50 shadow-card'
-                          : 'border-card-border bg-white hover:border-load-200'
-                      }`}
-                    >
-                      <p className="text-body text-ink">{windowLabel}</p>
-                    </button>
-                  ))}
-                </div>
+                <h2 className="text-heading text-ink">Instructions (optional)</h2>
+                <textarea
+                  value={draft.customerInstructions}
+                  onChange={(e) => setCustomerInstructions(e.target.value)}
+                  placeholder="e.g. Gate code, preferred contact method…"
+                  rows={3}
+                  className="mt-3 w-full rounded-card border border-card-border bg-white px-4 py-2.5 text-sm text-ink placeholder:text-muted outline-none focus:border-load-400 focus:ring-2 focus:ring-load-100"
+                />
               </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <Button variant="outline" type="button" onClick={goBack}>
-                  ← Back
-                </Button>
+              <div className="flex justify-between gap-3">
+                <Link to={appPaths.customerServices}>
+                  <Button variant="outline" type="button">← Back</Button>
+                </Link>
                 <Button type="button" onClick={goNext}>
-                  Next: Review →
+                  Continue to Review →
                 </Button>
               </div>
             </>
           ) : null}
 
-          {/* ── Step 3: Review & confirm ───────────────────────────────────── */}
-          {step === 3 ? (
+          {/* ── Step 2: Review & confirm ───────────────────────────────────── */}
+          {step === 2 ? (
             <>
               <div className="rounded-panel border border-card-border bg-white p-5 shadow-card space-y-6">
                 <div>
@@ -610,27 +505,47 @@ export const CustomerBookingPage = () => {
                     <p className="mt-1 text-body text-muted">These items will be collected during your chosen pickup window.</p>
                   </div>
                   <ul className="space-y-3">
-                    {selectedServices.map((service) => (
-                      <li key={service.id} className="flex items-center justify-between gap-3 text-sm">
-                        <span className="text-slate-600">
-                          {service.name} × {watchedValues.serviceQuantities?.[service.id] ?? 0}
-                        </span>
-                        <span className="font-semibold text-ink">
-                          {formatCurrency((watchedValues.serviceQuantities?.[service.id] ?? 0) * service.basePrice)}
-                        </span>
-                      </li>
-                    ))}
-                    {selectedAddOns.map((addOn) => (
+                    {selectedServices.map(({ service, quantity }) => {
+                      if (service.pricingModel === 'PER_KILOGRAM') {
+                        return (
+                          <li key={service.id} className="flex items-center justify-between gap-3 text-sm">
+                            <span className="text-slate-600">{service.name}</span>
+                            <span className="font-semibold text-ink">{formatCurrency(service.basePrice)}/kg</span>
+                          </li>
+                        )
+                      }
+                      if (service.pricingModel === 'ASSESSMENT_REQUIRED' || service.pricingModel === 'QUOTE_REQUIRED') {
+                        return (
+                          <li key={service.id} className="flex items-center justify-between gap-3 text-sm">
+                            <span className="text-slate-600">{service.name}</span>
+                            <span className="font-semibold text-ink">
+                              {service.basePrice > 0 ? `from ${formatCurrency(service.basePrice)}` : 'Quote required'}
+                            </span>
+                          </li>
+                        )
+                      }
+                      return (
+                        <li key={service.id} className="flex items-center justify-between gap-3 text-sm">
+                          <span className="text-slate-600">
+                            {service.name} × {quantity}
+                          </span>
+                          <span className="font-semibold text-ink">
+                            {formatCurrency(quantity * service.basePrice)}
+                          </span>
+                        </li>
+                      )
+                    })}
+                    {selectedAddOns.map(({ addOn, quantity }) => (
                       <li key={addOn.id} className="flex items-center justify-between gap-3 text-sm">
                         <span className="text-slate-600">
-                          {addOn.name} × {watchedValues.addOnQuantities?.[addOn.id] ?? 0}
+                          {addOn.name} × {quantity}
                         </span>
                         <span className="font-semibold text-ink">
-                          {formatCurrency((watchedValues.addOnQuantities?.[addOn.id] ?? 0) * addOn.price)}
+                          {formatCurrency(quantity * addOn.price)}
                         </span>
                       </li>
                     ))}
-                    {watchedValues.expressRequested && expressAddOn ? (
+                    {draft.expressRequested && expressAddOn ? (
                       <li className="flex items-center justify-between gap-3 text-sm">
                         <span className="text-slate-600">Express turnaround</span>
                         <span className="font-semibold text-ink">{formatCurrency(expressAddOn.price)}</span>
@@ -642,36 +557,68 @@ export const CustomerBookingPage = () => {
                 <div className="grid gap-4 md:grid-cols-2">
                   <Card variant="flat" className="space-y-2">
                     <h3 className="text-title text-ink">Collection</h3>
-                    <p className="text-sm text-slate-600">{watchedValues.pickupWindow}</p>
+                    <p className="text-sm text-slate-600">{draft.pickupWindow}</p>
                     <p className="text-sm text-slate-600">
-                      {user.addresses.find((address) => address.id === watchedValues.pickupAddressId)?.line1 ?? 'Address pending'}
+                      {user.addresses.find((address) => address.id === draft.pickupAddressId)?.line1 ?? 'Address pending'}
                     </p>
                   </Card>
                   <Card variant="flat" className="space-y-2">
-                    <h3 className="text-title text-ink">Delivery</h3>
-                    <p className="text-sm text-slate-600">{watchedValues.deliveryWindow}</p>
-                    <p className="text-sm text-slate-600">
-                      {user.addresses.find((address) => address.id === watchedValues.deliveryAddressId)?.line1 ?? 'Address pending'}
-                    </p>
+                    <h3 className="text-title text-ink">Fulfilment</h3>
+                    {draft.fulfilmentType === 'STORE_COLLECTION' ? (
+                      <p className="text-sm font-semibold text-load-700">Collect from LOAD</p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-slate-600">{draft.deliveryWindow}</p>
+                        <p className="text-sm text-slate-600">
+                          {user.addresses.find((address) => address.id === draft.deliveryAddressId)?.line1 ?? 'Address pending'}
+                        </p>
+                      </>
+                    )}
                   </Card>
                 </div>
 
+                {draft.customerInstructions ? (
+                  <Card variant="flat" className="space-y-1">
+                    <h3 className="text-title text-ink">Customer instructions</h3>
+                    <p className="text-sm text-slate-600">{draft.customerInstructions}</p>
+                  </Card>
+                ) : null}
+
                 <Card variant="flat" className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-slate-500">Estimated total</span>
+                    <span className="text-sm text-slate-500">Estimated pricing</span>
                     <span className="text-xl font-semibold text-ink">
-                      {formatCurrency(quoteQuery.data?.estimatedTotal ?? 0)}
+                      {formatCurrency(quoteQuery.data?.knownEstimatedSubtotal ?? quoteQuery.data?.estimatedTotal ?? 0)}
                     </span>
                   </div>
-                  {isWeightBasedOrder ? (
+                  {(quoteQuery.data?.weightBasedItems?.length ?? 0) > 0 ? (
                     <div className="rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                      Estimated amount — final total confirmed after collection and weighing.
+                      <p className="font-semibold">Final price based on actual weight.</p>
+                      <ul className="mt-1 space-y-1">
+                        {quoteQuery.data?.weightBasedItems?.map((item) => (
+                          <li key={item.serviceId}>
+                            {item.label} — {formatCurrency(item.ratePerKg)}/kg
+                            {item.minimumCharge ? ` (minimum ${formatCurrency(item.minimumCharge)})` : ''}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  ) : (
-                    <p className="text-sm text-slate-600">
-                      Payment will be requested after weighing and invoice confirmation.
-                    </p>
-                  )}
+                  ) : null}
+                  {(quoteQuery.data?.assessmentItems?.length ?? 0) > 0 ? (
+                    <div className="rounded-card border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                      <p className="font-semibold">Final price confirmed after assessment.</p>
+                      <ul className="mt-1 space-y-1">
+                        {quoteQuery.data?.assessmentItems?.map((item) => (
+                          <li key={item.serviceId}>
+                            {item.label} — {item.isQuoteOnly ? 'quote required' : `from ${formatCurrency(item.startingPrice)}`}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  <p className="text-sm text-slate-600">
+                    Your final invoice will be confirmed after your items are received and processed by LOAD.
+                  </p>
                 </Card>
               </div>
 
@@ -681,13 +628,11 @@ export const CustomerBookingPage = () => {
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => {
-                    void (isWeightBasedOrder ? confirmWeightBasedOrder() : confirmOrder())
-                  }}
+                  onClick={() => void confirmOrder()}
                   loading={placeOrderMutation.isPending}
-                  disabled={!quoteQuery.data || !hasAddresses}
+                  disabled={!hasAddresses}
                 >
-                  Confirm order →
+                  Confirm Booking
                 </Button>
               </div>
             </>
@@ -695,22 +640,22 @@ export const CustomerBookingPage = () => {
 
         </div>
 
-        {step === 3 ? (
+        {step === 2 ? (
           <Card className="space-y-4 xl:sticky xl:top-6">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-load-600">Order estimate</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-load-600">Estimated pricing</p>
               <h2 className="mt-2 text-2xl font-semibold text-ink">
-                {quoteQuery.data ? formatCurrency(quoteQuery.data.estimatedTotal) : 'Awaiting quote'}
+                {quoteQuery.data ? formatCurrency(quoteQuery.data.knownEstimatedSubtotal ?? quoteQuery.data.estimatedTotal) : 'Awaiting estimate'}
               </h2>
             </div>
             <p className="text-sm text-slate-500">
-              Your payment request will be sent once your laundry is weighed and your invoice is ready.
+              Your final invoice will be confirmed after your items are received and processed by LOAD.
             </p>
           </Card>
         ) : (
           <BookingSummaryCard
             canSubmit={false}
-            isSubmitting={isSubmitting || placeOrderMutation.isPending || quoteQuery.isFetching}
+            isSubmitting={placeOrderMutation.isPending || quoteQuery.isFetching}
             onSubmit={() => undefined}
             quote={quoteQuery.data ?? null}
           />

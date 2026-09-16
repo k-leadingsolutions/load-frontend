@@ -64,9 +64,13 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
     ? mockBasketSizes.find((item) => item.id === request.basketSizeId)
     : undefined
 
+  // Only PER_ITEM / FIXED_SERVICE selections contribute a precisely known price.
+  // PER_KILOGRAM / ASSESSMENT_REQUIRED / QUOTE_REQUIRED selections mean "the
+  // Customer requested this service" — NOT a declared weight or a final price —
+  // so they are reported separately below rather than folded into the total.
   const serviceItems = request.serviceSelections.flatMap((selection) => {
     const service = mockServices.find((item) => item.id === selection.serviceId)
-    if (!service) {
+    if (!service || service.pricingModel === 'PER_KILOGRAM' || service.pricingModel === 'ASSESSMENT_REQUIRED' || service.pricingModel === 'QUOTE_REQUIRED') {
       return []
     }
 
@@ -79,15 +83,32 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
       totalPrice: selection.quantity * service.basePrice,
     }]
   })
-  const hasWeightPricedService = request.serviceSelections.some((selection) => {
+
+  const weightBasedItems = request.serviceSelections.flatMap((selection) => {
     const service = mockServices.find((item) => item.id === selection.serviceId)
-    return service?.pricingModel === 'PER_KILOGRAM'
+    if (!service || service.pricingModel !== 'PER_KILOGRAM') {
+      return []
+    }
+    return [{
+      serviceId: service.id,
+      label: service.name,
+      ratePerKg: service.basePrice,
+      ...(service.minimumCharge !== undefined ? { minimumCharge: service.minimumCharge } : {}),
+    }]
   })
-  const estimatedWeightKg = hasWeightPricedService
-    ? request.serviceSelections
-    .filter((selection) => mockServices.find((item) => item.id === selection.serviceId)?.pricingModel === 'PER_KILOGRAM')
-    .reduce((sum, selection) => sum + selection.quantity, 0)
-    : undefined
+
+  const assessmentItems = request.serviceSelections.flatMap((selection) => {
+    const service = mockServices.find((item) => item.id === selection.serviceId)
+    if (!service || (service.pricingModel !== 'ASSESSMENT_REQUIRED' && service.pricingModel !== 'QUOTE_REQUIRED')) {
+      return []
+    }
+    return [{
+      serviceId: service.id,
+      label: service.name,
+      startingPrice: service.basePrice,
+      isQuoteOnly: service.pricingModel === 'QUOTE_REQUIRED' || service.basePrice === 0,
+    }]
+  })
 
   const addOnItems = request.addOnSelections.flatMap((selection) => {
     const addOn = mockAddOns.find((item) => item.id === selection.addOnId)
@@ -195,12 +216,14 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
           }]
         : []),
     ],
-    ...(estimatedWeightKg
+    ...(weightBasedItems.length > 0
       ? {
-          estimatedWeightKg,
-          weightDisclaimer: 'Estimated price. Final amount will be confirmed after collection and weighing.',
+          weightDisclaimer: 'Final price based on actual weight after collection.',
         }
       : {}),
+    knownEstimatedSubtotal: subtotal,
+    weightBasedItems,
+    assessmentItems,
   }
 }
 
@@ -289,8 +312,14 @@ export const mockCustomerOrderService: CustomerOrderService = {
       expressRequested: request.addOnSelections.some((selection) => selection.addOnId === 'addon-express'),
       ...(request.useLoyaltyPoints ? { useLoyaltyPoints: request.useLoyaltyPoints } : {}),
     })
+    const fulfilmentType = request.fulfilmentType ?? 'DELIVERY'
     const pickupAddress = customer.addresses.find((address) => address.id === request.pickupAddressId)
-    const deliveryAddress = customer.addresses.find((address) => address.id === request.deliveryAddressId)
+    // STORE_COLLECTION has no delivery leg — the Customer collects from LOAD, so the
+    // pickup address doubles as the record's "delivery" address until the backend
+    // models fulfilment as a first-class relation (see fulfilmentType).
+    const deliveryAddress = fulfilmentType === 'STORE_COLLECTION'
+      ? pickupAddress
+      : customer.addresses.find((address) => address.id === request.deliveryAddressId)
     const basket = request.basketSizeId
       ? mockBasketSizes.find((item) => item.id === request.basketSizeId)
       : undefined
@@ -309,10 +338,12 @@ export const mockCustomerOrderService: CustomerOrderService = {
         date: request.pickupWindow.split('|')[0] ?? request.pickupWindow,
         windowLabel: request.pickupWindow,
       },
-      deliveryWindow: {
-        date: request.deliveryWindow.split('|')[0] ?? request.deliveryWindow,
-        windowLabel: request.deliveryWindow,
-      },
+      deliveryWindow: fulfilmentType === 'STORE_COLLECTION'
+        ? { date: request.pickupWindow.split('|')[0] ?? request.pickupWindow, windowLabel: 'Collect from LOAD' }
+        : {
+            date: (request.deliveryWindow ?? '').split('|')[0] ?? request.deliveryWindow ?? '',
+            windowLabel: request.deliveryWindow ?? '',
+          },
       pickupAddress,
       deliveryAddress,
       services: [
@@ -335,6 +366,7 @@ export const mockCustomerOrderService: CustomerOrderService = {
       promotionsApplied: request.promotionCode ? [request.promotionCode] : [],
       internalNotes: [],
       canRepeat: false,
+      fulfilmentType,
     })
     prependStoredProductionOrder(nextOrder)
 

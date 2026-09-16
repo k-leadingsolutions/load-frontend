@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -6,145 +6,208 @@ import { AuthProvider } from '@/app/providers/AuthProvider'
 import { RequireCustomerAuth } from '@/app/router/RequireCustomerAuth'
 import { appPaths } from '@/app/router/paths'
 import { CustomerBookingPage } from '@/features/customer/pages/CustomerBookingPage'
+import { CustomerServicesPage } from '@/features/customer/pages/CustomerServicesPage'
+import { CustomerServiceCategoryPage } from '@/features/customer/pages/CustomerServiceCategoryPage'
+import { CustomerOrderDraftProvider } from '@/features/customer/booking/CustomerOrderDraftContext'
 import { mockCustomerProfile } from '@/services/mock/data'
 import { AUTH_STORAGE_KEY } from '@/services/mock/sessionStore'
 
-const renderPage = () =>
+const renderApp = (initialEntry: string) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <AuthProvider>
-        <MemoryRouter initialEntries={[appPaths.customerBooking]}>
-          <Routes>
-            <Route element={<RequireCustomerAuth />}>
-              <Route path={appPaths.customerBooking} element={<CustomerBookingPage />} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
+        <CustomerOrderDraftProvider>
+          <MemoryRouter initialEntries={[initialEntry]}>
+            <Routes>
+              <Route element={<RequireCustomerAuth />}>
+                <Route path={appPaths.customerServices} element={<CustomerServicesPage />} />
+                <Route path={appPaths.customerServiceCategory} element={<CustomerServiceCategoryPage />} />
+                <Route path={appPaths.customerBooking} element={<CustomerBookingPage />} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </CustomerOrderDraftProvider>
       </AuthProvider>
     </QueryClientProvider>,
   )
 
-/** Navigate from step 1 → step 2 → step 3, selecting a service along the way */
-const goToStepThree = async (user: ReturnType<typeof userEvent.setup>) => {
-  await screen.findByText('Choose your services')
-  await user.click(screen.getByRole('button', { name: /increase shirt \/ blouse/i }))
-  await user.click(screen.getByRole('button', { name: /Next: Collection & delivery/i }))
+/** Selects "Shirt / Blouse" (FIXED_SERVICE, quantity-based) × 1 in Dry Cleaning and continues to booking. */
+const selectFixedServiceAndContinue = async (user: ReturnType<typeof userEvent.setup>) => {
+  renderApp('/customer/services/dry-cleaning')
+  await user.click(await screen.findByRole('button', { name: /increase shirt \/ blouse/i }))
+  await user.click(await screen.findByRole('link', { name: /continue to collection & delivery/i }))
   await waitFor(() => screen.getByText('Pickup address'))
-  await user.click(screen.getByRole('button', { name: /Next: Review/i }))
-  await waitFor(() => screen.getByText('Review your order'))
-  await waitFor(() => expect(screen.getByRole('button', { name: /Confirm order/i })).toBeEnabled())
 }
 
-describe('CustomerBookingPage', () => {
+/** Picks the first pickup (and, for DELIVERY, delivery) address + window so Continue is unblocked. */
+const fillCollectionDetails = async (user: ReturnType<typeof userEvent.setup>) => {
+  const pickupSection = screen.getByText('Pickup address').closest('.rounded-panel')! as HTMLElement
+  await user.click(within(pickupSection).getByText('Home').closest('button')!)
+
+  const pickupWindowSection = screen.getByText('Pickup window').closest('.rounded-panel')! as HTMLElement
+  const pickupWindowButtons = within(pickupWindowSection).getAllByRole('button')
+  await user.click(pickupWindowButtons[0]!)
+
+  if (screen.queryByText('Delivery address')) {
+    const deliverySection = screen.getByText('Delivery address').closest('.rounded-panel')! as HTMLElement
+    await user.click(within(deliverySection).getByText('Home').closest('button')!)
+  }
+  if (screen.queryByText('Delivery window')) {
+    const deliveryWindowSection = screen.getByText('Delivery window').closest('.rounded-panel')! as HTMLElement
+    const deliveryWindowButtons = within(deliveryWindowSection).getAllByRole('button')
+    await user.click(deliveryWindowButtons[0]!)
+  }
+}
+
+describe('CustomerBookingPage — Collection & Delivery / Review flow', () => {
   beforeEach(() => {
     window.localStorage.clear()
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockCustomerProfile))
   })
 
-  it('shows the three-step stepper header on load', async () => {
-    renderPage()
-    expect(await screen.findByText('Services')).toBeInTheDocument()
-    expect(screen.getByText('Collection & delivery')).toBeInTheDocument()
-    expect(screen.getByText('Review')).toBeInTheDocument()
-  })
-
-  it('shows step 1 service list on load', async () => {
-    renderPage()
-    expect(await screen.findByText('Choose your services')).toBeInTheDocument()
-  })
-
-  it('does not show pricing-model choice tiles', async () => {
-    renderPage()
-    await screen.findByText('Choose your services')
-    expect(screen.queryByText('Choose pricing mode')).not.toBeInTheDocument()
-    expect(screen.queryByText('Pay per basket')).not.toBeInTheDocument()
-    expect(screen.queryByText('Pay per kilogram')).not.toBeInTheDocument()
-  })
-
-  it('does not show basket size tiles', async () => {
-    renderPage()
-    await screen.findByText('Choose your services')
-    expect(screen.queryByText('Basket pricing')).not.toBeInTheDocument()
-  })
-
-  it('navigates from step 1 to step 2 using Next button', async () => {
+  it('category service selection actually updates the order draft (quantity control)', async () => {
     const user = userEvent.setup()
-    renderPage()
+    renderApp('/customer/services/dry-cleaning')
 
-    await screen.findByText('Choose your services')
-    await user.click(screen.getByRole('button', { name: /increase shirt \/ blouse/i }))
-    await user.click(screen.getByRole('button', { name: /Next: Collection & delivery/i }))
+    await user.click(await screen.findByRole('button', { name: /increase shirt \/ blouse/i }))
 
-    await waitFor(() => {
-      expect(screen.getByText('Pickup address')).toBeInTheDocument()
-    })
+    expect(await screen.findByTestId('quantity-dc-shirt-blouse')).toHaveTextContent('1')
+  })
+
+  it('PER_ITEM / FIXED_SERVICE uses quantity controls (−/+)', async () => {
+    renderApp('/customer/services/dry-cleaning')
+
+    const card = (await screen.findByText('Shirt / Blouse')).closest('article')!
+    expect(within(card).getByRole('button', { name: /increase shirt \/ blouse/i })).toBeInTheDocument()
+    expect(within(card).getByRole('button', { name: /decrease shirt \/ blouse/i })).toBeInTheDocument()
+  })
+
+  it('PER_KILOGRAM does not expose kilogram quantity controls, only Add/Remove', async () => {
+    renderApp('/customer/services/everyday')
+
+    const card = (await screen.findByText('Wash + Dry + Fold')).closest('article')!
+    expect(within(card).queryByRole('button', { name: /increase wash/i })).not.toBeInTheDocument()
+    expect(within(card).getByRole('button', { name: 'Add service' })).toBeInTheDocument()
+  })
+
+  it('PER_KILOGRAM can be Added and Removed', async () => {
+    const user = userEvent.setup()
+    renderApp('/customer/services/everyday')
+
+    const card = (await screen.findByText('Wash + Dry + Fold')).closest('article')!
+    await user.click(within(card).getByRole('button', { name: 'Add service' }))
+    expect(within(card).getByText('✓ Added')).toBeInTheDocument()
+
+    await user.click(within(card).getByRole('button', { name: 'Remove' }))
+    expect(within(card).getByRole('button', { name: 'Add service' })).toBeInTheDocument()
+  })
+
+  it('ASSESSMENT_REQUIRED can be Added and Removed', async () => {
+    const user = userEvent.setup()
+    renderApp('/customer/services/dry-cleaning')
+
+    const card = (await screen.findByText('Cocktail Dress')).closest('article')!
+    await user.click(within(card).getByRole('button', { name: 'Add service' }))
+    expect(within(card).getByText('✓ Added')).toBeInTheDocument()
+
+    await user.click(within(card).getByRole('button', { name: 'Remove' }))
+    expect(within(card).getByRole('button', { name: 'Add service' })).toBeInTheDocument()
+  })
+
+  it('persists multi-category selections across category navigation', async () => {
+    const user = userEvent.setup()
+    renderApp('/customer/services/everyday')
+
+    const everydayCard = (await screen.findByText('Wash + Dry + Fold')).closest('article')!
+    await user.click(within(everydayCard).getByRole('button', { name: 'Add service' }))
+
+    await user.click(await screen.findByRole('link', { name: /back to services/i }))
+    await user.click(await screen.findByRole('link', { name: /browse dry cleaning/i }))
+    await user.click(await screen.findByRole('button', { name: /increase shirt \/ blouse/i }))
+
+    await user.click(await screen.findByRole('link', { name: /back to services/i }))
+    await user.click(await screen.findByRole('link', { name: /browse sneaker care/i }))
+    const sneakerCard = (await screen.findByText('Fresh Clean')).closest('article')!
+    await user.click(within(sneakerCard).getByRole('button', { name: /increase fresh clean/i }))
+
+    expect(await screen.findByText(/3 items\/services selected/i)).toBeInTheDocument()
+  })
+
+  it('"Start booking" duplicate flow no longer exists', async () => {
+    renderApp('/customer/services/dry-cleaning')
+    await screen.findByRole('heading', { name: 'Dry Cleaning' })
+    expect(screen.queryByText('Ready to book?')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Start booking' })).not.toBeInTheDocument()
+  })
+
+  it('Continue routes directly to Collection & Delivery — no duplicate Choose Your Services screen', async () => {
+    const user = userEvent.setup()
+    await selectFixedServiceAndContinue(user)
+
+    expect(screen.getByText('Pickup address')).toBeInTheDocument()
     expect(screen.queryByText('Choose your services')).not.toBeInTheDocument()
   })
 
-  it('navigates back from step 2 to step 1 using Back button', async () => {
+  it('DELIVERY (the default) requires a delivery address and window before Review', async () => {
     const user = userEvent.setup()
-    renderPage()
+    await selectFixedServiceAndContinue(user)
 
-    await screen.findByText('Choose your services')
-    await user.click(screen.getByRole('button', { name: /increase shirt \/ blouse/i }))
-    await user.click(screen.getByRole('button', { name: /Next: Collection & delivery/i }))
-    await waitFor(() => screen.getByText('Pickup address'))
-
-    await user.click(screen.getByRole('button', { name: /← Back/i }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Choose your services')).toBeInTheDocument()
-    })
+    expect(screen.getByText('Delivery address')).toBeInTheDocument()
+    expect(screen.getByText('Delivery window')).toBeInTheDocument()
   })
 
-  it('Step 3 shows order review and Confirm order button', async () => {
+  it('STORE_COLLECTION does not require delivery address/window', async () => {
     const user = userEvent.setup()
-    renderPage()
+    await selectFixedServiceAndContinue(user)
 
-    await goToStepThree(user)
-
-    expect(screen.getByText('Review your order')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Confirm order/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /pickup & collect in store/i }))
+    expect(screen.queryByText('Delivery address')).not.toBeInTheDocument()
+    expect(screen.queryByText('Delivery window')).not.toBeInTheDocument()
   })
 
-  it('shows the Track order CTA on the confirmation screen', async () => {
+  it('Review renders selected services and uses estimate terminology without exposing payment', async () => {
     const user = userEvent.setup()
-    renderPage()
+    await selectFixedServiceAndContinue(user)
+    await fillCollectionDetails(user)
 
-    await goToStepThree(user)
-    await user.click(screen.getByRole('button', { name: /Confirm order/i }))
+    await user.click(screen.getByRole('button', { name: /continue to review/i }))
 
-    await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'Track order' })).toBeInTheDocument()
-    }, { timeout: 4000 })
+    await waitFor(() => screen.getByText('Review your order'))
+    expect(screen.getByText(/shirt \/ blouse/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/estimated pricing/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Amount Due')).not.toBeInTheDocument()
+    expect(screen.queryByText(/pay now/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm Booking' })).toBeInTheDocument()
   })
 
-  it('shows weight-based estimate disclaimer on step 3 for a per-kilogram service', async () => {
+  it('Back preserves the order draft', async () => {
     const user = userEvent.setup()
-    renderPage()
+    await selectFixedServiceAndContinue(user)
 
-    // Wash + Dry + Fold is PER_KILOGRAM — select it directly
-    await user.click(await screen.findByRole('button', { name: /increase wash \+ dry \+ fold/i }))
-    await user.click(screen.getByRole('button', { name: /Next: Collection & delivery/i }))
-    await waitFor(() => screen.getByText('Pickup address'))
-    await user.click(screen.getByRole('button', { name: /Next: Review/i }))
+    await user.click(screen.getByRole('link', { name: /← back/i }))
+    expect(await screen.findByRole('heading', { name: 'Services' })).toBeInTheDocument()
+    expect(await screen.findByText(/view order · 1/i)).toBeInTheDocument()
+  })
+
+  it('safely redirects direct booking navigation without a draft to /customer/services', async () => {
+    renderApp(appPaths.customerBooking)
+
+    expect(await screen.findByRole('heading', { name: 'Services' })).toBeInTheDocument()
+  })
+
+  it('places a STORE_COLLECTION order and shows fulfilment-aware confirmation copy', async () => {
+    const user = userEvent.setup()
+    await selectFixedServiceAndContinue(user)
+    await user.click(screen.getByRole('button', { name: /pickup & collect in store/i }))
+    await fillCollectionDetails(user)
+
+    await user.click(screen.getByRole('button', { name: /continue to review/i }))
     await waitFor(() => screen.getByText('Review your order'))
 
-    expect(
-      await screen.findByText(/estimated amount — final total confirmed after collection and weighing\./i, undefined, {
-        timeout: 4000,
-      }),
-    ).toBeInTheDocument()
-  })
+    await user.click(screen.getByRole('button', { name: 'Confirm Booking' }))
 
-  it('places order and shows confirmation screen', async () => {
-    const user = userEvent.setup()
-    renderPage()
-
-    await goToStepThree(user)
-    await user.click(screen.getByRole('button', { name: /Confirm order/i }))
-
-    expect(await screen.findByText('Order confirmed', undefined, { timeout: 4000 })).toBeInTheDocument()
+    expect(await screen.findByText('Your booking is confirmed.', undefined, { timeout: 4000 })).toBeInTheDocument()
+    expect(screen.getByText(/you can pay at the load store/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Track order' })).toBeInTheDocument()
   })
 })

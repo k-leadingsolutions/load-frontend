@@ -59,9 +59,14 @@ export const BookingSummaryCard = ({ canSubmit, isSubmitting, onSubmit, quote }:
             {quote.loyaltyRedemptionTotal > 0 ? (
               <p className="mt-1 text-load-700">Rewards applied: {formatCurrency(quote.loyaltyRedemptionTotal)}</p>
             ) : null}
-            {quote.estimatedWeightKg ? (
+            {(quote.weightBasedItems?.length ?? 0) > 0 ? (
               <p className="mt-2 rounded-card border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                {quote.weightDisclaimer}
+                {quote.weightDisclaimer ?? 'Final price based on actual weight after collection.'}
+              </p>
+            ) : null}
+            {(quote.assessmentItems?.length ?? 0) > 0 ? (
+              <p className="mt-2 rounded-card border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                Final price confirmed after assessment.
               </p>
             ) : null}
           </div>

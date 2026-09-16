@@ -31,6 +31,7 @@ import { CustomerServiceCategoryPage } from '@/features/customer/pages/CustomerS
 import { CustomerServicesPage } from '@/features/customer/pages/CustomerServicesPage'
 import { CoffeeCartPage } from '@/features/customer/coffee/CoffeeCartPage'
 import { CoffeeCartProvider } from '@/features/customer/coffee/CoffeeCartContext'
+import { CustomerOrderDraftProvider } from '@/features/customer/booking/CustomerOrderDraftContext'
 import { FoundationPage } from '@/features/foundation/pages/FoundationPage'
 import { LandingPage } from '@/features/foundation/pages/LandingPage'
 import { DriverAssignmentsPage } from '@/features/driver/pages/DriverAssignmentsPage'
@@ -65,7 +66,7 @@ export const AppRouter = () => (
           <Route path={appPaths.biometricLogin} element={<BiometricLoginPage />} />
         </Route>
         <Route element={<RequireCustomerAuth />}>
-          <Route element={<CoffeeCartProvider><Outlet /></CoffeeCartProvider>}>
+          <Route element={<CoffeeCartProvider><CustomerOrderDraftProvider><Outlet /></CustomerOrderDraftProvider></CoffeeCartProvider>}>
           <Route
             element={
               <RoleLayout

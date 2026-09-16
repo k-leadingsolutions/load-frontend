@@ -3,6 +3,7 @@ import type {
   CustomerProfile,
   DashboardMetric,
   DriverAssignment,
+  FulfilmentType,
   LaundryOrder,
   PricingQuote,
   ProductionOrder,
@@ -33,10 +34,14 @@ export interface PlaceOrderRequest {
   basketSizeId?: string
   serviceSelections: Array<{ serviceId: string; quantity: number }>
   addOnSelections: Array<{ addOnId: string; quantity: number }>
+  /** How the completed order returns to the Customer. Defaults to DELIVERY when omitted. */
+  fulfilmentType?: FulfilmentType
   pickupAddressId: string
-  deliveryAddressId: string
+  /** Required for DELIVERY; not required for STORE_COLLECTION. */
+  deliveryAddressId?: string
   pickupWindow: string
-  deliveryWindow: string
+  /** Required for DELIVERY; not required for STORE_COLLECTION. */
+  deliveryWindow?: string
   promotionCode?: string
   useLoyaltyPoints?: boolean
 }

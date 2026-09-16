@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { appPaths } from '@/app/router/paths'
 import {
@@ -12,6 +11,8 @@ import { formatCurrency } from '@/utils/format'
 import type { CatalogService } from '@/domain/models/service'
 import { CoffeeCategoryDetail } from '@/features/customer/coffee/CoffeeCategoryDetail'
 import { loadCoffeeCategory } from '@/services/mock/approvedCoffeeCatalogue'
+import { useCustomerOrderDraft } from '@/features/customer/booking/CustomerOrderDraftContext'
+import { ServiceSelectionControl } from '@/features/customer/booking/ServiceSelectionControl'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -23,14 +24,6 @@ const pricingLabel = (service: CatalogService): string => {
     return 'Assessment required'
   }
   return `${service.isStartingPrice ? 'from ' : ''}${formatCurrency(service.basePrice)}${service.unitLabel !== 'item' && service.unitLabel !== 'pair' ? `/${service.unitLabel}` : ''}`
-}
-
-const ctaLabel = (_service: CatalogService): string => {
-  return 'Select'
-}
-
-const ctaTone = (_service: CatalogService): 'primary' | 'outline' | 'ghost' => {
-  return 'primary'
 }
 
 const pricingBadgeTone = (service: CatalogService): 'info' | 'warning' | 'muted' => {
@@ -80,9 +73,15 @@ const ServiceCard = ({ service }: { service: CatalogService }) => {
         </p>
       ) : null}
 
+      {service.pricingModel === 'PER_KILOGRAM' ? (
+        <p className="mt-2 text-caption text-muted">
+          Final price based on actual weight after collection.
+        </p>
+      ) : null}
+
       {isAssessment ? (
         <p className="mt-2 text-caption text-muted">
-          Final price confirmed after inspection.
+          Final price confirmed after physical assessment.
         </p>
       ) : null}
 
@@ -92,15 +91,7 @@ const ServiceCard = ({ service }: { service: CatalogService }) => {
 
       <div className="mt-4 flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-load-700">{pricingLabel(service)}</p>
-        <Button
-          size="sm"
-          variant={ctaTone(service)}
-          onClick={() => {
-            /* Phase B/C will wire up add-to-cart / assessment flow */
-          }}
-        >
-          {ctaLabel(service)}
-        </Button>
+        <ServiceSelectionControl service={service} />
       </div>
     </article>
   )
@@ -122,6 +113,7 @@ export const CustomerServiceCategoryPage = () => {
   const { categoryId } = useParams<{ categoryId: string }>()
   const [search, setSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState<FilterId>('all')
+  const { selectedCount, hasSelectedServices } = useCustomerOrderDraft()
 
   const category = useMemo(
     () => [...approvedCategories, loadCoffeeCategory].find((c) => c.id === categoryId),
@@ -191,6 +183,14 @@ export const CustomerServiceCategoryPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Back navigation */}
+      <Link
+        to={appPaths.customerServices}
+        className="inline-flex items-center gap-1 text-sm font-semibold text-load-600 hover:text-load-700"
+      >
+        ← Back to Services
+      </Link>
+
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
         <Link
@@ -354,15 +354,28 @@ export const CustomerServiceCategoryPage = () => {
         </div>
       )}
 
-      {/* Book CTA */}
-      <div className="rounded-panel border border-load-200 bg-load-50 p-4 text-center">
-        <p className="text-body text-muted">Ready to book?</p>
-        <Link
-          to={appPaths.customerBooking}
-          className="mt-3 inline-flex h-control items-center rounded-pill bg-load-600 px-6 text-sm font-semibold text-white transition hover:bg-load-700"
-        >
-          Start booking
-        </Link>
+      {/* Continue to booking CTA */}
+      <div className="sticky bottom-4 rounded-panel border border-load-200 bg-load-50 p-4 text-center shadow-panel">
+        <p className="text-body text-muted">
+          {selectedCount > 0
+            ? `${selectedCount} ${selectedCount === 1 ? 'item/service' : 'items/services'} selected`
+            : 'Select a service to continue'}
+        </p>
+        {hasSelectedServices ? (
+          <Link
+            to={appPaths.customerBooking}
+            className="mt-3 inline-flex h-control items-center rounded-pill bg-load-600 px-6 text-sm font-semibold text-white transition hover:bg-load-700"
+          >
+            Continue to Collection &amp; Delivery →
+          </Link>
+        ) : (
+          <span
+            aria-disabled="true"
+            className="mt-3 inline-flex h-control cursor-not-allowed items-center rounded-pill bg-load-200 px-6 text-sm font-semibold text-white/80"
+          >
+            Continue to Collection &amp; Delivery →
+          </span>
+        )}
       </div>
     </div>
   )

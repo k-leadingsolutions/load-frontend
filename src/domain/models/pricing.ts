@@ -66,6 +66,25 @@ export interface PricingQuote {
   /** Included when service is PER_KILOGRAM – estimate only */
   estimatedWeightKg?: number
   weightDisclaimer?: string
+  /**
+   * Honest estimate breakdown: `lineItems`/`estimatedTotal` only ever reflect
+   * precisely known contributions. Weight-based and assessment-based
+   * selections are reported separately below rather than folded into the
+   * total, because their price is not yet known.
+   */
+  knownEstimatedSubtotal?: number
+  weightBasedItems?: Array<{
+    serviceId: string
+    label: string
+    ratePerKg: number
+    minimumCharge?: number
+  }>
+  assessmentItems?: Array<{
+    serviceId: string
+    label: string
+    startingPrice: number
+    isQuoteOnly: boolean
+  }>
 }
 
 // ─── Invoice ──────────────────────────────────────────────────────────────────
