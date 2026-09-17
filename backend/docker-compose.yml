@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: load-postgres
+    environment:
+      POSTGRES_DB: load
+      POSTGRES_USER: load
+      POSTGRES_PASSWORD: load
+    ports:
+      - "5432:5432"
+    volumes:
+      - load-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U load -d load"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  load-postgres-data:

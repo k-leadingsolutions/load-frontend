@@ -1,0 +1,166 @@
+package com.load.backend.driver;
+
+import com.load.backend.common.exception.ForbiddenException;
+import com.load.backend.common.exception.InvalidTransitionException;
+import com.load.backend.common.exception.NotFoundException;
+import java.security.SecureRandom;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Server-authoritative Driver stop transitions. A Driver may only access/act on
+ * assignments belonging to them - ownership is derived from the authenticated
+ * principal's linked {@link Driver} record, never a client-supplied driverId.
+ */
+@Service
+public class DriverService {
+
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    private final DriverAssignmentRepository assignmentRepository;
+    private final DriverRepository driverRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    public DriverService(DriverAssignmentRepository assignmentRepository, DriverRepository driverRepository, PasswordEncoder passwordEncoder) {
+        this.assignmentRepository = assignmentRepository;
+        this.driverRepository = driverRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @Transactional(readOnly = true)
+    public List<DriverAssignment> listMyAssignments(UUID driverUserId) {
+        UUID driverId = resolveDriverId(driverUserId);
+        return assignmentRepository.findByDriverId(driverId);
+    }
+
+    @Transactional
+    public DriverAssignment startEnRoute(UUID driverUserId, UUID assignmentId) {
+        DriverAssignment assignment = getOwnedAssignment(driverUserId, assignmentId);
+        requireStatus(assignment, StopStatus.ASSIGNED);
+        assignment.setStopStatus(StopStatus.EN_ROUTE);
+        return assignmentRepository.save(assignment);
+    }
+
+    /** Arrival generates a fresh OTP. Only the hash is persisted; the plaintext code is returned once, in lieu of SMS delivery (deferred). */
+    @Transactional
+    public DriverArrivalResult confirmArrival(UUID driverUserId, UUID assignmentId) {
+        DriverAssignment assignment = getOwnedAssignment(driverUserId, assignmentId);
+        requireStatus(assignment, StopStatus.EN_ROUTE);
+
+        String otp = String.format("%06d", RANDOM.nextInt(1_000_000));
+        assignment.setVerificationMethod(VerificationMethod.OTP);
+        assignment.setVerificationStatus(VerificationStatus.AWAITING);
+        assignment.setVerificationCodeHash(passwordEncoder.encode(otp));
+        assignment.setStopStatus(StopStatus.ARRIVED);
+        assignmentRepository.save(assignment);
+
+        return new DriverArrivalResult(assignment, otp);
+    }
+
+    @Transactional
+    public DriverAssignment verify(UUID driverUserId, UUID assignmentId, String code) {
+        DriverAssignment assignment = getOwnedAssignment(driverUserId, assignmentId);
+        requireStatus(assignment, StopStatus.ARRIVED);
+
+        if (assignment.getVerificationCodeHash() == null || !passwordEncoder.matches(code, assignment.getVerificationCodeHash())) {
+            assignment.setVerificationStatus(VerificationStatus.INVALID);
+            assignmentRepository.save(assignment);
+            throw new InvalidTransitionException("VERIFICATION_FAILED", "The verification code is incorrect.");
+        }
+
+        assignment.setVerificationStatus(VerificationStatus.VERIFIED);
+        assignment.setStopStatus(StopStatus.VERIFIED);
+        return assignmentRepository.save(assignment);
+    }
+
+    @Transactional
+    public DriverAssignment confirmCollection(UUID driverUserId, UUID assignmentId) {
+        DriverAssignment assignment = getOwnedAssignment(driverUserId, assignmentId);
+        requireStopType(assignment, StopType.PICKUP);
+        requireVerified(assignment);
+        assignment.setStopStatus(StopStatus.COLLECTED);
+        return assignmentRepository.save(assignment);
+    }
+
+    @Transactional
+    public DriverAssignment confirmDelivery(UUID driverUserId, UUID assignmentId) {
+        DriverAssignment assignment = getOwnedAssignment(driverUserId, assignmentId);
+        requireStopType(assignment, StopType.DELIVERY);
+        requireVerified(assignment);
+        assignment.setStopStatus(StopStatus.DELIVERED);
+        return assignmentRepository.save(assignment);
+    }
+
+    @Transactional
+    public DriverAssignment reportFailure(UUID driverUserId, UUID assignmentId, RescheduleReason reason, String note) {
+        DriverAssignment assignment = getOwnedAssignment(driverUserId, assignmentId);
+        requireActiveNonTerminal(assignment);
+        assignment.setFailureReason(reason);
+        assignment.setFailureNote(note);
+        assignment.setStopStatus(StopStatus.FAILED);
+        return assignmentRepository.save(assignment);
+    }
+
+    @Transactional
+    public DriverAssignment requestReschedule(UUID driverUserId, UUID assignmentId, RescheduleReason reason, String note) {
+        DriverAssignment assignment = getOwnedAssignment(driverUserId, assignmentId);
+        requireActiveNonTerminal(assignment);
+        assignment.setRescheduleReason(reason);
+        assignment.setRescheduleNote(note);
+        assignment.setStopStatus(StopStatus.RESCHEDULE_REQUESTED);
+        return assignmentRepository.save(assignment);
+    }
+
+    private UUID resolveDriverId(UUID driverUserId) {
+        return driverRepository.findByUserId(driverUserId)
+            .orElseThrow(() -> new NotFoundException("Driver profile not found."))
+            .getId();
+    }
+
+    private DriverAssignment getOwnedAssignment(UUID driverUserId, UUID assignmentId) {
+        UUID driverId = resolveDriverId(driverUserId);
+        DriverAssignment assignment = assignmentRepository.findById(assignmentId)
+            .orElseThrow(() -> new NotFoundException("Assignment not found."));
+
+        if (!assignment.getDriverId().equals(driverId)) {
+            throw new ForbiddenException("This assignment does not belong to you.");
+        }
+        return assignment;
+    }
+
+    private void requireStatus(DriverAssignment assignment, StopStatus expected) {
+        if (assignment.getStopStatus() != expected) {
+            throw new InvalidTransitionException(
+                "INVALID_TRANSITION",
+                "Cannot transition from " + assignment.getStopStatus() + "; expected " + expected + "."
+            );
+        }
+    }
+
+    private void requireStopType(DriverAssignment assignment, StopType expected) {
+        if (assignment.getStopType() != expected) {
+            throw new InvalidTransitionException("INVALID_STOP_TYPE", "This action does not apply to a " + assignment.getStopType() + " stop.");
+        }
+    }
+
+    private void requireVerified(DriverAssignment assignment) {
+        // Single source of truth is stopStatus, not verificationStatus alone.
+        if (assignment.getStopStatus() != StopStatus.VERIFIED) {
+            throw new InvalidTransitionException("NOT_VERIFIED", "This stop must be VERIFIED before it can be completed.");
+        }
+    }
+
+    private void requireActiveNonTerminal(DriverAssignment assignment) {
+        StopStatus status = assignment.getStopStatus();
+        if (status == StopStatus.COLLECTED || status == StopStatus.DELIVERED
+            || status == StopStatus.COMPLETED || status == StopStatus.FAILED) {
+            throw new InvalidTransitionException("INVALID_TRANSITION", "Cannot act on a stop that is already " + status + ".");
+        }
+    }
+
+    public record DriverArrivalResult(DriverAssignment assignment, String otpCode) {
+    }
+}
