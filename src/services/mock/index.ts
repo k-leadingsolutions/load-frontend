@@ -1,4 +1,5 @@
 import type { PricingQuote } from '@/domain/models'
+import { isEligibleForDispatch } from '@/domain/models'
 import { getFriendlyOrderStatus, ORDER_STATUS_MODEL } from '@/domain/orderStatus'
 import { approvedAddOns } from '@/services/mock/approvedLaundryCatalogue'
 import {
@@ -395,6 +396,31 @@ export const mockOperationsService: OperationsService = {
       ? successResponse(order, 300)
       : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 300)
   },
+  async recordStoreIntake(orderId, intake) {
+    const existing = listStoredProductionOrders().find((item) => item.id === orderId)
+    if (!existing) {
+      return errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 280)
+    }
+
+    const order = updateStoredProductionOrder(orderId, (current) => ({
+      ...current,
+      receivedAtStore: true,
+      status: current.receivedAtStore ? current.status : 'RECEIVED_AT_STORE',
+      stageLabel: current.receivedAtStore ? current.stageLabel : 'Received at store',
+      ...(intake.weightKg !== undefined ? { weightKg: intake.weightKg } : {}),
+      ...(intake.notes
+        ? { intakeNotes: [intake.notes, ...(current.intakeNotes ?? [])] }
+        : {}),
+    }))
+
+    if (order) {
+      await mockDomainEventService.emit('STORE_INTAKE_RECORDED', orderId, { ...intake })
+    }
+
+    return order
+      ? successResponse(order, 280)
+      : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 280)
+  },
   async updateQuantityReview(orderId: string, status: 'CONFIRMED' | 'ADJUSTED') {
     const order = updateStoredProductionOrder(orderId, (current) => ({
       ...current,
@@ -416,6 +442,14 @@ export const mockOperationsService: OperationsService = {
       : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 260)
   },
   async advanceProductionStage(orderId: string) {
+    const existing = listStoredProductionOrders().find((item) => item.id === orderId)
+    if (!existing) {
+      return errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
+    }
+    if (!existing.receivedAtStore) {
+      return errorResponse({ code: 'NOT_RECEIVED', message: 'Confirm store intake before advancing production.' }, 320)
+    }
+
     const order = updateStoredProductionOrder(orderId, (current) => {
       const nextStatus = getNextProductionStatus(current.status)
 
@@ -435,11 +469,27 @@ export const mockOperationsService: OperationsService = {
     return successResponse(mockDashboardMetrics, 350)
   },
   async assignDriver(orderId: string, driverId: string) {
-    await new Promise((r) => setTimeout(r, 400))
-    await mockDomainEventService.emit('DRIVER_ASSIGNED', orderId, { driverId })
-    void orderId
-    void driverId
-    return { success: true }
+    const existing = listStoredProductionOrders().find((item) => item.id === orderId)
+    if (!existing) {
+      return errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 400)
+    }
+
+    const driverName = listStoredDriverAssignments().find((assignment) => assignment.driverId === driverId)?.driverName
+      ?? mockDriverProfile.name
+
+    const order = updateStoredProductionOrder(orderId, (current) => ({
+      ...current,
+      assignedDriverId: driverId,
+      assignedDriverName: driverName,
+    }))
+
+    if (order) {
+      await mockDomainEventService.emit('DRIVER_ASSIGNED', orderId, { driverId })
+    }
+
+    return order
+      ? successResponse(order, 400)
+      : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 400)
   },
   async performQC(orderId: string, result) {
     const order = updateStoredProductionOrder(orderId, (current) => ({
@@ -461,19 +511,113 @@ export const mockOperationsService: OperationsService = {
       })()
       : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
   },
-  async adjustPrice(orderId: string, amount: number, reason: string) {
+  async dispatchForDelivery(orderId: string) {
+    const existing = listStoredProductionOrders().find((item) => item.id === orderId)
+    if (!existing) {
+      return errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
+    }
+    if (existing.status !== 'READY_FOR_DISPATCH') {
+      return errorResponse({ code: 'INVALID_TRANSITION', message: 'Order must be ready for dispatch first.' }, 320)
+    }
+    if (existing.fulfilmentType === 'STORE_COLLECTION') {
+      return errorResponse({ code: 'INVALID_FULFILMENT', message: 'Store collection orders do not use Driver delivery dispatch.' }, 320)
+    }
+
+    const laundryOrder = getStoredOrder(orderId)
+    if (!laundryOrder || !isEligibleForDispatch(laundryOrder)) {
+      return errorResponse({
+        code: 'NOT_DISPATCH_ELIGIBLE',
+        message: 'Invoice must be READY and payment CONFIRMED before dispatch. Operations cannot override this.',
+      }, 320)
+    }
+
     const order = updateStoredProductionOrder(orderId, (current) => ({
       ...current,
-      internalNotes: [`Price adjustment R${amount}: ${reason}`, ...current.internalNotes],
+      status: 'OUT_FOR_DELIVERY',
+      stageLabel: 'Out for delivery',
     }))
 
+    if (order) {
+      await mockDomainEventService.emit('OUT_FOR_DELIVERY', orderId)
+    }
+
     return order
-      ? await (async () => {
-        await mockDomainEventService.emit('PRICE_ADJUSTED', orderId, { amount, reason })
-        await mockDomainEventService.emit('PAYMENT_REQUIRED', orderId)
-        return successResponse(order, 320)
-      })()
+      ? successResponse(order, 320)
       : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
+  },
+  async completeStoreCollection(orderId: string) {
+    const existing = listStoredProductionOrders().find((item) => item.id === orderId)
+    if (!existing) {
+      return errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
+    }
+    if (existing.status !== 'READY_FOR_DISPATCH') {
+      return errorResponse({ code: 'INVALID_TRANSITION', message: 'Order must be ready for collection first.' }, 320)
+    }
+    if (existing.fulfilmentType !== 'STORE_COLLECTION') {
+      return errorResponse({ code: 'INVALID_FULFILMENT', message: 'This order is not a store-collection order.' }, 320)
+    }
+
+    const order = updateStoredProductionOrder(orderId, (current) => ({
+      ...current,
+      status: 'COMPLETED',
+      stageLabel: 'Completed',
+    }))
+
+    if (order) {
+      await mockDomainEventService.emit('STORE_COLLECTION_COMPLETED', orderId)
+    }
+
+    return order
+      ? successResponse(order, 320)
+      : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
+  },
+  async reviewRescheduleRequest(assignmentId, decision, note) {
+    const existing = listStoredDriverAssignments().find((item) => item.id === assignmentId)
+    if (!existing) {
+      return errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 300)
+    }
+    if (existing.stopStatus !== 'RESCHEDULE_REQUESTED') {
+      return errorResponse({ code: 'INVALID_TRANSITION', message: 'This stop has no pending reschedule request.' }, 300)
+    }
+
+    const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
+      ...current,
+      stopStatus: 'ASSIGNED',
+      operationsDecision: decision,
+      operationsDecisionAt: new Date().toISOString(),
+      ...(note ? { operationsDecisionNote: note } : {}),
+    }))
+
+    if (assignment) {
+      await mockDomainEventService.emit('RESCHEDULE_REVIEWED', assignment.orderId, { decision, note })
+    }
+
+    return assignment
+      ? successResponse(assignment, 300)
+      : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 300)
+  },
+  async retryFailedAttempt(assignmentId: string) {
+    const existing = listStoredDriverAssignments().find((item) => item.id === assignmentId)
+    if (!existing) {
+      return errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 300)
+    }
+    if (existing.stopStatus !== 'FAILED') {
+      return errorResponse({ code: 'INVALID_TRANSITION', message: 'Only a failed stop can be retried.' }, 300)
+    }
+
+    const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
+      ...current,
+      stopStatus: 'ASSIGNED',
+      verificationStatus: 'AWAITING',
+    }))
+
+    if (assignment) {
+      await mockDomainEventService.emit('FAILED_ATTEMPT_RETRIED', assignment.orderId)
+    }
+
+    return assignment
+      ? successResponse(assignment, 300)
+      : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 300)
   },
 }
 
@@ -574,6 +718,10 @@ export const mockDriverService: DriverService = {
       failureReason: reason,
       ...(note ? { failureNote: note } : {}),
     }))
+
+    if (assignment) {
+      await mockDomainEventService.emit('DRIVER_ATTEMPT_FAILED', assignment.orderId, { stopType: assignment.stopType, reason })
+    }
 
     return assignment
       ? successResponse(assignment, 280)

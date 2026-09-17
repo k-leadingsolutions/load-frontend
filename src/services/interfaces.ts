@@ -121,13 +121,37 @@ export interface InvoiceService {
 export interface OperationsService {
   listProductionOrders(): Promise<ProductionOrdersResponse>
   confirmLaundryReceived(orderId: string): Promise<ProductionOrderResponse>
+  /**
+   * Records LOAD-owned physical intake information (actual weight, item
+   * count, inspection notes). This is operational visibility only — it is
+   * never used to calculate or finalise the commercial invoice, which
+   * remains POS-owned.
+   */
+  recordStoreIntake(orderId: string, intake: StoreIntakeInput): Promise<ProductionOrderResponse>
   updateQuantityReview(orderId: string, status: 'CONFIRMED' | 'ADJUSTED'): Promise<ProductionOrderResponse>
   addInternalNote(orderId: string, note: string): Promise<ProductionOrderResponse>
   advanceProductionStage(orderId: string): Promise<ProductionOrderResponse>
   getMetrics(): Promise<DashboardMetricsResponse>
-  assignDriver(orderId: string, driverId: string): Promise<{ success: boolean }>
+  assignDriver(orderId: string, driverId: string): Promise<ProductionOrderResponse>
   performQC(orderId: string, result: QCResult): Promise<ProductionOrderResponse>
-  adjustPrice(orderId: string, amount: number, reason: string): Promise<ProductionOrderResponse>
+  /**
+   * Moves a READY_FOR_DISPATCH DELIVERY order out for delivery. Enforces
+   * `isEligibleForDispatch()` (invoice READY + payment CONFIRMED) — Operations
+   * cannot override financial truth to force an ineligible dispatch.
+   */
+  dispatchForDelivery(orderId: string): Promise<ProductionOrderResponse>
+  /** Marks a READY_FOR_DISPATCH STORE_COLLECTION order as collected/completed. No Driver delivery assignment is involved. */
+  completeStoreCollection(orderId: string): Promise<ProductionOrderResponse>
+  /** Operations retains final scheduling authority over a Driver reschedule request. */
+  reviewRescheduleRequest(assignmentId: string, decision: 'APPROVED' | 'REJECTED', note?: string): Promise<DriverAssignmentResponse>
+  /** Re-dispatches a FAILED stop through the normal ASSIGNED entry point — never bypasses Driver transition guards. */
+  retryFailedAttempt(assignmentId: string): Promise<DriverAssignmentResponse>
+}
+
+export interface StoreIntakeInput {
+  weightKg?: number
+  itemCount?: number
+  notes?: string
 }
 
 export interface QCResult {
@@ -138,7 +162,6 @@ export interface QCResult {
   damageNote?: string
   stainNote?: string
   packingIssue?: boolean
-  priceAdjustment?: number
 }
 
 // ─── Driver ───────────────────────────────────────────────────────────────────

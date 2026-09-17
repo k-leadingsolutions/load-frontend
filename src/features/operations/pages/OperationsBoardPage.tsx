@@ -36,9 +36,12 @@ export const OperationsBoardPage = () => {
       mockOperationsService.performQC(orderId, { passed, ...(notes ? { notes } : {}) }),
     onSuccess: refreshOrders,
   })
-  const adjustPriceMutation = useMutation({
-    mutationFn: ({ orderId, amount, reason }: { orderId: string; amount: number; reason: string }) =>
-      mockOperationsService.adjustPrice(orderId, amount, reason),
+  const recordIntakeMutation = useMutation({
+    mutationFn: ({ orderId, weightKg, notes }: { orderId: string; weightKg?: number; notes?: string }) =>
+      mockOperationsService.recordStoreIntake(orderId, {
+        ...(weightKg !== undefined ? { weightKg } : {}),
+        ...(notes ? { notes } : {}),
+      }),
     onSuccess: refreshOrders,
   })
 
@@ -66,7 +69,7 @@ export const OperationsBoardPage = () => {
                 || noteMutation.isPending
                 || advanceStageMutation.isPending
                 || qcMutation.isPending
-                || adjustPriceMutation.isPending
+                || recordIntakeMutation.isPending
               }
               onConfirmReceived={() => confirmReceivedMutation.mutate(order.id)}
               onQuantityReview={(status) => quantityReviewMutation.mutate({ orderId: order.id, status })}
@@ -77,7 +80,11 @@ export const OperationsBoardPage = () => {
                 passed,
                 ...(notes ? { notes } : {}),
               })}
-              onPriceAdjustment={(amount, reason) => adjustPriceMutation.mutate({ orderId: order.id, amount, reason })}
+              onRecordIntake={({ weightKg, notes }) => recordIntakeMutation.mutate({
+                orderId: order.id,
+                ...(weightKg !== undefined ? { weightKg } : {}),
+                ...(notes ? { notes } : {}),
+              })}
             />
           ))}
         </div>

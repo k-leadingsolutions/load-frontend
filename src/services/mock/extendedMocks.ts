@@ -286,6 +286,22 @@ const appendNotificationsForEvent = (eventType: DomainEventType, orderId: string
     return
   }
 
+  if (eventType === 'DRIVER_ATTEMPT_FAILED') {
+    const stopType = payload?.stopType === 'DELIVERY' ? 'DELIVERY' : 'PICKUP'
+    const notification: AppNotification = {
+      id: `notif-DRIVER_ATTEMPT_FAILED-${Date.now()}`,
+      type: stopType === 'DELIVERY' ? 'OPS_FAILED_DELIVERY' : 'OPS_FAILED_COLLECTION',
+      targetRole: 'OPERATIONS',
+      title: stopType === 'DELIVERY' ? 'Failed delivery attempt' : 'Failed collection attempt',
+      body: `Order #${orderId} — the Driver could not complete this stop. Review and reschedule or retry.`,
+      orderId,
+      isRead: false,
+      createdAt,
+    }
+    notifMem = [notification, ...notifMem]
+    return
+  }
+
   const templates = notificationTemplates[eventType]
   if (!templates) return
   const next = templates.map((template, index) => ({

@@ -66,7 +66,7 @@ export const prependStoredProductionOrder = (order: LaundryOrder) => {
     itemsSummary: order.services.map((service) => `${service.quantity} × ${service.unitLabel}`),
     quantityReviewStatus: 'PENDING',
     receivedAtStore: false,
-    authorisedAdjustmentAllowed: true,
+    ...(order.fulfilmentType ? { fulfilmentType: order.fulfilmentType } : {}),
   }
 
   const existingOrders = readOrders()
