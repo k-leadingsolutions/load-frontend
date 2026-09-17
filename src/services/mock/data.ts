@@ -380,11 +380,17 @@ export const mockDriverAssignments: DriverAssignment[] = [
 ]
 
 
+// Admin-only: includes financial/revenue analytics, which must never surface on the
+// Operations dashboard (Operations sees operational readiness only, no Admin/analytics creep).
 export const mockDashboardMetrics: DashboardMetric[] = [
   { id: 'rev', label: 'Today revenue', value: 'R18,420.00', changeLabel: '+12% vs yesterday' },
   { id: 'orders', label: 'Active orders', value: '84', changeLabel: '12 in production' },
   { id: 'sla', label: 'On-time delivery', value: '97.4%', changeLabel: 'Premium service target' },
 ]
+
+// Operations-only: operational readiness metrics, deliberately excluding revenue/financial
+// figures which are Admin/analytics concerns outside Operations' role boundary.
+export const mockOperationsMetrics: DashboardMetric[] = mockDashboardMetrics.filter((metric) => metric.id !== 'rev')
 
 export const mockCustomerProfiles: CustomerProfile[] = [
   mockCustomerProfile,

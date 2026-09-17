@@ -10,6 +10,7 @@ import {
   mockDashboardMetrics,
   mockDriverProfile,
   mockLoyaltyRules,
+  mockOperationsMetrics,
   mockPromotions,
   mockServices,
 } from '@/services/mock/data'
@@ -472,7 +473,7 @@ export const mockOperationsService: OperationsService = {
       : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 320)
   },
   async getMetrics() {
-    return successResponse(mockDashboardMetrics, 350)
+    return successResponse(mockOperationsMetrics, 350)
   },
   async listDriverAssignments() {
     const assignments = [...listStoredDriverAssignments()].sort((a, b) => a.stopIndex - b.stopIndex)

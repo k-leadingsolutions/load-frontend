@@ -62,6 +62,17 @@ describe('role route guards', () => {
     expect(screen.queryByText('Admin control tower content')).not.toBeInTheDocument()
   })
 
+  it('never grants operations access using a stale/foreign Driver session key', async () => {
+    // A Driver session lives in a separate storage key/context; it must not satisfy the
+    // Customer/Operations/Admin AuthContext guard used by RequireRole.
+    window.localStorage.setItem('load.driver.session.v1', JSON.stringify({ id: 'driver-1', role: 'DRIVER' }))
+
+    renderGuardedRoutes([appPaths.operationsDashboard])
+
+    expect(await screen.findByRole('heading', { name: /log in/i })).toBeInTheDocument()
+    expect(screen.queryByText('Operations command centre content')).not.toBeInTheDocument()
+  })
+
   it('sends an authenticated customer session to the unauthorized page instead of the operations dashboard', async () => {
     const user = userEvent.setup()
     renderGuardedRoutes([appPaths.login])

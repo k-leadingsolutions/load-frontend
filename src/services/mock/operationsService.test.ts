@@ -76,6 +76,15 @@ describe('mockOperationsService', () => {
       expect(response.error?.code).toBe('INVALID_FULFILMENT')
     })
 
+    it('blocks dispatch when the invoice is not yet available, even if operationally ready', async () => {
+      updateStoredOrder('LD10241', (current) => ({ ...current, invoiceStatus: 'NOT_AVAILABLE' }))
+
+      const response = await mockOperationsService.dispatchForDelivery('LD10241')
+
+      expect(response.status).toBe('error')
+      expect(response.error?.code).toBe('NOT_DISPATCH_ELIGIBLE')
+    })
+
     it('does not allow Operations to bypass eligibility by mutating LOAD state twice (duplicate dispatch protection)', async () => {
       const first = await mockOperationsService.dispatchForDelivery('LD10241')
       expect(first.status).toBe('success')
@@ -147,6 +156,16 @@ describe('mockOperationsService', () => {
 
       expect(response.status).toBe('error')
       expect(response.error?.code).toBe('INVALID_TRANSITION')
+    })
+  })
+
+  describe('dashboard metrics (no Admin/analytics creep)', () => {
+    it('never surfaces financial/revenue metrics on the Operations dashboard', async () => {
+      const response = await mockOperationsService.getMetrics()
+
+      expect(response.status).toBe('success')
+      const labels = response.data?.map((metric) => metric.label.toLowerCase()) ?? []
+      expect(labels.some((label) => label.includes('revenue'))).toBe(false)
     })
   })
 
