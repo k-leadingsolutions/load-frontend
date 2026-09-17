@@ -147,7 +147,6 @@ export const OperationsOrderDetailPage = () => {
         ) : null}
       </SectionCard>
 
-      {laundryOrder?.internalNotes && laundryOrder.internalNotes.length > 0 ? null : null}
       {relatedStops.length > 0 ? (
         <SectionCard title="Driver stops for this order">
           <ul className="space-y-2 text-sm text-slate-600">
