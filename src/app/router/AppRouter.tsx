@@ -1,6 +1,7 @@
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { GuestOnlyRoute } from '@/app/router/GuestOnlyRoute'
 import { RequireCustomerAuth } from '@/app/router/RequireCustomerAuth'
+import { RequireDriverRole } from '@/app/router/RequireDriverRole'
 import { RequireRole } from '@/app/router/RequireRole'
 import { PublicLayout } from '@/app/layouts/PublicLayout'
 import { RoleLayout } from '@/app/layouts/RoleLayout'
@@ -36,6 +37,7 @@ import { FoundationPage } from '@/features/foundation/pages/FoundationPage'
 import { LandingPage } from '@/features/foundation/pages/LandingPage'
 import { DriverAssignmentsPage } from '@/features/driver/pages/DriverAssignmentsPage'
 import { DriverDashboardPage } from '@/features/driver/pages/DriverDashboardPage'
+import { DriverLoginPage } from '@/features/driver/pages/DriverLoginPage'
 import { DriverNotificationsPage } from '@/features/driver/pages/DriverNotificationsPage'
 import { DriverProfilePage } from '@/features/driver/pages/DriverProfilePage'
 import { DriverRoutePage } from '@/features/driver/pages/DriverRoutePage'
@@ -133,7 +135,8 @@ export const AppRouter = () => (
           <Route path={appPaths.operationsReports} element={<OperationsReportsPage />} />
           </Route>
         </Route>
-        <Route element={<RequireRole allowedRoles={['DRIVER']} />}>
+        <Route path={appPaths.driverLogin} element={<DriverLoginPage />} />
+        <Route element={<RequireDriverRole />}>
           <Route
             element={
               <RoleLayout

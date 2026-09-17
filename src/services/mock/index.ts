@@ -7,6 +7,7 @@ import {
   mockCategories,
   mockCustomerProfile,
   mockDashboardMetrics,
+  mockDriverProfile,
   mockLoyaltyRules,
   mockPromotions,
   mockServices,
@@ -24,17 +25,14 @@ import {
 } from '@/services/mock/operationsStore'
 import { errorResponse, successResponse } from '@/services/mock/mockApi'
 import { readStoredCustomerSession } from '@/services/mock/sessionStore'
-import {
-  mockDomainEventService,
-  mockRouteService,
-  mockWeightPricingService,
-} from '@/services/mock/extendedMocks'
+import { mockDomainEventService } from '@/services/mock/extendedMocks'
 import { mockPaymentService } from '@/services/mock/mockPaymentService'
 import type {
   AdminService,
   AuthService,
   CatalogueService,
   CustomerOrderService,
+  DriverAuthService,
   DriverService,
   OperationsService,
 } from '@/services/interfaces'
@@ -481,7 +479,22 @@ export const mockOperationsService: OperationsService = {
 
 export const mockDriverService: DriverService = {
   async listAssignments() {
-    return successResponse(listStoredDriverAssignments(), 360)
+    const assignments = [...listStoredDriverAssignments()].sort((a, b) => a.stopIndex - b.stopIndex)
+    return successResponse(assignments, 360)
+  },
+  async confirmEnRoute(assignmentId: string) {
+    const assignment = updateStoredDriverAssignment(assignmentId, (current) => (
+      ['ASSIGNED', 'RESCHEDULE_REQUESTED'].includes(current.stopStatus)
+        ? { ...current, stopStatus: 'EN_ROUTE' }
+        : current
+    ))
+    if (assignment) {
+      await mockDomainEventService.emit('DRIVER_EN_ROUTE', assignment.orderId)
+    }
+
+    return assignment
+      ? successResponse(assignment, 220)
+      : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 220)
   },
   async confirmArrival(assignmentId: string) {
     const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
@@ -498,16 +511,20 @@ export const mockDriverService: DriverService = {
       : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 260)
   },
   async confirmCollection(assignmentId: string) {
+    const existing = listStoredDriverAssignments().find((item) => item.id === assignmentId)
+    if (!existing) {
+      return errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 260)
+    }
+    if (existing.stopType !== 'PICKUP') {
+      return errorResponse({ code: 'INVALID_STOP_TYPE', message: 'Only pickup stops can be confirmed as collected.' }, 260)
+    }
+    if (existing.verificationStatus !== 'VERIFIED') {
+      return errorResponse({ code: 'NOT_VERIFIED', message: 'Verify the collection before confirming it.' }, 260)
+    }
+
     const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
       ...current,
       stopStatus: 'COLLECTED',
-      ...(current.paymentStatus
-        ? {
-            paymentStatus: current.paymentStatus === 'AWAITING_PAYMENT'
-              ? 'PAYMENT_CONFIRMED'
-              : current.paymentStatus,
-          }
-        : {}),
     }))
     if (assignment) {
       await mockDomainEventService.emit('ORDER_COLLECTED', assignment.orderId)
@@ -518,6 +535,17 @@ export const mockDriverService: DriverService = {
       : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 260)
   },
   async confirmDelivery(assignmentId: string, proofOfDelivery: string) {
+    const existing = listStoredDriverAssignments().find((item) => item.id === assignmentId)
+    if (!existing) {
+      return errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 280)
+    }
+    if (existing.stopType !== 'DELIVERY') {
+      return errorResponse({ code: 'INVALID_STOP_TYPE', message: 'Only delivery stops can be confirmed as delivered.' }, 280)
+    }
+    if (existing.verificationStatus !== 'VERIFIED') {
+      return errorResponse({ code: 'NOT_VERIFIED', message: 'Verify the delivery before confirming it.' }, 280)
+    }
+
     const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
       ...current,
       stopStatus: 'DELIVERED',
@@ -531,70 +559,74 @@ export const mockDriverService: DriverService = {
       ? successResponse(assignment, 280)
       : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 280)
   },
-  async recordFailure(assignmentId: string, reason: string) {
+  async recordFailure(assignmentId, reason, note) {
     const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
       ...current,
       stopStatus: 'FAILED',
       failureReason: reason,
+      ...(note ? { failureNote: note } : {}),
     }))
 
     return assignment
       ? successResponse(assignment, 280)
       : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 280)
   },
-  async getRoute() {
-    return mockRouteService.getRoute('driver-01')
-  },
-  async captureWeight(stopId, weightKg) {
-    const assignment = updateStoredDriverAssignment(stopId, (current) => ({
-      ...current,
-      paymentStatus: 'AWAITING_PAYMENT',
-    }))
-    const result = await mockWeightPricingService.confirmWeight(stopId, {
-      orderId: assignment?.orderId ?? stopId,
-      measuredKg: weightKg,
-      measuredBy: 'driver-01',
-      measuredAt: new Date().toISOString(),
-      status: 'CONFIRMED',
-    })
-    const orderId = assignment?.orderId ?? stopId
-    await mockDomainEventService.emit('LAUNDRY_WEIGHT_CAPTURED', orderId, { measuredKg: weightKg })
-    await mockDomainEventService.emit('PRICE_RECALCULATED', orderId, { measuredKg: weightKg })
-    await mockDomainEventService.emit('PAYMENT_REQUIRED', orderId)
-    return result
-  },
   async requestReschedule(stopId, reason, note) {
-    await new Promise((r) => setTimeout(r, 400))
+    // Driver only RECORDS a reschedule request here — Operations retains
+    // scheduling authority and must action the actual schedule change.
     const assignment = updateStoredDriverAssignment(stopId, (current) => ({
       ...current,
-      stopStatus: 'FAILED',
+      stopStatus: 'RESCHEDULE_REQUESTED',
       rescheduleReason: reason,
-      ...(note ? { failureReason: note } : {}),
+      ...(note ? { rescheduleNote: note } : {}),
     }))
-    await mockDomainEventService.emit('DELIVERY_RESCHEDULED', assignment?.orderId ?? stopId, { reason, note })
-    return { success: true }
+    if (assignment) {
+      await mockDomainEventService.emit('DELIVERY_RESCHEDULED', assignment.orderId, { reason, note })
+    }
+
+    return assignment
+      ? successResponse(assignment, 300)
+      : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 300)
   },
   async verifyStop(stopId, method, code) {
-    const attempt = await import('@/services/mock/extendedMocks').then((m) =>
-      m.mockVerificationService.initVerification(stopId, method)
-    )
+    const existing = listStoredDriverAssignments().find((item) => item.id === stopId)
+    if (!existing || existing.stopStatus !== 'ARRIVED') {
+      return {
+        id: `va-${stopId}-${Date.now()}`,
+        orderId: existing?.orderId ?? stopId,
+        method,
+        status: 'INVALID',
+      }
+    }
+
+    const { mockVerificationService } = await import('@/services/mock/extendedMocks')
+    const attempt = await mockVerificationService.initVerification(stopId, method)
     const verification = code
-      ? await import('@/services/mock/extendedMocks').then((m) =>
-        m.mockVerificationService.submitVerification(attempt.id, code)
-      )
+      ? await mockVerificationService.submitVerification(attempt.id, code)
       : attempt
     updateStoredDriverAssignment(stopId, (current) => ({
       ...current,
       verificationMethod: method,
       verificationStatus: verification.status,
+      ...(verification.status === 'VERIFIED' ? { stopStatus: 'VERIFIED' } : {}),
     }))
     if (verification.status === 'VERIFIED') {
-      const current = listStoredDriverAssignments().find((item) => item.id === stopId)
-      if (current) {
-        await mockDomainEventService.emit('COLLECTION_VERIFIED', current.orderId, { method })
-      }
+      await mockDomainEventService.emit('COLLECTION_VERIFIED', existing.orderId, { method })
     }
     return verification
+  },
+}
+
+const DRIVER_DEMO_PASSWORD = 'Driver@1234'
+
+export const mockDriverAuthService: DriverAuthService = {
+  async login(request: LoginRequest) {
+    const isKnownDriver = request.mobileNumber === mockDriverProfile.mobileNumber
+    if (!isKnownDriver || request.password !== DRIVER_DEMO_PASSWORD) {
+      return errorResponse({ code: 'INVALID_CREDENTIALS', message: 'Use the demo driver mobile number and password to sign in.' }, 400)
+    }
+
+    return successResponse(mockDriverProfile, 400)
   },
 }
 
@@ -610,6 +642,7 @@ export { mockPaymentService }
 export {
   mockCoffeeService,
   mockDomainEventService,
+  mockDriverMessageService,
   mockInvoiceService,
   mockLoyaltyService,
   mockNotificationService,

@@ -43,6 +43,7 @@ export const appPaths = {
   operationsReports: '/operations/reports',
 
   // Driver
+  driverLogin: '/driver/login',
   driverDashboard: '/driver/dashboard',
   driverRoute: '/driver/route',
   driverRuns: '/driver/runs',

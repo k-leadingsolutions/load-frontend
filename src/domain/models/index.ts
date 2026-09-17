@@ -10,8 +10,10 @@ export type {
   Modifier,
 } from '@/domain/models/coffee'
 export * from '@/domain/models/customer'
+export * from '@/domain/models/driver'
 export * from '@/domain/models/events'
 export * from '@/domain/models/loyalty'
+export * from '@/domain/models/message'
 export * from '@/domain/models/notification'
 export * from '@/domain/models/order'
 export * from '@/domain/models/payment'

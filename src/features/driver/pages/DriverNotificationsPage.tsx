@@ -21,7 +21,7 @@ export const DriverNotificationsPage = () => {
   return (
     <SectionCard
       title="Driver notifications"
-      description="New jobs, route updates, payment confirmations, and operations instructions."
+      description="New job assignments, route/reschedule updates, and messages from customers or operations."
       action={(
         <button
           type="button"

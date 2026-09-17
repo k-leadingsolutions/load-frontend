@@ -33,6 +33,7 @@ export type NotificationType =
   | 'CUSTOMER_NOTE_UPDATED'
   | 'OPERATIONS_INSTRUCTION'
   | 'STOP_CANCELLED'
+  | 'DRIVER_MESSAGE'
   // Operations
   | 'OPS_WEIGHT_CAPTURED'
   | 'OPS_PRICE_ADJUSTMENT'

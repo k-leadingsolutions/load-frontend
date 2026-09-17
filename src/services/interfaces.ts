@@ -3,6 +3,7 @@ import type {
   DriverAssignmentResponse,
   ProductionOrderResponse,
   DriverAssignmentsResponse,
+  DriverProfileResponse,
   LoginRequest,
   PlaceOrderRequest,
   PricingQuoteResponse,
@@ -19,7 +20,9 @@ import type {
   ApplePayPaymentRequest,
   CardPaymentRequest,
   CreatePaymentRequest,
+  DriverMessage,
   Invoice,
+  MessageChannel,
   Route,
   RouteStop,
   RescheduleReason,
@@ -140,16 +143,26 @@ export interface QCResult {
 
 // ─── Driver ───────────────────────────────────────────────────────────────────
 
+export interface DriverAuthService {
+  login(request: LoginRequest): Promise<DriverProfileResponse>
+}
+
 export interface DriverService {
   listAssignments(): Promise<DriverAssignmentsResponse>
+  confirmEnRoute(assignmentId: string): Promise<DriverAssignmentResponse>
   confirmArrival(assignmentId: string): Promise<DriverAssignmentResponse>
   confirmCollection(assignmentId: string): Promise<DriverAssignmentResponse>
   confirmDelivery(assignmentId: string, proofOfDelivery: string): Promise<DriverAssignmentResponse>
-  recordFailure(assignmentId: string, reason: string): Promise<DriverAssignmentResponse>
-  getRoute(): Promise<Route>
-  captureWeight(stopId: string, weightKg: number): Promise<WeightMeasurement>
-  requestReschedule(stopId: string, reason: RescheduleReason, note?: string): Promise<{ success: boolean }>
+  recordFailure(assignmentId: string, reason: RescheduleReason, note?: string): Promise<DriverAssignmentResponse>
+  requestReschedule(stopId: string, reason: RescheduleReason, note?: string): Promise<DriverAssignmentResponse>
   verifyStop(stopId: string, method: VerificationMethod, code?: string): Promise<VerificationAttempt>
+}
+
+// ─── Driver messaging (smallest viable Driver <-> Customer / Operations) ──────
+
+export interface DriverMessageService {
+  listMessages(stopId: string): Promise<DriverMessage[]>
+  sendMessage(input: { stopId: string; orderId: string; channel: MessageChannel; body: string }): Promise<DriverMessage>
 }
 
 // ─── Delivery ─────────────────────────────────────────────────────────────────

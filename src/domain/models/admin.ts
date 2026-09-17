@@ -1,5 +1,5 @@
 import type { OrderStatus } from '@/domain/models/order'
-import type { RescheduleReason } from '@/domain/models/route'
+import type { RescheduleReason, StopStatus } from '@/domain/models/route'
 import type { VerificationMethod, VerificationStatus } from '@/domain/models/verification'
 
 export interface DashboardMetric {
@@ -19,22 +19,30 @@ export interface DeliveryZone {
 
 export interface DriverAssignment {
   id: string
+  /** 1-based sequence within the driver's ordered stop list for the day. */
+  stopIndex: number
+  /** Driver-scoped ID. Kept distinct from a future driver session ID to support multiple drivers later. */
+  driverId: string
   area: string
   customerInstructions?: string
   customerName: string
   driverName: string
-  failureReason?: string
+  /** Reuses the existing RescheduleReason taxonomy rather than inventing a new failure taxonomy. */
+  failureReason?: RescheduleReason
+  failureNote?: string
   addressLine: string
+  suburb?: string
+  distanceKm?: number
+  etaMinutes?: number
   orderId: string
   proofOfDelivery?: string
   scheduledWindow: string
-  stopStatus: 'ASSIGNED' | 'ARRIVED' | 'COLLECTED' | 'DELIVERED' | 'FAILED'
+  stopStatus: StopStatus
   stopType: 'PICKUP' | 'DELIVERY'
   verificationMethod?: VerificationMethod
   verificationStatus?: VerificationStatus
-  paymentStatus?: 'AWAITING_PAYMENT' | 'PAYMENT_CONFIRMED' | 'NOT_REQUIRED'
-  requiresWeightCapture?: boolean
   rescheduleReason?: RescheduleReason
+  rescheduleNote?: string
 }
 
 export interface ManagedUser {

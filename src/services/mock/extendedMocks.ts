@@ -7,6 +7,7 @@ import type {
   CoffeeOffer,
   DomainEvent,
   DomainEventType,
+  DriverMessage,
   Invoice,
   LoyaltyAccount,
   LoyaltyTransaction,
@@ -18,6 +19,7 @@ import type {
 } from '@/domain/models'
 import type {
   CoffeeService,
+  DriverMessageService,
   InvoiceService,
   LoyaltyService,
   NotificationService,
@@ -105,6 +107,28 @@ const notificationStore: AppNotification[] = [
 
 let notifMem = [...notificationStore]
 let eventMem: DomainEvent[] = []
+
+/** Pushes a system-generated notification directly into the in-memory feed. */
+const pushNotification = (notification: Omit<AppNotification, 'id' | 'createdAt' | 'isRead'>) => {
+  notifMem = [
+    { ...notification, id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, isRead: false, createdAt: new Date().toISOString() },
+    ...notifMem,
+  ]
+}
+
+// ─── Driver messaging mock store (Driver <-> Customer / Driver <-> Operations) ─
+
+let messageMem: DriverMessage[] = [
+  {
+    id: 'msg-01',
+    stopId: 'run-02',
+    orderId: 'LD10235',
+    channel: 'OPERATIONS',
+    direction: 'INBOUND',
+    body: 'Customer requested delivery be left with security if unavailable.',
+    createdAt: new Date(Date.now() - 1000 * 60 * 40).toISOString(),
+  },
+]
 
 // ─── Mock invoice store ───────────────────────────────────────────────────────
 
@@ -200,11 +224,11 @@ const mockRoute: Route = {
   rating: 4.9,
   stops: [
     { id: 'stop-01', stopIndex: 1, orderId: 'LD10236', customerName: 'Sarah Johnson', addressLine: '123 Lynnwood Rd', suburb: 'Lynnwood, Pretoria', stopType: 'PICKUP', stopStatus: 'EN_ROUTE', distanceKm: 2.4, etaMinutes: 15, scheduledWindow: '09:00 – 11:00', customerInstructions: 'Please ring the bell and leave the order at the front door.', customerNotes: 'Gate code: 1234#. Please call if you can\'t find the house.', stopLabel: 'Next' },
-    { id: 'stop-02', stopIndex: 2, orderId: 'LD10237', customerName: 'Michael Brown', addressLine: '456 Main Street', suburb: 'Hatfield', stopType: 'DELIVERY', stopStatus: 'PENDING', distanceKm: 4.1, etaMinutes: 18, scheduledWindow: '09:30 – 10:30' },
-    { id: 'stop-03', stopIndex: 3, orderId: 'LD10238', customerName: 'The Green House (Hotel)', addressLine: '789 Justice Mahomed St', suburb: 'Arcadia', stopType: 'DELIVERY', stopStatus: 'PENDING', distanceKm: 6.3, etaMinutes: 22, scheduledWindow: '10:00 – 11:00' },
-    { id: 'stop-04', stopIndex: 4, orderId: 'LD10239', customerName: 'Jessica Williams', addressLine: '321 Leyds St', suburb: 'Sunnyside', stopType: 'PICKUP', stopStatus: 'PENDING', distanceKm: 8.7, etaMinutes: 19, scheduledWindow: '10:30 – 12:00' },
+    { id: 'stop-02', stopIndex: 2, orderId: 'LD10237', customerName: 'Michael Brown', addressLine: '456 Main Street', suburb: 'Hatfield', stopType: 'DELIVERY', stopStatus: 'ASSIGNED', distanceKm: 4.1, etaMinutes: 18, scheduledWindow: '09:30 – 10:30' },
+    { id: 'stop-03', stopIndex: 3, orderId: 'LD10238', customerName: 'The Green House (Hotel)', addressLine: '789 Justice Mahomed St', suburb: 'Arcadia', stopType: 'DELIVERY', stopStatus: 'ASSIGNED', distanceKm: 6.3, etaMinutes: 22, scheduledWindow: '10:00 – 11:00' },
+    { id: 'stop-04', stopIndex: 4, orderId: 'LD10239', customerName: 'Jessica Williams', addressLine: '321 Leyds St', suburb: 'Sunnyside', stopType: 'PICKUP', stopStatus: 'ASSIGNED', distanceKm: 8.7, etaMinutes: 19, scheduledWindow: '10:30 – 12:00' },
     { id: 'stop-05', stopIndex: 5, orderId: 'LD10240', customerName: 'David Mokoena', addressLine: '55 Jorissen St', suburb: 'Braamfontein', stopType: 'DELIVERY', stopStatus: 'COMPLETED', distanceKm: 11.2, etaMinutes: 24, scheduledWindow: '11:00 – 12:00' },
-    { id: 'stop-12', stopIndex: 12, orderId: 'LD10247', customerName: 'Emily Davis', addressLine: '900 Rivonia Rd', suburb: 'Sandton', stopType: 'PICKUP', stopStatus: 'PENDING', distanceKm: 42.7, etaMinutes: 50, scheduledWindow: '15:00 – 16:00' },
+    { id: 'stop-12', stopIndex: 12, orderId: 'LD10247', customerName: 'Emily Davis', addressLine: '900 Rivonia Rd', suburb: 'Sandton', stopType: 'PICKUP', stopStatus: 'ASSIGNED', distanceKm: 42.7, etaMinutes: 50, scheduledWindow: '15:00 – 16:00' },
   ],
 }
 
@@ -288,6 +312,36 @@ export const mockNotificationService: NotificationService = {
   async markAllRead(role) {
     await sleep(250)
     notifMem = notifMem.map((n) => (n.targetRole === role ? { ...n, isRead: true } : n))
+  },
+}
+
+// ─── Driver messaging service mock ─────────────────────────────────────────────
+
+export const mockDriverMessageService: DriverMessageService = {
+  async listMessages(stopId) {
+    await sleep(250)
+    return messageMem.filter((message) => message.stopId === stopId)
+  },
+  async sendMessage(input) {
+    await sleep(350)
+    const message: DriverMessage = {
+      id: `msg-${Date.now()}`,
+      stopId: input.stopId,
+      orderId: input.orderId,
+      channel: input.channel,
+      direction: 'OUTBOUND',
+      body: input.body,
+      createdAt: new Date().toISOString(),
+    }
+    messageMem = [...messageMem, message]
+    pushNotification({
+      type: 'DRIVER_MESSAGE',
+      targetRole: input.channel,
+      title: input.channel === 'CUSTOMER' ? 'Message from your driver' : 'Message from driver',
+      body: input.body,
+      orderId: input.orderId,
+    })
+    return message
   },
 }
 

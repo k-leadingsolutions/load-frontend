@@ -1,11 +1,21 @@
+/**
+ * Canonical Driver stop lifecycle. Shared by `RouteStop` (route overview) and
+ * `DriverAssignment` (actionable workflow) so both models speak the same
+ * status vocabulary.
+ *
+ * Collection: ASSIGNED -> EN_ROUTE -> ARRIVED -> VERIFIED -> COLLECTED -> COMPLETED
+ * Delivery:   ASSIGNED -> EN_ROUTE -> ARRIVED -> VERIFIED -> DELIVERED -> COMPLETED
+ */
 export type StopStatus =
-  | 'PENDING'
+  | 'ASSIGNED'
   | 'EN_ROUTE'
   | 'ARRIVED'
   | 'VERIFIED'
+  | 'COLLECTED'
+  | 'DELIVERED'
   | 'COMPLETED'
   | 'FAILED'
-  | 'RESCHEDULED'
+  | 'RESCHEDULE_REQUESTED'
 
 export interface RouteStop {
   id: string

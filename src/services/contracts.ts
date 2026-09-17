@@ -3,6 +3,7 @@ import type {
   CustomerProfile,
   DashboardMetric,
   DriverAssignment,
+  DriverProfile,
   FulfilmentType,
   LaundryOrder,
   PricingQuote,
@@ -72,4 +73,5 @@ export type ProductionOrdersResponse = ApiResponse<ProductionOrder[]>
 export type ProductionOrderResponse = ApiResponse<ProductionOrder>
 export type DriverAssignmentsResponse = ApiResponse<DriverAssignment[]>
 export type DriverAssignmentResponse = ApiResponse<DriverAssignment>
+export type DriverProfileResponse = ApiResponse<DriverProfile>
 export type DashboardMetricsResponse = ApiResponse<DashboardMetric[]>
