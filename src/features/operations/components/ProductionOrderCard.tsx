@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { ProductionOrder } from '@/domain/models'
+import { buildPath } from '@/app/router/paths'
 
 interface ProductionOrderCardProps {
   isMutating: boolean
@@ -33,6 +35,9 @@ export const ProductionOrderCard = ({
           <p className="text-sm font-semibold text-load-700">#{order.id}</p>
           <h2 className="mt-2 text-lg font-semibold text-ink">{order.customerName}</h2>
           <p className="mt-1 text-sm text-slate-500">{order.suburb}</p>
+          <Link to={buildPath.operationsOrderDetail(order.id)} className="mt-1 inline-block text-sm font-semibold text-load-600 underline">
+            View details
+          </Link>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           {order.fulfilmentType ? (

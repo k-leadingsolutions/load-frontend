@@ -1,15 +1,18 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { OperationsBoardPage } from '@/features/operations/pages/OperationsBoardPage'
 
 describe('OperationsBoardPage', () => {
   it('allows operations staff to confirm receipt on an order', async () => {
     const user = userEvent.setup()
     render(
-      <QueryClientProvider client={new QueryClient()}>
-        <OperationsBoardPage />
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient()}>
+          <OperationsBoardPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
     )
 
     expect(await screen.findByText('Operations workflow')).toBeInTheDocument()
@@ -29,9 +32,11 @@ describe('OperationsBoardPage', () => {
     // "Adjust price" was removed: LOAD must never write to POS or override commercial
     // pricing from Operations. Store intake capture replaces it as an operational-only record.
     render(
-      <QueryClientProvider client={new QueryClient()}>
-        <OperationsBoardPage />
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient()}>
+          <OperationsBoardPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
     )
 
     expect((await screen.findAllByRole('button', { name: /qc pass/i })).length).toBeGreaterThan(0)
@@ -42,9 +47,11 @@ describe('OperationsBoardPage', () => {
   it('allows recording store intake for a received order', async () => {
     const user = userEvent.setup()
     render(
-      <QueryClientProvider client={new QueryClient()}>
-        <OperationsBoardPage />
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient()}>
+          <OperationsBoardPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
     )
 
     expect(await screen.findByText('Operations workflow')).toBeInTheDocument()

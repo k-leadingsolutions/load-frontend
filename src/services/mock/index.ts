@@ -384,6 +384,12 @@ export const mockOperationsService: OperationsService = {
   async listProductionOrders() {
     return successResponse(listStoredProductionOrders(), 420)
   },
+  async getProductionOrder(orderId: string) {
+    const order = listStoredProductionOrders().find((item) => item.id === orderId)
+    return order
+      ? successResponse(order, 260)
+      : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 260)
+  },
   async confirmLaundryReceived(orderId: string) {
     const order = updateStoredProductionOrder(orderId, (current) => ({
       ...current,
@@ -467,6 +473,10 @@ export const mockOperationsService: OperationsService = {
   },
   async getMetrics() {
     return successResponse(mockDashboardMetrics, 350)
+  },
+  async listDriverAssignments() {
+    const assignments = [...listStoredDriverAssignments()].sort((a, b) => a.stopIndex - b.stopIndex)
+    return successResponse(assignments, 320)
   },
   async assignDriver(orderId: string, driverId: string) {
     const existing = listStoredProductionOrders().find((item) => item.id === orderId)

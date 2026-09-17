@@ -120,6 +120,7 @@ export interface InvoiceService {
 
 export interface OperationsService {
   listProductionOrders(): Promise<ProductionOrdersResponse>
+  getProductionOrder(orderId: string): Promise<ProductionOrderResponse>
   confirmLaundryReceived(orderId: string): Promise<ProductionOrderResponse>
   /**
    * Records LOAD-owned physical intake information (actual weight, item
@@ -133,6 +134,8 @@ export interface OperationsService {
   advanceProductionStage(orderId: string): Promise<ProductionOrderResponse>
   getMetrics(): Promise<DashboardMetricsResponse>
   assignDriver(orderId: string, driverId: string): Promise<ProductionOrderResponse>
+  /** Read-only visibility into ordered Driver stops for Operations coordination (reschedule review, failed-attempt handling). */
+  listDriverAssignments(): Promise<DriverAssignmentsResponse>
   performQC(orderId: string, result: QCResult): Promise<ProductionOrderResponse>
   /**
    * Moves a READY_FOR_DISPATCH DELIVERY order out for delivery. Enforces

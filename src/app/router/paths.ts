@@ -38,6 +38,7 @@ export const appPaths = {
   operationsOrders: '/operations/orders',
   operationsProduction: '/operations/production',
   operationsCollections: '/operations/collections',
+  operationsOrderDetail: '/operations/orders/:orderId',
   operationsQC: '/operations/qc',
   operationsNotifications: '/operations/notifications',
   operationsReports: '/operations/reports',
@@ -64,5 +65,6 @@ export const buildPath = {
   customerServiceCategory: (categoryId: string) => `/customer/services/${categoryId}`,
   driverStop: (stopId: string) => `/driver/stop/${stopId}`,
   driverOrder: (orderId: string) => `/driver/order/${orderId}`,
+  operationsOrderDetail: (orderId: string) => `/operations/orders/${orderId}`,
   roadmap: (moduleId: string) => `/roadmap/${moduleId}`,
 } as const

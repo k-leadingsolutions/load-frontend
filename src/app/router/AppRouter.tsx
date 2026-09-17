@@ -45,6 +45,7 @@ import { OperationsCollectionsPage } from '@/features/operations/pages/Operation
 import { OperationsBoardPage } from '@/features/operations/pages/OperationsBoardPage'
 import { OperationsDashboardPage } from '@/features/operations/pages/OperationsDashboardPage'
 import { OperationsNotificationsPage } from '@/features/operations/pages/OperationsNotificationsPage'
+import { OperationsOrderDetailPage } from '@/features/operations/pages/OperationsOrderDetailPage'
 import { OperationsReportsPage } from '@/features/operations/pages/OperationsReportsPage'
 import { NotFoundPage } from '@/features/shared/pages/NotFoundPage'
 import { RoadmapPlaceholderPage } from '@/features/shared/pages/RoadmapPlaceholderPage'
@@ -130,6 +131,7 @@ export const AppRouter = () => (
           <Route path={appPaths.operationsOrders} element={<OperationsBoardPage />} />
           <Route path={appPaths.operationsProduction} element={<OperationsBoardPage />} />
           <Route path={appPaths.operationsCollections} element={<OperationsCollectionsPage />} />
+          <Route path={appPaths.operationsOrderDetail} element={<OperationsOrderDetailPage />} />
           <Route path={appPaths.operationsQC} element={<OperationsBoardPage />} />
           <Route path={appPaths.operationsNotifications} element={<OperationsNotificationsPage />} />
           <Route path={appPaths.operationsReports} element={<OperationsReportsPage />} />
