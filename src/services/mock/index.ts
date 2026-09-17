@@ -497,6 +497,14 @@ export const mockDriverService: DriverService = {
       : errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 220)
   },
   async confirmArrival(assignmentId: string) {
+    const existing = listStoredDriverAssignments().find((item) => item.id === assignmentId)
+    if (!existing) {
+      return errorResponse({ code: 'ASSIGNMENT_NOT_FOUND', message: 'Driver assignment could not be located.' }, 260)
+    }
+    if (existing.stopStatus !== 'EN_ROUTE') {
+      return errorResponse({ code: 'INVALID_TRANSITION', message: 'Confirm en-route before recording arrival.' }, 260)
+    }
+
     const assignment = updateStoredDriverAssignment(assignmentId, (current) => ({
       ...current,
       stopStatus: 'ARRIVED',
@@ -518,7 +526,7 @@ export const mockDriverService: DriverService = {
     if (existing.stopType !== 'PICKUP') {
       return errorResponse({ code: 'INVALID_STOP_TYPE', message: 'Only pickup stops can be confirmed as collected.' }, 260)
     }
-    if (existing.verificationStatus !== 'VERIFIED') {
+    if (existing.stopStatus !== 'VERIFIED' || existing.verificationStatus !== 'VERIFIED') {
       return errorResponse({ code: 'NOT_VERIFIED', message: 'Verify the collection before confirming it.' }, 260)
     }
 
@@ -542,7 +550,7 @@ export const mockDriverService: DriverService = {
     if (existing.stopType !== 'DELIVERY') {
       return errorResponse({ code: 'INVALID_STOP_TYPE', message: 'Only delivery stops can be confirmed as delivered.' }, 280)
     }
-    if (existing.verificationStatus !== 'VERIFIED') {
+    if (existing.stopStatus !== 'VERIFIED' || existing.verificationStatus !== 'VERIFIED') {
       return errorResponse({ code: 'NOT_VERIFIED', message: 'Verify the delivery before confirming it.' }, 280)
     }
 

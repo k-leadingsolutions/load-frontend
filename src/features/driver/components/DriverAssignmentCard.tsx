@@ -49,7 +49,7 @@ export const DriverAssignmentCard = ({
   const [verificationCode, setVerificationCode] = useState('')
   const [rescheduleReason, setRescheduleReason] = useState<RescheduleReason>('CUSTOMER_UNAVAILABLE')
 
-  const isVerified = assignment.verificationStatus === 'VERIFIED'
+  const isVerified = assignment.verificationStatus === 'VERIFIED' && assignment.stopStatus === 'VERIFIED'
   const isTerminal = ['COLLECTED', 'DELIVERED', 'COMPLETED'].includes(assignment.stopStatus)
 
   return (

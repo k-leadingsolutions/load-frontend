@@ -101,6 +101,32 @@ describe('DriverAssignmentsPage', () => {
     })
   })
 
+  it('does not allow completing collection after a stop has failed (no accidental completion)', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const stop1 = (await screen.findByText(/Stop #1/)).closest('article')
+    if (!stop1) throw new Error('Stop #1 card not found')
+    const stopScope = within(stop1)
+
+    await user.click(stopScope.getByRole('button', { name: 'Start · En route' }))
+    await waitFor(() => expect(stopScope.getByText('En route')).toBeInTheDocument())
+
+    await user.click(stopScope.getByRole('button', { name: 'Confirm arrival' }))
+    await waitFor(() => expect(stopScope.getByText('Arrived')).toBeInTheDocument())
+
+    const codeInput = stopScope.getByLabelText(/verify collection code/i)
+    await user.type(codeInput, '123456')
+    await user.click(stopScope.getByRole('button', { name: 'Verify' }))
+    await waitFor(() => expect(stopScope.getByText('Verified')).toBeInTheDocument(), { timeout: 3000 })
+
+    await user.selectOptions(stopScope.getByLabelText('Failed stop'), 'ACCESS_ISSUE')
+    await user.click(stopScope.getByRole('button', { name: 'Record failure' }))
+    await waitFor(() => expect(stopScope.getByText('Failed')).toBeInTheDocument())
+
+    expect(stopScope.getByRole('button', { name: 'Confirm collection' })).toBeDisabled()
+  })
+
   it('records a reschedule request without changing scheduling authority', async () => {
     const user = userEvent.setup()
     renderPage()

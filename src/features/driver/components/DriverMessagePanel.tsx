@@ -48,6 +48,7 @@ export const DriverMessagePanel = ({ orderId, stopId }: DriverMessagePanelProps)
         <select
           value={channel}
           onChange={(event) => setChannel(event.target.value as MessageChannel)}
+          aria-label="Message channel"
           className="rounded-2xl border border-load-200 px-3 py-2 text-sm text-ink outline-none focus:border-load-500 focus:ring-4 focus:ring-load-100"
         >
           <option value="CUSTOMER">Customer</option>
@@ -57,6 +58,7 @@ export const DriverMessagePanel = ({ orderId, stopId }: DriverMessagePanelProps)
           value={body}
           onChange={(event) => setBody(event.target.value)}
           placeholder={CHANNEL_LABELS[channel]}
+          aria-label={CHANNEL_LABELS[channel]}
           className="rounded-2xl border border-load-200 px-3 py-2 text-sm text-ink outline-none focus:border-load-500 focus:ring-4 focus:ring-load-100"
         />
         <button
