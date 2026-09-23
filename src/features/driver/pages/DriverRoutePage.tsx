@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
-import { mockDriverService } from '@/services/mock'
+import { apiDriverService } from '@/services/api/driverService'
 
 const getDirectionsUrl = (addressLine: string) =>
   `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressLine)}`
@@ -10,7 +10,7 @@ const getDirectionsUrl = (addressLine: string) =>
 export const DriverRoutePage = () => {
   const assignmentsQuery = useQuery({
     queryKey: ['driver-assignments'],
-    queryFn: () => mockDriverService.listAssignments(),
+    queryFn: () => apiDriverService.listAssignments(),
   })
 
   if (assignmentsQuery.isLoading) return <LoadingState />

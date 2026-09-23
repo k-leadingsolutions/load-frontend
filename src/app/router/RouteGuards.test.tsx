@@ -1,4 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import { vi } from 'vitest'
+
+vi.mock('@/services/api/authService', async () => {
+  const { mockAuthService } = await import('@/services/mock')
+  return { apiAuthService: mockAuthService }
+})
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'

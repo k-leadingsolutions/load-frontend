@@ -1,6 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { vi } from 'vitest'
+
+vi.mock('@/services/api/operationsService', async () => {
+  const { mockOperationsService } = await import('@/services/mock')
+  return { apiOperationsService: mockOperationsService }
+})
 import { OperationsOrderDetailPage } from '@/features/operations/pages/OperationsOrderDetailPage'
 import { __resetMockPosScenarios, __setMockPosScenario } from '@/services/mock'
 

@@ -97,8 +97,8 @@ export const CustomerProfilePage = () => {
             ))}
           </div>
           <AddressSetupForm
-            onSave={(values) => {
-              saveAddress({
+            onSave={async (values) => {
+              await saveAddress({
                 label: values.label,
                 line1: values.line1,
                 suburb: values.suburb,

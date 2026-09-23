@@ -42,6 +42,7 @@ export const appPaths = {
   operationsQC: '/operations/qc',
   operationsNotifications: '/operations/notifications',
   operationsReports: '/operations/reports',
+  operationsLogin: '/operations/login',
 
   // Driver
   driverLogin: '/driver/login',

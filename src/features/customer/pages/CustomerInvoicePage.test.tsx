@@ -1,4 +1,14 @@
 import { render, screen } from '@testing-library/react'
+import { vi } from 'vitest'
+
+vi.mock('@/services/api/customerOrderService', async () => {
+  const { mockCustomerOrderService } = await import('@/services/mock')
+  return { apiCustomerOrderService: mockCustomerOrderService }
+})
+vi.mock('@/services/api/invoiceService', async () => {
+  const { mockInvoiceService } = await import('@/services/mock')
+  return { apiInvoiceService: mockInvoiceService }
+})
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/app/providers/AuthProvider'

@@ -4,7 +4,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
-import { mockOperationsService } from '@/services/mock'
+import { apiOperationsService } from '@/services/api/operationsService'
 import type { ApiError } from '@/domain/api'
 
 const QUERY_KEYS = {
@@ -18,11 +18,11 @@ export const OperationsCollectionsPage = () => {
 
   const ordersQuery = useQuery({
     queryKey: QUERY_KEYS.orders,
-    queryFn: () => mockOperationsService.listProductionOrders(),
+    queryFn: () => apiOperationsService.listProductionOrders(),
   })
   const assignmentsQuery = useQuery({
     queryKey: QUERY_KEYS.assignments,
-    queryFn: () => mockOperationsService.listDriverAssignments(),
+    queryFn: () => apiOperationsService.listDriverAssignments(),
   })
 
   const isLoading = ordersQuery.isLoading || assignmentsQuery.isLoading
@@ -33,28 +33,28 @@ export const OperationsCollectionsPage = () => {
 
   const reviewMutation = useMutation({
     mutationFn: ({ assignmentId, decision }: { assignmentId: string; decision: 'APPROVED' | 'REJECTED' }) =>
-      mockOperationsService.reviewRescheduleRequest(assignmentId, decision),
+      apiOperationsService.reviewRescheduleRequest(assignmentId, decision),
     onSuccess: (response) => {
       setActionError(response.error ?? null)
       refreshAssignments()
     },
   })
   const retryMutation = useMutation({
-    mutationFn: (assignmentId: string) => mockOperationsService.retryFailedAttempt(assignmentId),
+    mutationFn: (assignmentId: string) => apiOperationsService.retryFailedAttempt(assignmentId),
     onSuccess: (response) => {
       setActionError(response.error ?? null)
       refreshAssignments()
     },
   })
   const dispatchMutation = useMutation({
-    mutationFn: (orderId: string) => mockOperationsService.dispatchForDelivery(orderId),
+    mutationFn: (orderId: string) => apiOperationsService.dispatchForDelivery(orderId),
     onSuccess: (response) => {
       setActionError(response.error ?? null)
       refreshOrders()
     },
   })
   const storeCollectionMutation = useMutation({
-    mutationFn: (orderId: string) => mockOperationsService.completeStoreCollection(orderId),
+    mutationFn: (orderId: string) => apiOperationsService.completeStoreCollection(orderId),
     onSuccess: (response) => {
       setActionError(response.error ?? null)
       refreshOrders()

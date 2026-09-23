@@ -8,11 +8,11 @@ import type { ProfileDetailsUpdate } from '@/app/providers/AuthContext'
 import type { LoginRequest, RegisterRequest } from '@/services/contracts'
 import {
   readStoredCustomerSession,
-  saveCustomerAddress,
   updateStoredCustomerProfile,
   writeStoredCustomerSession,
 } from '@/services/mock/sessionStore'
-import { mockAuthService } from '@/services/mock'
+import { apiAuthService } from '@/services/api/authService'
+import { apiAddressService } from '@/services/api/addressService'
 
 const assertSuccess = <TData,>(response: { data?: TData; error?: { message?: string }; status: 'success' | 'error' }) => {
   if (response.status === 'error' || !response.data) {
@@ -33,14 +33,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   }, [])
 
   const login = useCallback(async (request: LoginRequest) => {
-    const profile = assertSuccess(await mockAuthService.login(request))
+    const profile = assertSuccess(await apiAuthService.login(request))
     setUser(profile)
     writeStoredCustomerSession(profile)
     queryClient.invalidateQueries({ queryKey: ['customer-orders'] })
   }, [queryClient])
 
   const register = useCallback(async (request: RegisterRequest) => {
-    const profile = assertSuccess(await mockAuthService.register(request))
+    const profile = assertSuccess(await apiAuthService.register(request))
     setUser(profile)
     writeStoredCustomerSession(profile)
     queryClient.invalidateQueries({ queryKey: ['customer-orders'] })
@@ -52,14 +52,36 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     queryClient.removeQueries({ queryKey: ['customer-orders'] })
   }, [queryClient])
 
-  const saveAddress = useCallback((address: Omit<Address, 'id'>) => {
+  const saveAddress = useCallback(async (address: Omit<Address, 'id'>) => {
     if (!user) {
       return null
     }
 
-    const result = saveCustomerAddress(address, user)
-    setUser(result.user)
-    return result.address
+    const isDefault = address.isDefault ?? user.addresses.length === 0
+    const created = await apiAddressService.createAddress(
+      {
+        label: address.label,
+        line1: address.line1,
+        suburb: address.suburb,
+        city: address.city,
+        postalCode: address.postalCode,
+      },
+      isDefault,
+    )
+
+    const nextAddresses = isDefault
+      ? [created, ...user.addresses.map((item) => ({ ...item, isDefault: false }))]
+      : [...user.addresses, created]
+
+    const updatedUser: CustomerProfile = {
+      ...user,
+      addresses: nextAddresses,
+      defaultAddressId: isDefault ? created.id : user.defaultAddressId || created.id,
+    }
+
+    setUser(updatedUser)
+    writeStoredCustomerSession(updatedUser)
+    return created
   }, [user])
 
   const updateProfile = useCallback((details: ProfileDetailsUpdate) => {

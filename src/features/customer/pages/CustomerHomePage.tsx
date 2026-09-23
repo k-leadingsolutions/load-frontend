@@ -8,7 +8,8 @@ import { Collapsible } from '@/components/ui/Collapsible'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { SkeletonCard } from '@/components/ui/LoadingState'
-import { mockCustomerOrderService, mockNotificationService } from '@/services/mock'
+import { mockNotificationService } from '@/services/mock'
+import { apiCustomerOrderService } from '@/services/api/customerOrderService'
 import { mockPromotions } from '@/services/mock/data'
 import { approvedCategories } from '@/services/mock/approvedLaundryCatalogue'
 import { formatCurrency, formatPoints } from '@/utils/format'
@@ -232,7 +233,7 @@ export const CustomerHomePage = () => {
 
   const ordersQuery = useQuery({
     queryKey: ['customer-orders', user?.id],
-    queryFn: () => mockCustomerOrderService.listOrders(user!.id),
+    queryFn: () => apiCustomerOrderService.listOrders(user!.id),
     enabled: Boolean(user?.id),
   })
 

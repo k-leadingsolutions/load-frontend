@@ -4,41 +4,41 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { ProductionOrderCard } from '@/features/operations/components/ProductionOrderCard'
-import { mockOperationsService } from '@/services/mock'
+import { apiOperationsService } from '@/services/api/operationsService'
 
 export const OperationsBoardPage = () => {
   const queryClient = useQueryClient()
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['operations-orders'],
-    queryFn: () => mockOperationsService.listProductionOrders(),
+    queryFn: () => apiOperationsService.listProductionOrders(),
   })
   const refreshOrders = () => queryClient.invalidateQueries({ queryKey: ['operations-orders'] })
   const confirmReceivedMutation = useMutation({
-    mutationFn: (orderId: string) => mockOperationsService.confirmLaundryReceived(orderId),
+    mutationFn: (orderId: string) => apiOperationsService.confirmLaundryReceived(orderId),
     onSuccess: refreshOrders,
   })
   const quantityReviewMutation = useMutation({
     mutationFn: ({ orderId, status }: { orderId: string; status: 'CONFIRMED' | 'ADJUSTED' }) =>
-      mockOperationsService.updateQuantityReview(orderId, status),
+      apiOperationsService.updateQuantityReview(orderId, status),
     onSuccess: refreshOrders,
   })
   const noteMutation = useMutation({
     mutationFn: ({ orderId, note }: { orderId: string; note: string }) =>
-      mockOperationsService.addInternalNote(orderId, note),
+      apiOperationsService.addInternalNote(orderId, note),
     onSuccess: refreshOrders,
   })
   const advanceStageMutation = useMutation({
-    mutationFn: (orderId: string) => mockOperationsService.advanceProductionStage(orderId),
+    mutationFn: (orderId: string) => apiOperationsService.advanceProductionStage(orderId),
     onSuccess: refreshOrders,
   })
   const qcMutation = useMutation({
     mutationFn: ({ orderId, passed, notes }: { orderId: string; passed: boolean; notes?: string }) =>
-      mockOperationsService.performQC(orderId, { passed, ...(notes ? { notes } : {}) }),
+      apiOperationsService.performQC(orderId, { passed, ...(notes ? { notes } : {}) }),
     onSuccess: refreshOrders,
   })
   const recordIntakeMutation = useMutation({
     mutationFn: ({ orderId, weightKg, notes }: { orderId: string; weightKg?: number; notes?: string }) =>
-      mockOperationsService.recordStoreIntake(orderId, {
+      apiOperationsService.recordStoreIntake(orderId, {
         ...(weightKg !== undefined ? { weightKg } : {}),
         ...(notes ? { notes } : {}),
       }),

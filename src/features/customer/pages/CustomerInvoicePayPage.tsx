@@ -12,7 +12,9 @@ import { Toast } from '@/components/ui/Toast'
 import type { CardPaymentDetails, PaymentMethodType, PaymentResult, TipSelection } from '@/domain/models'
 import { CardPaymentForm } from '@/features/customer/checkout/CardPaymentForm'
 import { PaymentMethodSelector } from '@/features/customer/checkout/PaymentMethodSelector'
-import { mockCustomerOrderService, mockInvoiceService, mockPaymentService } from '@/services/mock'
+import { apiCustomerOrderService } from '@/services/api/customerOrderService'
+import { apiInvoiceService } from '@/services/api/invoiceService'
+import { apiPaymentService } from '@/services/api/paymentService'
 import { updateStoredOrder } from '@/services/mock/orderStore'
 import { formatCurrency } from '@/utils/format'
 
@@ -36,7 +38,7 @@ export const CustomerInvoicePayPage = () => {
         return null
       }
 
-      return mockInvoiceService.getInvoice(invoiceId)
+      return apiInvoiceService.getInvoice(invoiceId)
     },
     enabled: Boolean(invoiceId),
     retry: false,
@@ -44,7 +46,7 @@ export const CustomerInvoicePayPage = () => {
   const orderQuery = useQuery({
     queryKey: ['customer-order-for-invoice', invoiceQuery.data?.orderId],
     queryFn: async () => {
-      const response = await mockCustomerOrderService.getOrder(invoiceQuery.data!.orderId)
+      const response = await apiCustomerOrderService.getOrder(invoiceQuery.data!.orderId)
       return response.data ?? null
     },
     enabled: Boolean(invoiceQuery.data?.orderId),
@@ -65,13 +67,13 @@ export const CustomerInvoicePayPage = () => {
       // Payment amount MUST originate from the authoritative Invoice.finalTotal
       // — never estimatedTotal or any catalogue/minimum-charge calculation.
       const result = method === 'APPLE_PAY'
-        ? await mockPaymentService.processApplePay({
+        ? await apiPaymentService.processApplePay({
             orderId: invoice.orderId,
             amount: invoice.finalTotal,
             paymentMethod: 'APPLE_PAY',
             tip: NO_TIP,
           })
-        : await mockPaymentService.processCardPayment({
+        : await apiPaymentService.processCardPayment({
             orderId: invoice.orderId,
             amount: invoice.finalTotal,
             paymentMethod: 'CARD',
@@ -80,15 +82,11 @@ export const CustomerInvoicePayPage = () => {
           })
 
       if (isSuccessfulPayment(result)) {
-        // Updates LOAD's OWN cached invoice/payment state only. This never
-        // calls the POS boundary — the POS read adapter is never mutated by
-        // the Customer app.
-        await mockInvoiceService.markPaid(invoice.id)
-        updateStoredOrder(invoice.orderId, (order) => ({
-          ...order,
-          paymentStatus: 'CONFIRMED',
-          ...(order.invoiceId ? {} : { invoiceId: invoice.id }),
-        }))
+        // Re-reads LOAD's own invoice/payment projection, which the backend
+        // already updated as part of the payment call. This never calls the
+        // POS boundary — the POS read adapter is never mutated by the
+        // Customer app.
+        await apiInvoiceService.markPaid(invoice.id)
       }
 
       return result
@@ -96,6 +94,13 @@ export const CustomerInvoicePayPage = () => {
     onSuccess: async (result) => {
       setPaymentResult(result)
       if (isSuccessfulPayment(result) && invoiceId) {
+        // Keeps the legacy mock order-store projection in sync for tests and any
+        // remaining mock-backed views; the real backend already persisted the
+        // authoritative payment state, so this local mirror is inert in production.
+        const orderId = invoiceQuery.data?.orderId
+        if (orderId) {
+          updateStoredOrder(orderId, (order) => ({ ...order, paymentStatus: 'CONFIRMED' }))
+        }
         setToast({ message: 'Payment complete!', tone: 'success' })
         await queryClient.invalidateQueries({ queryKey: ['customer-invoice', invoiceId] })
         await queryClient.invalidateQueries({ queryKey: ['customer-orders'] })

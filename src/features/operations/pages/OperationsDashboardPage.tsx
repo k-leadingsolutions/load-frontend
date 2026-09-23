@@ -3,20 +3,20 @@ import { SectionCard } from '@/components/ui/SectionCard'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { mockOperationsService } from '@/services/mock'
+import { apiOperationsService } from '@/services/api/operationsService'
 
 export const OperationsDashboardPage = () => {
   const metricsQuery = useQuery({
     queryKey: ['operations-metrics'],
-    queryFn: () => mockOperationsService.getMetrics(),
+    queryFn: () => apiOperationsService.getMetrics(),
   })
   const ordersQuery = useQuery({
     queryKey: ['operations-orders'],
-    queryFn: () => mockOperationsService.listProductionOrders(),
+    queryFn: () => apiOperationsService.listProductionOrders(),
   })
   const assignmentsQuery = useQuery({
     queryKey: ['operations-driver-assignments'],
-    queryFn: () => mockOperationsService.listDriverAssignments(),
+    queryFn: () => apiOperationsService.listDriverAssignments(),
   })
 
   if (metricsQuery.isLoading) return <LoadingState />

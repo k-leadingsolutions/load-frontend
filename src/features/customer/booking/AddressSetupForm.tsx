@@ -16,7 +16,7 @@ const addressSchema = z.object({
 type AddressFormValues = z.infer<typeof addressSchema>
 
 interface AddressSetupFormProps {
-  onSave: (values: AddressFormValues) => void
+  onSave: (values: AddressFormValues) => void | Promise<void>
 }
 
 export const AddressSetupForm = ({ onSave }: AddressSetupFormProps) => {
@@ -41,8 +41,8 @@ export const AddressSetupForm = ({ onSave }: AddressSetupFormProps) => {
   return (
     <form
       className="grid gap-4 sm:grid-cols-2"
-      onSubmit={handleSubmit((values) => {
-        onSave(values)
+      onSubmit={handleSubmit(async (values) => {
+        await onSave(values)
         reset(values)
       })}
     >

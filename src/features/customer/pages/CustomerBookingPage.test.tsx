@@ -1,4 +1,10 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
+import { vi } from 'vitest'
+
+vi.mock('@/services/api/customerOrderService', async () => {
+  const { mockCustomerOrderService } = await import('@/services/mock')
+  return { apiCustomerOrderService: mockCustomerOrderService }
+})
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'

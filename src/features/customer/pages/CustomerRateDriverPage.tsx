@@ -13,7 +13,7 @@ import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
 import type { DriverRating, TipSelection } from '@/domain/models'
 import { DriverTipSelector } from '@/features/customer/checkout/DriverTipSelector'
-import { mockCustomerOrderService } from '@/services/mock'
+import { apiCustomerOrderService } from '@/services/api/customerOrderService'
 import { getStoredDriverRating, saveStoredDriverRating } from '@/services/mock/driverRatings'
 
 const ratingSchema = z.object({
@@ -50,7 +50,7 @@ export const CustomerRateDriverPage = () => {
         return null
       }
 
-      const response = await mockCustomerOrderService.getOrder(orderId)
+      const response = await apiCustomerOrderService.getOrder(orderId)
       if (response.status === 'error' || !response.data) {
         return null
       }

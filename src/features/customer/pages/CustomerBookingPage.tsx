@@ -16,7 +16,8 @@ import { useCustomerOrderDraft } from '@/features/customer/booking/CustomerOrder
 import type { LaundryOrder } from '@/domain/models'
 import type { FulfilmentType } from '@/domain/models/booking'
 import { appPaths } from '@/app/router/paths'
-import { mockCatalogueService, mockCustomerOrderService } from '@/services/mock'
+import { mockCatalogueService } from '@/services/mock'
+import { apiCustomerOrderService } from '@/services/api/customerOrderService'
 import { formatCurrency } from '@/utils/format'
 
 type BookingStep = 1 | 2
@@ -80,7 +81,7 @@ export const CustomerBookingPage = () => {
 
   const placeOrderMutation = useMutation({
     mutationFn: async () => {
-      const response = await mockCustomerOrderService.placeOrder({
+      const response = await apiCustomerOrderService.placeOrder({
         customerId: user!.id,
         serviceSelections: draft.serviceSelections,
         addOnSelections: draft.expressRequested
@@ -244,8 +245,8 @@ export const CustomerBookingPage = () => {
       {/* Address modal */}
       <Modal open={showAddressModal} onClose={() => setShowAddressModal(false)} title="Add new address">
         <AddressSetupForm
-          onSave={(values) => {
-            const address = saveAddress({
+          onSave={async (values) => {
+            const address = await saveAddress({
               label: values.label,
               line1: values.line1,
               suburb: values.suburb,
@@ -311,8 +312,8 @@ export const CustomerBookingPage = () => {
           />
           <div className="mt-6">
             <AddressSetupForm
-              onSave={(values) => {
-                const address = saveAddress({
+              onSave={async (values) => {
+                const address = await saveAddress({
                   label: values.label,
                   line1: values.line1,
                   suburb: values.suburb,

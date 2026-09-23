@@ -6,7 +6,7 @@ import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
 import type { RescheduleReason, VerificationMethod } from '@/domain/models'
 import { DriverAssignmentCard } from '@/features/driver/components/DriverAssignmentCard'
-import { mockDriverService } from '@/services/mock'
+import { apiDriverService } from '@/services/api/driverService'
 
 const TERMINAL_STATUSES = new Set(['COLLECTED', 'DELIVERED', 'COMPLETED'])
 
@@ -14,41 +14,41 @@ export const DriverAssignmentsPage = () => {
   const queryClient = useQueryClient()
   const { data, error, isError, isLoading } = useQuery({
     queryKey: ['driver-assignments'],
-    queryFn: () => mockDriverService.listAssignments(),
+    queryFn: () => apiDriverService.listAssignments(),
   })
 
   const refreshAssignments = () => queryClient.invalidateQueries({ queryKey: ['driver-assignments'] })
 
   const enRouteMutation = useMutation({
-    mutationFn: (assignmentId: string) => mockDriverService.confirmEnRoute(assignmentId),
+    mutationFn: (assignmentId: string) => apiDriverService.confirmEnRoute(assignmentId),
     onSuccess: refreshAssignments,
   })
   const arrivalMutation = useMutation({
-    mutationFn: (assignmentId: string) => mockDriverService.confirmArrival(assignmentId),
+    mutationFn: (assignmentId: string) => apiDriverService.confirmArrival(assignmentId),
     onSuccess: refreshAssignments,
   })
   const collectionMutation = useMutation({
-    mutationFn: (assignmentId: string) => mockDriverService.confirmCollection(assignmentId),
+    mutationFn: (assignmentId: string) => apiDriverService.confirmCollection(assignmentId),
     onSuccess: refreshAssignments,
   })
   const deliveryMutation = useMutation({
     mutationFn: ({ assignmentId, proof }: { assignmentId: string; proof: string }) =>
-      mockDriverService.confirmDelivery(assignmentId, proof),
+      apiDriverService.confirmDelivery(assignmentId, proof),
     onSuccess: refreshAssignments,
   })
   const failureMutation = useMutation({
     mutationFn: ({ assignmentId, note, reason }: { assignmentId: string; reason: RescheduleReason; note?: string }) =>
-      mockDriverService.recordFailure(assignmentId, reason, note),
+      apiDriverService.recordFailure(assignmentId, reason, note),
     onSuccess: refreshAssignments,
   })
   const verifyMutation = useMutation({
     mutationFn: ({ assignmentId, code, method }: { assignmentId: string; method: VerificationMethod; code: string }) =>
-      mockDriverService.verifyStop(assignmentId, method, code),
+      apiDriverService.verifyStop(assignmentId, method, code),
     onSuccess: refreshAssignments,
   })
   const rescheduleMutation = useMutation({
     mutationFn: ({ assignmentId, note, reason }: { assignmentId: string; reason: RescheduleReason; note?: string }) =>
-      mockDriverService.requestReschedule(assignmentId, reason, note),
+      apiDriverService.requestReschedule(assignmentId, reason, note),
     onSuccess: refreshAssignments,
   })
 

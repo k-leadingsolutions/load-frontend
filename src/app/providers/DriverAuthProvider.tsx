@@ -6,7 +6,7 @@ import { DriverAuthContext } from '@/app/providers/DriverAuthContext'
 import type { DriverAuthContextValue } from '@/app/providers/DriverAuthContext'
 import type { LoginRequest } from '@/services/contracts'
 import { readStoredDriverSession, writeStoredDriverSession } from '@/services/mock/driverSessionStore'
-import { mockDriverAuthService } from '@/services/mock'
+import { apiDriverAuthService } from '@/services/api/driverAuthService'
 
 const assertSuccess = <TData,>(response: { data?: TData; error?: { message?: string }; status: 'success' | 'error' }) => {
   if (response.status === 'error' || !response.data) {
@@ -33,7 +33,7 @@ export const DriverAuthProvider = ({ children }: PropsWithChildren) => {
   }, [])
 
   const login = useCallback(async (request: LoginRequest) => {
-    const profile = assertSuccess(await mockDriverAuthService.login(request))
+    const profile = assertSuccess(await apiDriverAuthService.login(request))
     setUser(profile)
     writeStoredDriverSession(profile)
     queryClient.invalidateQueries({ queryKey: ['driver-assignments'] })

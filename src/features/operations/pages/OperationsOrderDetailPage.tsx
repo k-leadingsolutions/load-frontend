@@ -4,7 +4,8 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
-import { mockCustomerOrderService, mockOperationsService, mockPosReadService } from '@/services/mock'
+import { mockCustomerOrderService, mockPosReadService } from '@/services/mock'
+import { apiOperationsService } from '@/services/api/operationsService'
 import type { PosVendorInvoiceRecord, PosVendorOrderRecord } from '@/services/pos/posContracts'
 
 const fetchPosSnapshot = async (orderId: string) => {
@@ -26,7 +27,7 @@ export const OperationsOrderDetailPage = () => {
 
   const productionOrderQuery = useQuery({
     queryKey: ['operations-order', orderId],
-    queryFn: () => mockOperationsService.getProductionOrder(orderId),
+    queryFn: () => apiOperationsService.getProductionOrder(orderId),
     enabled: Boolean(orderId),
   })
   const laundryOrderQuery = useQuery({
@@ -36,7 +37,7 @@ export const OperationsOrderDetailPage = () => {
   })
   const assignmentsQuery = useQuery({
     queryKey: ['operations-driver-assignments'],
-    queryFn: () => mockOperationsService.listDriverAssignments(),
+    queryFn: () => apiOperationsService.listDriverAssignments(),
   })
   const posQuery = useQuery({
     queryKey: ['operations-pos-snapshot', orderId],
@@ -46,7 +47,7 @@ export const OperationsOrderDetailPage = () => {
 
   const refreshOrder = () => queryClient.invalidateQueries({ queryKey: ['operations-order', orderId] })
   const noteMutation = useMutation({
-    mutationFn: (note: string) => mockOperationsService.addInternalNote(orderId, note),
+    mutationFn: (note: string) => apiOperationsService.addInternalNote(orderId, note),
     onSuccess: refreshOrder,
   })
 

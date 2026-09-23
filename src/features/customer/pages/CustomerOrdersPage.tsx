@@ -13,7 +13,7 @@ import { SectionCard } from '@/components/ui/SectionCard'
 import { OrderStatusTimeline } from '@/features/customer/components/OrderStatusTimeline'
 import { InvoiceStatusSection } from '@/features/customer/invoice/InvoiceStatusSection'
 import { ORDER_STATUS_MODEL } from '@/domain/orderStatus'
-import { mockCustomerOrderService } from '@/services/mock'
+import { apiCustomerOrderService } from '@/services/api/customerOrderService'
 import { getStoredDriverRating } from '@/services/mock/driverRatings'
 import { formatCurrency } from '@/utils/format'
 import type { LaundryOrder, PaymentStatus } from '@/domain/models/order'
@@ -80,7 +80,7 @@ export const CustomerOrdersPage = () => {
   const [repeatSuccessId, setRepeatSuccessId] = useState<string | null>(null)
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['customer-orders', user?.id],
-    queryFn: () => mockCustomerOrderService.listOrders(user!.id),
+    queryFn: () => apiCustomerOrderService.listOrders(user!.id),
     enabled: Boolean(user?.id),
   })
   const repeatOrderMutation = useMutation({
@@ -92,7 +92,7 @@ export const CustomerOrdersPage = () => {
       }
 
       const basketSelection = order.services.find((service) => service.serviceId.startsWith('basket-'))
-      const response = await mockCustomerOrderService.placeOrder({
+      const response = await apiCustomerOrderService.placeOrder({
         customerId: user.id,
         ...(basketSelection ? { basketSizeId: basketSelection.serviceId } : {}),
         serviceSelections: order.services

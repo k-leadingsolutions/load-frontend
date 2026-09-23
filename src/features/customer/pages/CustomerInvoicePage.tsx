@@ -5,7 +5,8 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
-import { mockCustomerOrderService, mockInvoiceService } from '@/services/mock'
+import { apiCustomerOrderService } from '@/services/api/customerOrderService'
+import { apiInvoiceService } from '@/services/api/invoiceService'
 import { formatCurrency } from '@/utils/format'
 
 export const CustomerInvoicePage = () => {
@@ -17,14 +18,14 @@ export const CustomerInvoicePage = () => {
         return null
       }
 
-      return mockInvoiceService.getInvoice(invoiceId)
+      return apiInvoiceService.getInvoice(invoiceId)
     },
     enabled: Boolean(invoiceId),
   })
   const orderQuery = useQuery({
     queryKey: ['customer-order-for-invoice', invoiceQuery.data?.orderId],
     queryFn: async () => {
-      const response = await mockCustomerOrderService.getOrder(invoiceQuery.data!.orderId)
+      const response = await apiCustomerOrderService.getOrder(invoiceQuery.data!.orderId)
       return response.data ?? null
     },
     enabled: Boolean(invoiceQuery.data?.orderId),

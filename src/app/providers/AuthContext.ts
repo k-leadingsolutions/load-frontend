@@ -16,7 +16,7 @@ export interface AuthContextValue {
   login: (request: LoginRequest) => Promise<void>
   register: (request: RegisterRequest) => Promise<void>
   logout: () => void
-  saveAddress: (address: Omit<Address, 'id'>) => Address | null
+  saveAddress: (address: Omit<Address, 'id'>) => Promise<Address | null>
   updateProfile: (details: ProfileDetailsUpdate) => void
 }
 

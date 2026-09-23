@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
-import { mockDriverService } from '@/services/mock'
+import { apiDriverService } from '@/services/api/driverService'
 
 const ACTIVE_STATUSES = new Set(['ASSIGNED', 'EN_ROUTE', 'ARRIVED', 'VERIFIED', 'RESCHEDULE_REQUESTED'])
 const COMPLETE_STATUSES = new Set(['COLLECTED', 'DELIVERED', 'COMPLETED'])
@@ -10,7 +10,7 @@ const COMPLETE_STATUSES = new Set(['COLLECTED', 'DELIVERED', 'COMPLETED'])
 export const DriverDashboardPage = () => {
   const assignmentsQuery = useQuery({
     queryKey: ['driver-assignments'],
-    queryFn: () => mockDriverService.listAssignments(),
+    queryFn: () => apiDriverService.listAssignments(),
   })
 
   if (assignmentsQuery.isLoading) return <LoadingState />

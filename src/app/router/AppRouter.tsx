@@ -3,6 +3,7 @@ import { GuestOnlyRoute } from '@/app/router/GuestOnlyRoute'
 import { RequireCustomerAuth } from '@/app/router/RequireCustomerAuth'
 import { RequireDriverRole } from '@/app/router/RequireDriverRole'
 import { RequireRole } from '@/app/router/RequireRole'
+import { RequireOperationsRole } from '@/app/router/RequireOperationsRole'
 import { PublicLayout } from '@/app/layouts/PublicLayout'
 import { RoleLayout } from '@/app/layouts/RoleLayout'
 import { appPaths } from '@/app/router/paths'
@@ -43,6 +44,7 @@ import { DriverProfilePage } from '@/features/driver/pages/DriverProfilePage'
 import { DriverRoutePage } from '@/features/driver/pages/DriverRoutePage'
 import { OperationsCollectionsPage } from '@/features/operations/pages/OperationsCollectionsPage'
 import { OperationsBoardPage } from '@/features/operations/pages/OperationsBoardPage'
+import { OperationsLoginPage } from '@/features/operations/pages/OperationsLoginPage'
 import { OperationsDashboardPage } from '@/features/operations/pages/OperationsDashboardPage'
 import { OperationsNotificationsPage } from '@/features/operations/pages/OperationsNotificationsPage'
 import { OperationsOrderDetailPage } from '@/features/operations/pages/OperationsOrderDetailPage'
@@ -103,7 +105,8 @@ export const AppRouter = () => (
           </Route>
           </Route>
         </Route>
-        <Route element={<RequireRole allowedRoles={['OPERATIONS']} />}>
+        <Route path={appPaths.operationsLogin} element={<OperationsLoginPage />} />
+        <Route element={<RequireOperationsRole />}>
           <Route
             element={
               <RoleLayout
