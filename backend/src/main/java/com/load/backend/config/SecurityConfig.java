@@ -65,6 +65,20 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
         http
+            // CSRF protection is deliberately disabled and this is NOT a placeholder to
+            // silence static analysis: CSRF exploits rely on a browser automatically
+            // attaching ambient credentials (session cookies) to a forged cross-site
+            // request. This API is stateless bearer-token auth only - no session, no
+            // Set-Cookie is ever issued (see SessionCreationPolicy.STATELESS below and
+            // JwtAuthenticationFilter), and the frontend must explicitly read the JWT
+            // from storage and attach it as an `Authorization: Bearer` header on every
+            // call. A cross-site page cannot read another origin's localStorage nor
+            // inject that header via a plain form/img/link, and any fetch/XHR attempt
+            // to do so would additionally require a CORS preflight that the
+            // origin allow-list below rejects. Re-enabling CSRF tokens here would add
+            // complexity with no corresponding attack surface for this architecture.
+            // If a cookie-based session/refresh-token mechanism is ever introduced,
+            // this decision MUST be revisited.
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
