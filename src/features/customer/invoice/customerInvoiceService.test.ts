@@ -1,7 +1,16 @@
-import type { LaundryOrder } from '@/domain/models'
+import { vi } from 'vitest'
+
+vi.mock('@/services/api/invoiceService', () => ({
+  apiInvoiceService: {
+    getInvoice: vi.fn(),
+  },
+}))
+
+import type { Invoice, LaundryOrder } from '@/domain/models'
 import { getCustomerInvoiceState } from '@/features/customer/invoice/customerInvoiceService'
-import { __setMockPosScenario, __resetMockPosScenarios } from '@/services/mock'
-import { prependStoredOrder } from '@/services/mock/orderStore'
+import { apiInvoiceService } from '@/services/api/invoiceService'
+
+const mockGetInvoice = vi.mocked(apiInvoiceService.getInvoice)
 
 const baseOrder = (overrides: Partial<LaundryOrder> = {}): LaundryOrder => ({
   id: 'LD-TEST-001',
@@ -9,7 +18,16 @@ const baseOrder = (overrides: Partial<LaundryOrder> = {}): LaundryOrder => ({
   status: 'BOOKING_RECEIVED',
   friendlyStatus: 'Booking received',
   pickupWindow: { date: '2026-09-16', windowLabel: 'Today, 09:00 - 11:00' },
-  pickupAddress: { id: 'addr-1', label: 'Home', line1: '1 Test Street', suburb: 'Testville', city: 'Testcity', province: 'Gauteng', postalCode: '0001', isDefault: true },
+  pickupAddress: {
+    id: 'addr-1',
+    label: 'Home',
+    line1: '1 Test Street',
+    suburb: 'Testville',
+    city: 'Testcity',
+    province: 'Gauteng',
+    postalCode: '0001',
+    isDefault: true,
+  },
   services: [{ serviceId: 'ev-wash-dry-fold', quantity: 5, unitLabel: 'kg' }],
   estimatedTotal: 420,
   paymentStatus: 'NOT_REQUIRED',
@@ -22,85 +40,91 @@ const baseOrder = (overrides: Partial<LaundryOrder> = {}): LaundryOrder => ({
   ...overrides,
 })
 
-describe('getCustomerInvoiceState — booking independence from POS', () => {
-  afterEach(() => {
-    __resetMockPosScenarios()
+const buildInvoice = (overrides: Partial<Invoice> = {}): Invoice => ({
+  id: 'inv-LD-TEST-004',
+  invoiceNumber: 'INV-LD-TEST-004',
+  orderId: 'LD-TEST-004',
+  customerId: 'cust-test-001',
+  customerName: '',
+  serviceLabel: 'Wash + Fold',
+  lines: [],
+  pickupFee: 0,
+  deliveryFee: 0,
+  subtotal: 300,
+  adjustmentTotal: 0,
+  discountTotal: 0,
+  loyaltyRedemptionTotal: 0,
+  taxTotal: 0,
+  finalTotal: 300,
+  status: 'ISSUED',
+  paymentStatus: 'PENDING',
+  posSyncStatus: 'SYNCED',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  ...overrides,
+})
+
+describe('getCustomerInvoiceState — real backend Order/invoice data only', () => {
+  beforeEach(() => {
+    mockGetInvoice.mockReset()
   })
 
-  it('renders a freshly confirmed booking with no externalPosOrderId, invoiceId, or finalInvoiceTotal', () => {
-    const order = baseOrder()
-    expect(order.externalPosOrderId).toBeUndefined()
-    expect(order.invoiceId).toBeUndefined()
-    expect(order.finalInvoiceTotal).toBeUndefined()
-    expect(order.invoiceStatus).toBe('NOT_AVAILABLE')
-  })
-
-  it('returns NOT_AVAILABLE when the POS order has not yet been received (invoice pending)', async () => {
+  it('returns NOT_AVAILABLE without calling the invoice service when the order invoice is not yet READY', async () => {
     const order = baseOrder({ id: 'LD-TEST-002' })
-    __setMockPosScenario(order.id, { kind: 'NOT_RECEIVED' })
 
-    const state = await getCustomerInvoiceState(order, 'Test Customer')
+    const state = await getCustomerInvoiceState(order)
     expect(state.kind).toBe('NOT_AVAILABLE')
+    expect(mockGetInvoice).not.toHaveBeenCalled()
   })
 
-  it('does not remove or break the LOAD booking when POS retrieval fails', async () => {
-    const order = baseOrder({ id: 'LD-TEST-003' })
-    __setMockPosScenario(order.id, { kind: 'UNAVAILABLE' })
+  it('returns NOT_AVAILABLE when invoiceStatus is READY but invoiceId is missing (never fabricated)', async () => {
+    const order = baseOrder({ id: 'LD-TEST-003', invoiceStatus: 'READY' })
 
-    await expect(getCustomerInvoiceState(order, 'Test Customer')).rejects.toThrow()
-    // The order object itself is untouched — no mutation occurs on failure.
-    expect(order.invoiceStatus).toBe('NOT_AVAILABLE')
-    expect(order.id).toBe('LD-TEST-003')
+    const state = await getCustomerInvoiceState(order)
+    expect(state.kind).toBe('NOT_AVAILABLE')
+    expect(mockGetInvoice).not.toHaveBeenCalled()
   })
 
-  it('resolves to READY with the invoice once the POS invoice becomes available, and can retry after failure', async () => {
-    const order = baseOrder({ id: 'LD-TEST-004' })
-    prependStoredOrder(order)
+  it('propagates a failure to retrieve the invoice — the order object itself is untouched', async () => {
+    const order = baseOrder({ id: 'LD-TEST-003B', invoiceStatus: 'READY', invoiceId: 'inv-LD-TEST-003B' })
+    mockGetInvoice.mockRejectedValueOnce(new Error('Unable to retrieve invoice.'))
 
-    __setMockPosScenario(order.id, { kind: 'UNAVAILABLE' })
-    await expect(getCustomerInvoiceState(order, 'Test Customer')).rejects.toThrow()
+    await expect(getCustomerInvoiceState(order)).rejects.toThrow()
+    expect(order.invoiceStatus).toBe('READY')
+    expect(order.id).toBe('LD-TEST-003B')
+  })
 
-    __setMockPosScenario(order.id, {
-      kind: 'INVOICED',
-      invoice: {
-        vendorInvoiceId: 'POS-INV-TEST-004',
-        vendorOrderId: 'POS-ORD-TEST-004',
-        loadOrderRef: order.id,
-        currency: 'ZAR',
-        lines: [{ description: 'Wash + Fold', quantity: 1, unitAmount: 300, lineAmount: 300 }],
-        totalAmountDue: 300,
-        vendorStatus: 'FINAL',
-        issuedAt: new Date().toISOString(),
-      },
+  it('resolves to READY with the backend-sourced invoice once invoiceStatus is READY', async () => {
+    const order = baseOrder({
+      id: 'LD-TEST-004',
+      invoiceStatus: 'READY',
+      invoiceId: 'inv-LD-TEST-004',
+      finalInvoiceTotal: 300,
     })
+    mockGetInvoice.mockResolvedValueOnce(buildInvoice())
 
-    const state = await getCustomerInvoiceState(order, 'Test Customer')
+    const state = await getCustomerInvoiceState(order)
     expect(state.kind).toBe('READY')
     if (state.kind === 'READY') {
       expect(state.invoice.finalTotal).toBe(300)
       expect(state.order.invoiceStatus).toBe('READY')
-      expect(state.order.invoiceId).toBeTruthy()
+      expect(state.order.invoiceId).toBe('inv-LD-TEST-004')
     }
+    expect(mockGetInvoice).toHaveBeenCalledWith('inv-LD-TEST-004')
   })
 
-  it('never uses estimatedTotal as the invoice final total — the invoice amount originates from the Invoice object', async () => {
-    const order = baseOrder({ id: 'LD-TEST-005', estimatedTotal: 420 })
-    prependStoredOrder(order)
-    __setMockPosScenario(order.id, {
-      kind: 'INVOICED',
-      invoice: {
-        vendorInvoiceId: 'POS-INV-TEST-005',
-        vendorOrderId: 'POS-ORD-TEST-005',
-        loadOrderRef: order.id,
-        currency: 'ZAR',
-        lines: [{ description: 'Wash + Fold', quantity: 1, unitAmount: 785, lineAmount: 785 }],
-        totalAmountDue: 785,
-        vendorStatus: 'FINAL',
-        issuedAt: new Date().toISOString(),
-      },
+  it('never uses estimatedTotal as the invoice final total — the amount originates from the backend Invoice', async () => {
+    const order = baseOrder({
+      id: 'LD-TEST-005',
+      estimatedTotal: 420,
+      invoiceStatus: 'READY',
+      invoiceId: 'inv-LD-TEST-005',
     })
+    mockGetInvoice.mockResolvedValueOnce(
+      buildInvoice({ id: 'inv-LD-TEST-005', orderId: 'LD-TEST-005', finalTotal: 785, subtotal: 785 }),
+    )
 
-    const state = await getCustomerInvoiceState(order, 'Test Customer')
+    const state = await getCustomerInvoiceState(order)
     expect(state.kind).toBe('READY')
     if (state.kind === 'READY') {
       expect(state.invoice.finalTotal).toBe(785)
@@ -108,24 +132,25 @@ describe('getCustomerInvoiceState — booking independence from POS', () => {
     }
   })
 
-  it('does not require online payment for STORE_COLLECTION once invoiced', async () => {
-    const order = baseOrder({ id: 'LD-TEST-006', fulfilmentType: 'STORE_COLLECTION' })
-    prependStoredOrder(order)
-    __setMockPosScenario(order.id, {
-      kind: 'INVOICED',
-      invoice: {
-        vendorInvoiceId: 'POS-INV-TEST-006',
-        vendorOrderId: 'POS-ORD-TEST-006',
-        loadOrderRef: order.id,
-        currency: 'ZAR',
-        lines: [{ description: 'Wash + Fold', quantity: 1, unitAmount: 250, lineAmount: 250 }],
-        totalAmountDue: 250,
-        vendorStatus: 'FINAL',
-        issuedAt: new Date().toISOString(),
-      },
+  it('passes through the backend-computed paymentStatus for STORE_COLLECTION orders once invoiced', async () => {
+    const order = baseOrder({
+      id: 'LD-TEST-006',
+      fulfilmentType: 'STORE_COLLECTION',
+      invoiceStatus: 'READY',
+      invoiceId: 'inv-LD-TEST-006',
+      paymentStatus: 'NOT_REQUIRED',
     })
+    mockGetInvoice.mockResolvedValueOnce(
+      buildInvoice({
+        id: 'inv-LD-TEST-006',
+        orderId: 'LD-TEST-006',
+        finalTotal: 250,
+        subtotal: 250,
+        paymentStatus: 'NOT_REQUIRED',
+      }),
+    )
 
-    const state = await getCustomerInvoiceState(order, 'Test Customer')
+    const state = await getCustomerInvoiceState(order)
     expect(state.kind).toBe('READY')
     if (state.kind === 'READY') {
       expect(state.order.paymentStatus).toBe('NOT_REQUIRED')

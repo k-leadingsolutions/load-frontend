@@ -129,6 +129,13 @@ export interface OperationsService {
    * remains POS-owned.
    */
   recordStoreIntake(orderId: string, intake: StoreIntakeInput): Promise<ProductionOrderResponse>
+  /**
+   * Refreshes LOAD's invoice projection for this order from the read-only
+   * POS boundary. Never fabricates a total: if POS has no invoice yet, the
+   * order's existing `NOT_AVAILABLE` projection is left untouched; a POS
+   * outage never blocks or corrupts the rest of the operational workflow.
+   */
+  refreshInvoice(orderId: string): Promise<ProductionOrderResponse>
   updateQuantityReview(orderId: string, status: 'CONFIRMED' | 'ADJUSTED'): Promise<ProductionOrderResponse>
   addInternalNote(orderId: string, note: string): Promise<ProductionOrderResponse>
   advanceProductionStage(orderId: string): Promise<ProductionOrderResponse>

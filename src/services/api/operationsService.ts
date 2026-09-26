@@ -76,6 +76,18 @@ export const apiOperationsService: OperationsService = {
     }
   },
 
+  refreshInvoice: async (orderId: string): Promise<ProductionOrderResponse> => {
+    try {
+      const dto = await apiRequest<OrderResponseDto>(`/api/operations/orders/${orderId}/refresh-invoice`, {
+        method: 'POST',
+        realm: 'operations',
+      })
+      return toProductionResult(dto)
+    } catch (error) {
+      return toProductionError(error)
+    }
+  },
+
   updateQuantityReview: async (orderId: string, status: 'CONFIRMED' | 'ADJUSTED'): Promise<ProductionOrderResponse> => {
     try {
       const dto = await apiRequest<OrderResponseDto>(`/api/operations/orders/${orderId}/quantity-review`, {

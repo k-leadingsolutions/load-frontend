@@ -29,6 +29,7 @@ import { errorResponse, successResponse } from '@/services/mock/mockApi'
 import { readStoredCustomerSession } from '@/services/mock/sessionStore'
 import { mockDomainEventService } from '@/services/mock/extendedMocks'
 import { mockPaymentService } from '@/services/mock/mockPaymentService'
+import { mockPosReadService } from '@/services/pos/mockPosReadService'
 import type {
   AdminService,
   AuthService,
@@ -427,6 +428,43 @@ export const mockOperationsService: OperationsService = {
     return order
       ? successResponse(order, 280)
       : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 280)
+  },
+  async refreshInvoice(orderId: string) {
+    const existing = listStoredProductionOrders().find((item) => item.id === orderId)
+    if (!existing) {
+      return errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 260)
+    }
+
+    let vendorInvoice
+    try {
+      vendorInvoice = await mockPosReadService.getInvoiceForOrder(orderId)
+    } catch (error) {
+      // POS outage must never block or corrupt the rest of the operational workflow.
+      return errorResponse({
+        code: 'POS_UNAVAILABLE',
+        message: error instanceof Error ? error.message : 'POS is currently unavailable.',
+      }, 260)
+    }
+
+    if (!vendorInvoice) {
+      // No invoice yet — never fabricate one; leave the existing projection untouched.
+      return successResponse(existing, 260)
+    }
+
+    const paymentStatus = existing.fulfilmentType === 'STORE_COLLECTION'
+      ? 'NOT_REQUIRED'
+      : existing.paymentStatus === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING'
+
+    const order = updateStoredProductionOrder(orderId, (current) => ({
+      ...current,
+      invoiceStatus: 'READY',
+      finalInvoiceTotal: vendorInvoice.totalAmountDue,
+      paymentStatus,
+    }))
+
+    return order
+      ? successResponse(order, 260)
+      : errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 260)
   },
   async updateQuantityReview(orderId: string, status: 'CONFIRMED' | 'ADJUSTED') {
     const order = updateStoredProductionOrder(orderId, (current) => ({

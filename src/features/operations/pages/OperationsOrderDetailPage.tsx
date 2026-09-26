@@ -3,22 +3,7 @@ import { useParams } from 'react-router-dom'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
-import { mockPosReadService } from '@/services/mock'
 import { apiOperationsService } from '@/services/api/operationsService'
-import type { PosVendorInvoiceRecord, PosVendorOrderRecord } from '@/services/pos/posContracts'
-
-const fetchPosSnapshot = async (orderId: string) => {
-  try {
-    const [intake, invoice] = await Promise.all([
-      mockPosReadService.getOrderIntakeStatus(orderId),
-      mockPosReadService.getInvoiceForOrder(orderId),
-    ])
-    return { available: true as const, intake, invoice }
-  } catch {
-    // POS unavailability must never block Operations from seeing LOAD's own operational data.
-    return { available: false as const, intake: null as PosVendorOrderRecord | null, invoice: null as PosVendorInvoiceRecord | null }
-  }
-}
 
 export const OperationsOrderDetailPage = () => {
   const { orderId = '' } = useParams<{ orderId: string }>()
@@ -33,15 +18,20 @@ export const OperationsOrderDetailPage = () => {
     queryKey: ['operations-driver-assignments'],
     queryFn: () => apiOperationsService.listDriverAssignments(),
   })
-  const posQuery = useQuery({
-    queryKey: ['operations-pos-snapshot', orderId],
-    queryFn: () => fetchPosSnapshot(orderId),
-    enabled: Boolean(orderId),
-  })
 
   const refreshOrder = () => queryClient.invalidateQueries({ queryKey: ['operations-order', orderId] })
   const noteMutation = useMutation({
     mutationFn: (note: string) => apiOperationsService.addInternalNote(orderId, note),
+    onSuccess: refreshOrder,
+  })
+  const refreshInvoiceMutation = useMutation({
+    mutationFn: async () => {
+      const result = await apiOperationsService.refreshInvoice(orderId)
+      if (result.error) {
+        throw new Error(result.error.message)
+      }
+      return result.data
+    },
     onSuccess: refreshOrder,
   })
 
@@ -127,12 +117,19 @@ export const OperationsOrderDetailPage = () => {
             </div>
           ) : null}
         </div>
-        {!posQuery.isLoading && posQuery.data && !posQuery.data.available ? (
-          <p className="mt-3 text-sm text-amber-600">POS is currently unavailable — operational workflow continues unaffected.</p>
-        ) : null}
-        {!posQuery.isLoading && posQuery.data?.available ? (
-          <p className="mt-3 text-sm text-slate-500">
-            POS order: {posQuery.data.intake ? 'linked' : 'not linked'} · POS invoice: {posQuery.data.invoice ? posQuery.data.invoice.vendorStatus : 'pending'}
+        <button
+          type="button"
+          onClick={() => refreshInvoiceMutation.mutate()}
+          disabled={refreshInvoiceMutation.isPending}
+          className="mt-4 rounded-full border border-load-200 px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {refreshInvoiceMutation.isPending ? 'Refreshing…' : 'Refresh invoice from POS'}
+        </button>
+        {refreshInvoiceMutation.isError ? (
+          <p className="mt-3 text-sm text-amber-600">
+            {refreshInvoiceMutation.error instanceof Error
+              ? refreshInvoiceMutation.error.message
+              : 'POS is currently unavailable — operational workflow continues unaffected.'}
           </p>
         ) : null}
       </SectionCard>
