@@ -9,11 +9,17 @@ import com.load.backend.driver.DriverRepository;
 import com.load.backend.driver.StopStatus;
 import com.load.backend.driver.StopType;
 import com.load.backend.invoice.InvoiceService;
+import com.load.backend.operations.dto.DashboardMetricResponse;
 import com.load.backend.order.FulfilmentType;
 import com.load.backend.order.Order;
 import com.load.backend.order.OrderRepository;
 import com.load.backend.order.OrderStatus;
+import com.load.backend.order.QuantityReviewStatus;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -185,6 +191,98 @@ public class OperationsService {
         // Either decision returns the Driver to a valid next state - never a self-approved state.
         assignment.setStopStatus(StopStatus.ASSIGNED);
         return assignmentRepository.save(assignment);
+    }
+
+    @Transactional
+    public Order updateQuantityReview(UUID orderId, QuantityReviewStatus status) {
+        Order order = getOrder(orderId);
+        order.setQuantityReviewStatus(status);
+        return orderRepository.save(order);
+    }
+
+    @Transactional
+    public Order addInternalNote(UUID orderId, String note) {
+        Order order = getOrder(orderId);
+        order.addInternalNote(note);
+        return orderRepository.save(order);
+    }
+
+    /** Only valid from QUALITY_CHECK - a pass advances to PACKING, a fail returns to SORTING. */
+    @Transactional
+    public Order performQualityCheck(UUID orderId, boolean passed, String notes) {
+        Order order = getOrder(orderId);
+        if (order.getStatus() != OrderStatus.QUALITY_CHECK) {
+            throw new InvalidTransitionException("NOT_AWAITING_QC", "This order is not awaiting quality check.");
+        }
+        order.setStatus(passed ? OrderStatus.PACKING : OrderStatus.SORTING);
+        if (notes != null && !notes.isBlank()) {
+            order.addInternalNote(notes);
+        }
+        return orderRepository.save(order);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DriverAssignment> listAllAssignments() {
+        return assignmentRepository.findAll().stream()
+            .sorted(Comparator.comparingInt(DriverAssignment::getStopIndex))
+            .toList();
+    }
+
+    /**
+     * Operational readiness only - deliberately excludes revenue/financial
+     * figures, which remain an Admin/analytics concern outside Operations'
+     * role boundary. `sla` is a best-effort completion-timeliness figure
+     * derived from persisted order data (no separate delivery-telemetry
+     * tracking exists yet), not a fabricated placeholder.
+     */
+    @Transactional(readOnly = true)
+    public List<DashboardMetricResponse> getDashboardMetrics() {
+        List<Order> orders = orderRepository.findAll();
+
+        long activeOrders = orders.stream()
+            .filter(order -> order.getStatus() != OrderStatus.COMPLETED && order.getStatus() != OrderStatus.CANCELLED)
+            .count();
+        long inProduction = orders.stream()
+            .filter(order -> transitionPolicy.isProductionStage(order.getStatus()))
+            .count();
+
+        List<Order> completedOrders = orders.stream()
+            .filter(order -> order.getStatus() == OrderStatus.COMPLETED)
+            .toList();
+
+        String slaValue;
+        String slaChangeLabel;
+        if (completedOrders.isEmpty()) {
+            slaValue = "N/A";
+            slaChangeLabel = "No completed orders yet";
+        } else {
+            long onTime = completedOrders.stream().filter(this::completedOnTime).count();
+            double percentage = (onTime * 100.0) / completedOrders.size();
+            slaValue = String.format("%.1f%%", percentage);
+            slaChangeLabel = "Based on " + completedOrders.size() + " completed order" + (completedOrders.size() == 1 ? "" : "s");
+        }
+
+        return List.of(
+            new DashboardMetricResponse("orders", "Active orders", String.valueOf(activeOrders), inProduction + " in production"),
+            new DashboardMetricResponse("sla", "On-time delivery", slaValue, slaChangeLabel)
+        );
+    }
+
+    private boolean completedOnTime(Order order) {
+        if (order.getFulfilmentType() == FulfilmentType.STORE_COLLECTION) {
+            return true;
+        }
+        String targetDate = order.getDeliveryWindowDate();
+        if (targetDate == null) {
+            return true;
+        }
+        try {
+            LocalDate target = LocalDate.parse(targetDate);
+            LocalDate completedDate = order.getUpdatedAt().atZone(ZoneOffset.UTC).toLocalDate();
+            return !completedDate.isAfter(target);
+        } catch (DateTimeParseException ex) {
+            return true;
+        }
     }
 
     private DriverAssignment getAssignment(UUID assignmentId) {

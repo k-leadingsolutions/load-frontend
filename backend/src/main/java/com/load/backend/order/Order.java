@@ -101,6 +101,21 @@ public class Order {
     @Column(name = "note", length = 2000)
     private List<String> intakeNotes = new ArrayList<>();
 
+    /** Operations' physical-quantity review outcome. Never affects pricing/invoicing. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "quantity_review_status", nullable = false, length = 16)
+    private QuantityReviewStatus quantityReviewStatus = QuantityReviewStatus.PENDING;
+
+    /**
+     * General Operations-only internal notes (e.g. QC findings), distinct from
+     * {@link #intakeNotes} which are specifically captured at physical intake.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "order_internal_notes", joinColumns = @JoinColumn(name = "order_id"))
+    @OrderColumn(name = "note_index")
+    @Column(name = "note", length = 2000)
+    private List<String> internalNotes = new ArrayList<>();
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -261,6 +276,25 @@ public class Order {
     public void addIntakeNote(String note) {
         // Most-recent-first, mirroring the frontend's intake note ordering.
         this.intakeNotes.add(0, note);
+        this.updatedAt = Instant.now();
+    }
+
+    public QuantityReviewStatus getQuantityReviewStatus() {
+        return quantityReviewStatus;
+    }
+
+    public void setQuantityReviewStatus(QuantityReviewStatus quantityReviewStatus) {
+        this.quantityReviewStatus = quantityReviewStatus;
+        this.updatedAt = Instant.now();
+    }
+
+    public List<String> getInternalNotes() {
+        return internalNotes;
+    }
+
+    public void addInternalNote(String note) {
+        // Most-recent-first, mirroring the frontend's note ordering.
+        this.internalNotes.add(0, note);
         this.updatedAt = Instant.now();
     }
 

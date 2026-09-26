@@ -89,16 +89,17 @@ const verificationStatusFromDto = (status: AssignmentResponseDto['verificationSt
  * card model. The backend does not yet expose customer/address enrichment to
  * the Driver role (see integration report) — those cosmetic fields fall back
  * to honest placeholders derived from the real order id, never fabricated
- * business data.
+ * business data. `driverId` now comes directly from the DTO (the backend
+ * assignment record owns it — no longer a client-supplied fallback).
  */
-export const driverAssignmentFromDto = (dto: AssignmentResponseDto, driverId: string): DriverAssignment => {
+export const driverAssignmentFromDto = (dto: AssignmentResponseDto): DriverAssignment => {
   const verificationMethod = verificationMethodFromDto(dto.verificationMethod)
   const verificationStatus = verificationStatusFromDto(dto.verificationStatus)
 
   return {
     id: dto.id,
     stopIndex: dto.stopIndex,
-    driverId,
+    driverId: dto.driverId,
     area: dto.stopType === 'PICKUP' ? 'Pickup' : 'Delivery',
     customerName: `Order ${dto.orderId.slice(0, 8)}`,
     driverName: '',
@@ -122,14 +123,16 @@ export const driverAssignmentFromDto = (dto: AssignmentResponseDto, driverId: st
  * model. The backend does not yet expose customer name/address enrichment to
  * Operations (order-scoped only) — those cosmetic fields use honest
  * placeholders derived from the real order id, never fabricated data.
- * `quantityReviewStatus` defaults to `PENDING`: the backend has no quantity
- * review concept yet (see integration report — mock retained for that action).
+ * `quantityReviewStatus`/`internalNotes` now come from the backend's own
+ * persisted fields (see V2 migration), and invoice/payment/window visibility
+ * is mirrored directly from the same order aggregate — Operations never needs
+ * the Customer-ownership-scoped `/api/customer/orders/{id}` endpoint for this.
  */
 export const productionOrderFromDto = (dto: OrderResponseDto): ProductionOrder => ({
   id: dto.id,
-  internalNotes: dto.intakeNotes,
+  internalNotes: dto.internalNotes,
   itemsSummary: dto.services.map((service) => `${service.quantity} x ${service.serviceId} (${service.unitLabel})`),
-  quantityReviewStatus: 'PENDING',
+  quantityReviewStatus: dto.quantityReviewStatus,
   receivedAtStore: dto.receivedAtStore,
   customerName: `Order ${dto.id.slice(0, 8)}`,
   suburb: '',
@@ -139,4 +142,12 @@ export const productionOrderFromDto = (dto: OrderResponseDto): ProductionOrder =
   fulfilmentType: dto.fulfilmentType,
   ...(dto.intakeWeightKg !== null ? { weightKg: dto.intakeWeightKg } : {}),
   intakeNotes: dto.intakeNotes,
+  pickupWindowLabel: dto.pickupWindowLabel,
+  ...(dto.deliveryWindowLabel ? { deliveryWindowLabel: dto.deliveryWindowLabel } : {}),
+  invoiceStatus: dto.invoiceStatus,
+  paymentStatus: dto.paymentStatus,
+  // Never fabricated: only ever mirrors the backend's own READY invoice projection.
+  ...(dto.invoiceStatus === 'READY' && dto.finalInvoiceTotal !== null
+    ? { finalInvoiceTotal: dto.finalInvoiceTotal }
+    : {}),
 })

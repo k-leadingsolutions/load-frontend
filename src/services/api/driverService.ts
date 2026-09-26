@@ -2,14 +2,11 @@ import type { RescheduleReason, VerificationAttempt, VerificationMethod } from '
 import { driverAssignmentFromDto } from '@/services/api/adapters'
 import { errorResponse, successResponse } from '@/services/api/envelope'
 import { ApiRequestError, apiRequest } from '@/services/api/httpClient'
-import { readStoredDriverSession } from '@/services/mock/driverSessionStore'
 import type { ArrivalResponseDto, AssignmentResponseDto } from '@/services/api/types'
 import type { DriverAssignmentResponse, DriverAssignmentsResponse } from '@/services/contracts'
 
-const driverIdFromSession = (): string => readStoredDriverSession()?.driverId ?? ''
-
 const toResult = (dto: AssignmentResponseDto): DriverAssignmentResponse =>
-  successResponse(driverAssignmentFromDto(dto, driverIdFromSession()))
+  successResponse(driverAssignmentFromDto(dto))
 
 const toErrorResult = (error: unknown): DriverAssignmentResponse =>
   errorResponse({
@@ -26,8 +23,7 @@ export const apiDriverService = {
   listAssignments: async (): Promise<DriverAssignmentsResponse> => {
     try {
       const dtos = await apiRequest<AssignmentResponseDto[]>('/api/driver/assignments', { realm: 'driver' })
-      const driverId = driverIdFromSession()
-      return successResponse(dtos.map((dto) => driverAssignmentFromDto(dto, driverId)))
+      return successResponse(dtos.map(driverAssignmentFromDto))
     } catch (error) {
       return errorResponse({
         code: error instanceof ApiRequestError ? String(error.status) : 'UNKNOWN',

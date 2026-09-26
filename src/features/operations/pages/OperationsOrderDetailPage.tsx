@@ -1,10 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
-import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
-import { mockCustomerOrderService, mockPosReadService } from '@/services/mock'
+import { mockPosReadService } from '@/services/mock'
 import { apiOperationsService } from '@/services/api/operationsService'
 import type { PosVendorInvoiceRecord, PosVendorOrderRecord } from '@/services/pos/posContracts'
 
@@ -30,11 +29,6 @@ export const OperationsOrderDetailPage = () => {
     queryFn: () => apiOperationsService.getProductionOrder(orderId),
     enabled: Boolean(orderId),
   })
-  const laundryOrderQuery = useQuery({
-    queryKey: ['operations-laundry-order', orderId],
-    queryFn: () => mockCustomerOrderService.getOrder(orderId),
-    enabled: Boolean(orderId),
-  })
   const assignmentsQuery = useQuery({
     queryKey: ['operations-driver-assignments'],
     queryFn: () => apiOperationsService.listDriverAssignments(),
@@ -51,9 +45,8 @@ export const OperationsOrderDetailPage = () => {
     onSuccess: refreshOrder,
   })
 
-  const isLoading = productionOrderQuery.isLoading || laundryOrderQuery.isLoading
+  const isLoading = productionOrderQuery.isLoading
   const productionOrder = productionOrderQuery.data?.data
-  const laundryOrder = laundryOrderQuery.data?.data
   const relatedStops = (assignmentsQuery.data?.data ?? []).filter((assignment) => assignment.orderId === orderId)
 
   if (isLoading) return <LoadingState />
@@ -88,18 +81,18 @@ export const OperationsOrderDetailPage = () => {
           </div>
         </div>
 
-        {laundryOrder ? (
+        {productionOrder.pickupWindowLabel || productionOrder.deliveryWindowLabel ? (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {laundryOrder.pickupWindow ? (
+            {productionOrder.pickupWindowLabel ? (
               <div>
                 <p className="text-caption text-muted">Collection window</p>
-                <p className="text-body text-ink">{laundryOrder.pickupWindow.windowLabel}</p>
+                <p className="text-body text-ink">{productionOrder.pickupWindowLabel}</p>
               </div>
             ) : null}
-            {laundryOrder.deliveryWindow ? (
+            {productionOrder.deliveryWindowLabel ? (
               <div>
                 <p className="text-caption text-muted">Delivery window</p>
-                <p className="text-body text-ink">{laundryOrder.deliveryWindow.windowLabel}</p>
+                <p className="text-body text-ink">{productionOrder.deliveryWindowLabel}</p>
               </div>
             ) : null}
           </div>
@@ -118,26 +111,22 @@ export const OperationsOrderDetailPage = () => {
         title="Invoice & payment visibility"
         description="Read-only, sourced from the POS boundary. Final commercial pricing remains POS-owned."
       >
-        {laundryOrder ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <p className="text-caption text-muted">Invoice status</p>
-              <p className="text-body font-semibold text-ink">{laundryOrder.invoiceStatus ?? 'NOT_AVAILABLE'}</p>
-            </div>
-            <div>
-              <p className="text-caption text-muted">Payment status</p>
-              <p className="text-body font-semibold text-ink">{laundryOrder.paymentStatus}</p>
-            </div>
-            {laundryOrder.finalInvoiceTotal !== undefined ? (
-              <div>
-                <p className="text-caption text-muted">Final invoice amount</p>
-                <p className="text-body font-semibold text-ink">R{laundryOrder.finalInvoiceTotal.toFixed(2)}</p>
-              </div>
-            ) : null}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-caption text-muted">Invoice status</p>
+            <p className="text-body font-semibold text-ink">{productionOrder.invoiceStatus ?? 'NOT_AVAILABLE'}</p>
           </div>
-        ) : (
-          <EmptyState title="No LOAD order record" description="This production order has no linked LOAD booking record yet." />
-        )}
+          <div>
+            <p className="text-caption text-muted">Payment status</p>
+            <p className="text-body font-semibold text-ink">{productionOrder.paymentStatus ?? 'NOT_REQUIRED'}</p>
+          </div>
+          {productionOrder.finalInvoiceTotal !== undefined ? (
+            <div>
+              <p className="text-caption text-muted">Final invoice amount</p>
+              <p className="text-body font-semibold text-ink">R{productionOrder.finalInvoiceTotal.toFixed(2)}</p>
+            </div>
+          ) : null}
+        </div>
         {!posQuery.isLoading && posQuery.data && !posQuery.data.available ? (
           <p className="mt-3 text-sm text-amber-600">POS is currently unavailable — operational workflow continues unaffected.</p>
         ) : null}

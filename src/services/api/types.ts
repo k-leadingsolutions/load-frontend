@@ -84,6 +84,8 @@ export interface OrderResponseDto {
   receivedAtStore: boolean
   intakeWeightKg: number | null
   intakeNotes: string[]
+  quantityReviewStatus: 'PENDING' | 'CONFIRMED' | 'ADJUSTED'
+  internalNotes: string[]
 }
 
 export interface CreateOrderRequestDto {
@@ -122,6 +124,7 @@ export type BackendRescheduleReason =
 
 export interface AssignmentResponseDto {
   id: string
+  driverId: string
   orderId: string
   stopIndex: number
   stopType: BackendStopType
@@ -145,4 +148,11 @@ export interface PaymentResponseDto {
   orderId: string
   amount: number
   status: 'CONFIRMED' | 'FAILED' | 'REFUNDED'
+}
+
+export interface DashboardMetricResponseDto {
+  id: string
+  label: string
+  value: string
+  changeLabel: string
 }

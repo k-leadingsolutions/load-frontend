@@ -5,6 +5,7 @@ import com.load.backend.order.InvoiceStatus;
 import com.load.backend.order.Order;
 import com.load.backend.order.OrderStatus;
 import com.load.backend.order.PaymentStatus;
+import com.load.backend.order.QuantityReviewStatus;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -26,7 +27,9 @@ public record OrderResponse(
     BigDecimal finalInvoiceTotal,
     boolean receivedAtStore,
     BigDecimal intakeWeightKg,
-    List<String> intakeNotes
+    List<String> intakeNotes,
+    QuantityReviewStatus quantityReviewStatus,
+    List<String> internalNotes
 ) {
     public static OrderResponse from(Order order) {
         List<ServiceSelectionRequest> services = order.getServices().stream()
@@ -50,7 +53,10 @@ public record OrderResponse(
             order.getFinalInvoiceTotal(),
             order.isReceivedAtStore(),
             order.getIntakeWeightKg(),
-            order.getIntakeNotes()
+            order.getIntakeNotes(),
+            order.getQuantityReviewStatus(),
+            order.getInternalNotes()
         );
     }
 }
+

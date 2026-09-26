@@ -10,6 +10,7 @@ import java.util.UUID;
 
 public record AssignmentResponse(
     UUID id,
+    UUID driverId,
     UUID orderId,
     int stopIndex,
     StopType stopType,
@@ -25,6 +26,7 @@ public record AssignmentResponse(
     public static AssignmentResponse from(DriverAssignment assignment) {
         return new AssignmentResponse(
             assignment.getId(),
+            assignment.getDriverId(),
             assignment.getOrderId(),
             assignment.getStopIndex(),
             assignment.getStopType(),

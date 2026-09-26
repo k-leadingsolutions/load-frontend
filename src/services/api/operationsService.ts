@@ -1,14 +1,14 @@
 import { productionOrderFromDto, driverAssignmentFromDto } from '@/services/api/adapters'
 import { errorResponse, successResponse } from '@/services/api/envelope'
 import { ApiRequestError, apiRequest } from '@/services/api/httpClient'
-import type { AssignmentResponseDto, OrderResponseDto } from '@/services/api/types'
+import type { AssignmentResponseDto, DashboardMetricResponseDto, OrderResponseDto } from '@/services/api/types'
 import type {
   DriverAssignmentResponse,
   DriverAssignmentsResponse,
+  DashboardMetricsResponse,
   ProductionOrderResponse,
   ProductionOrdersResponse,
 } from '@/services/contracts'
-import { mockOperationsService } from '@/services/mock'
 import type { OperationsService, QCResult, StoreIntakeInput } from '@/services/interfaces'
 
 const toProductionResult = (dto: OrderResponseDto): ProductionOrderResponse => successResponse(productionOrderFromDto(dto))
@@ -20,10 +20,7 @@ const toProductionError = (error: unknown): ProductionOrderResponse =>
   })
 
 const toAssignmentResult = (dto: AssignmentResponseDto): DriverAssignmentResponse =>
-  // Operations has no dedicated driverId enrichment field on the assignment
-  // response — the assigning driver id is not returned by the backend
-  // (see integration report gap), so it is left blank rather than fabricated.
-  successResponse(driverAssignmentFromDto(dto, ''))
+  successResponse(driverAssignmentFromDto(dto))
 
 const toAssignmentError = (error: unknown): DriverAssignmentResponse =>
   errorResponse({
@@ -31,12 +28,7 @@ const toAssignmentError = (error: unknown): DriverAssignmentResponse =>
     message: error instanceof Error ? error.message : 'Operations action failed.',
   })
 
-/**
- * Real Operations intake/production/dispatch integration. `listDriverAssignments`,
- * `getMetrics`, `updateQuantityReview`, `addInternalNote`, and `performQC` have
- * no backend endpoint yet and remain delegated to `mockOperationsService`
- * (documented gap — see integration report).
- */
+/** Real Operations intake/production/dispatch/QC/metrics integration — no retained mocks remain in this service. */
 export const apiOperationsService: OperationsService = {
   listProductionOrders: async (): Promise<ProductionOrdersResponse> => {
     try {
@@ -84,6 +76,45 @@ export const apiOperationsService: OperationsService = {
     }
   },
 
+  updateQuantityReview: async (orderId: string, status: 'CONFIRMED' | 'ADJUSTED'): Promise<ProductionOrderResponse> => {
+    try {
+      const dto = await apiRequest<OrderResponseDto>(`/api/operations/orders/${orderId}/quantity-review`, {
+        method: 'POST',
+        realm: 'operations',
+        body: { status },
+      })
+      return toProductionResult(dto)
+    } catch (error) {
+      return toProductionError(error)
+    }
+  },
+
+  addInternalNote: async (orderId: string, note: string): Promise<ProductionOrderResponse> => {
+    try {
+      const dto = await apiRequest<OrderResponseDto>(`/api/operations/orders/${orderId}/notes`, {
+        method: 'POST',
+        realm: 'operations',
+        body: { note },
+      })
+      return toProductionResult(dto)
+    } catch (error) {
+      return toProductionError(error)
+    }
+  },
+
+  performQC: async (orderId: string, result: QCResult): Promise<ProductionOrderResponse> => {
+    try {
+      const dto = await apiRequest<OrderResponseDto>(`/api/operations/orders/${orderId}/quality-check`, {
+        method: 'POST',
+        realm: 'operations',
+        body: { passed: result.passed, notes: result.notes ?? null },
+      })
+      return toProductionResult(dto)
+    } catch (error) {
+      return toProductionError(error)
+    }
+  },
+
   advanceProductionStage: async (orderId: string): Promise<ProductionOrderResponse> => {
     try {
       const dto = await apiRequest<OrderResponseDto>(`/api/operations/orders/${orderId}/advance-production`, {
@@ -93,6 +124,30 @@ export const apiOperationsService: OperationsService = {
       return toProductionResult(dto)
     } catch (error) {
       return toProductionError(error)
+    }
+  },
+
+  getMetrics: async (): Promise<DashboardMetricsResponse> => {
+    try {
+      const dtos = await apiRequest<DashboardMetricResponseDto[]>('/api/operations/metrics', { realm: 'operations' })
+      return successResponse(dtos.map((metric) => ({ ...metric })))
+    } catch (error) {
+      return errorResponse({
+        code: error instanceof ApiRequestError ? String(error.status) : 'UNKNOWN',
+        message: error instanceof Error ? error.message : 'Unable to load metrics.',
+      })
+    }
+  },
+
+  listDriverAssignments: async (): Promise<DriverAssignmentsResponse> => {
+    try {
+      const dtos = await apiRequest<AssignmentResponseDto[]>('/api/operations/assignments', { realm: 'operations' })
+      return successResponse(dtos.map(driverAssignmentFromDto))
+    } catch (error) {
+      return errorResponse({
+        code: error instanceof ApiRequestError ? String(error.status) : 'UNKNOWN',
+        message: error instanceof Error ? error.message : 'Unable to load assignments.',
+      })
     }
   },
 
@@ -162,12 +217,4 @@ export const apiOperationsService: OperationsService = {
       return toAssignmentError(error)
     }
   },
-
-  // ── Retained mocks: no backend endpoint exists yet for these ──────────────
-  updateQuantityReview: (orderId: string, status: 'CONFIRMED' | 'ADJUSTED') =>
-    mockOperationsService.updateQuantityReview(orderId, status),
-  addInternalNote: (orderId: string, note: string) => mockOperationsService.addInternalNote(orderId, note),
-  getMetrics: () => mockOperationsService.getMetrics(),
-  listDriverAssignments: (): Promise<DriverAssignmentsResponse> => mockOperationsService.listDriverAssignments(),
-  performQC: (orderId: string, result: QCResult) => mockOperationsService.performQC(orderId, result),
 }

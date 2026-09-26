@@ -3,6 +3,10 @@ package com.load.backend.operations;
 import com.load.backend.driver.DriverAssignment;
 import com.load.backend.driver.dto.AssignmentResponse;
 import com.load.backend.operations.dto.AssignDriverRequest;
+import com.load.backend.operations.dto.DashboardMetricResponse;
+import com.load.backend.operations.dto.InternalNoteRequest;
+import com.load.backend.operations.dto.QualityCheckRequest;
+import com.load.backend.operations.dto.QuantityReviewRequest;
 import com.load.backend.operations.dto.RescheduleDecisionRequest;
 import com.load.backend.operations.dto.StoreIntakeRequest;
 import com.load.backend.order.Order;
@@ -39,6 +43,16 @@ public class OperationsController {
         return ResponseEntity.ok(OrderResponse.from(operationsService.getOrder(orderId)));
     }
 
+    @GetMapping("/metrics")
+    public ResponseEntity<List<DashboardMetricResponse>> getMetrics() {
+        return ResponseEntity.ok(operationsService.getDashboardMetrics());
+    }
+
+    @GetMapping("/assignments")
+    public ResponseEntity<List<AssignmentResponse>> listAssignments() {
+        return ResponseEntity.ok(operationsService.listAllAssignments().stream().map(AssignmentResponse::from).toList());
+    }
+
     @PostMapping("/orders/{orderId}/store-received")
     public ResponseEntity<OrderResponse> confirmLaundryReceived(@PathVariable UUID orderId) {
         return ResponseEntity.ok(OrderResponse.from(operationsService.confirmLaundryReceived(orderId)));
@@ -52,6 +66,24 @@ public class OperationsController {
     @PostMapping("/orders/{orderId}/store-intake")
     public ResponseEntity<OrderResponse> recordStoreIntake(@PathVariable UUID orderId, @RequestBody StoreIntakeRequest request) {
         Order order = operationsService.recordStoreIntake(orderId, request.weightKg(), request.notes());
+        return ResponseEntity.ok(OrderResponse.from(order));
+    }
+
+    @PostMapping("/orders/{orderId}/quantity-review")
+    public ResponseEntity<OrderResponse> updateQuantityReview(@PathVariable UUID orderId, @Valid @RequestBody QuantityReviewRequest request) {
+        Order order = operationsService.updateQuantityReview(orderId, request.status());
+        return ResponseEntity.ok(OrderResponse.from(order));
+    }
+
+    @PostMapping("/orders/{orderId}/notes")
+    public ResponseEntity<OrderResponse> addInternalNote(@PathVariable UUID orderId, @Valid @RequestBody InternalNoteRequest request) {
+        Order order = operationsService.addInternalNote(orderId, request.note());
+        return ResponseEntity.ok(OrderResponse.from(order));
+    }
+
+    @PostMapping("/orders/{orderId}/quality-check")
+    public ResponseEntity<OrderResponse> performQualityCheck(@PathVariable UUID orderId, @Valid @RequestBody QualityCheckRequest request) {
+        Order order = operationsService.performQualityCheck(orderId, request.passed(), request.notes());
         return ResponseEntity.ok(OrderResponse.from(order));
     }
 

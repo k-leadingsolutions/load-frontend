@@ -1,5 +1,5 @@
 import type { FulfilmentType } from '@/domain/models/booking'
-import type { OrderStatus } from '@/domain/models/order'
+import type { InvoiceLifecycleStatus, OrderStatus, PaymentStatus } from '@/domain/models/order'
 import type { RescheduleReason, StopStatus } from '@/domain/models/route'
 import type { VerificationMethod, VerificationStatus } from '@/domain/models/verification'
 
@@ -88,4 +88,17 @@ export interface ProductionOrder {
   weightKg?: number
   /** Free-text intake/inspection notes captured at physical receipt, most recent first. */
   intakeNotes?: string[]
+  /** Collection/delivery window labels, mirrored from the same backend order aggregate. */
+  pickupWindowLabel?: string
+  deliveryWindowLabel?: string
+  /**
+   * Read-only invoice/payment visibility sourced from the same backend order
+   * aggregate Operations already reads (`GET /api/operations/orders/{id}`).
+   * Never independently calculated by Operations — mirrors the Customer-side
+   * projection exactly, so Operations never needs the Customer-ownership-scoped
+   * `/api/customer/orders/{id}` endpoint to see this data.
+   */
+  invoiceStatus?: InvoiceLifecycleStatus
+  paymentStatus?: PaymentStatus
+  finalInvoiceTotal?: number
 }
