@@ -2,7 +2,6 @@ package com.load.backend.driver;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.load.backend.driver.dto.ArrivalResponse;
 import com.load.backend.driver.dto.AssignmentResponse;
 import com.load.backend.driver.dto.ReasonNoteRequest;
 import com.load.backend.driver.dto.VerifyRequest;
@@ -46,11 +45,11 @@ class DriverAssignmentFlowTest extends AbstractIntegrationTest {
         assertThat(enRoute.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(enRoute.getBody().stopStatus()).isEqualTo(StopStatus.EN_ROUTE);
 
-        ResponseEntity<ArrivalResponse> arrival = restTemplate.exchange(
+        ResponseEntity<AssignmentResponse> arrival = restTemplate.exchange(
             url("/api/driver/assignments/" + assignmentId + "/arrive"), HttpMethod.POST,
-            HttpTestUtil.authed(driver.token()), ArrivalResponse.class);
+            HttpTestUtil.authed(driver.token()), AssignmentResponse.class);
         assertThat(arrival.getStatusCode()).isEqualTo(HttpStatus.OK);
-        String otp = arrival.getBody().otpCode();
+        String otp = otpDeliveryPort.lastSentCodeFor("0821234567");
         assertThat(otp).isNotBlank();
 
         ResponseEntity<AssignmentResponse> verify = restTemplate.exchange(

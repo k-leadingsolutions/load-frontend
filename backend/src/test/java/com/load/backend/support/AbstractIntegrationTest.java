@@ -9,6 +9,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import com.load.backend.notification.InMemoryOtpDeliveryPort;
 import com.load.backend.pos.MockPosReadAdapter;
 
 /**
@@ -82,9 +83,13 @@ public abstract class AbstractIntegrationTest {
     @Autowired
     protected MockPosReadAdapter mockPosReadAdapter;
 
+    @Autowired
+    protected InMemoryOtpDeliveryPort otpDeliveryPort;
+
     @AfterEach
     void resetPos() {
         mockPosReadAdapter.reset();
+        otpDeliveryPort.reset();
     }
 
     protected String url(String path) {

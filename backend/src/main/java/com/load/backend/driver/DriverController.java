@@ -1,7 +1,6 @@
 package com.load.backend.driver;
 
 import com.load.backend.common.security.CurrentUser;
-import com.load.backend.driver.dto.ArrivalResponse;
 import com.load.backend.driver.dto.AssignmentResponse;
 import com.load.backend.driver.dto.ReasonNoteRequest;
 import com.load.backend.driver.dto.VerifyRequest;
@@ -41,9 +40,8 @@ public class DriverController {
     }
 
     @PostMapping("/{assignmentId}/arrive")
-    public ResponseEntity<ArrivalResponse> confirmArrival(@PathVariable UUID assignmentId) {
-        DriverService.DriverArrivalResult result = driverService.confirmArrival(CurrentUser.userId(), assignmentId);
-        return ResponseEntity.ok(new ArrivalResponse(AssignmentResponse.from(result.assignment()), result.otpCode()));
+    public ResponseEntity<AssignmentResponse> confirmArrival(@PathVariable UUID assignmentId) {
+        return ResponseEntity.ok(AssignmentResponse.from(driverService.confirmArrival(CurrentUser.userId(), assignmentId)));
     }
 
     @PostMapping("/{assignmentId}/verify")

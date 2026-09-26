@@ -138,11 +138,6 @@ export interface AssignmentResponseDto {
   operationsDecision: 'APPROVED' | 'REJECTED' | null
 }
 
-export interface ArrivalResponseDto {
-  assignment: AssignmentResponseDto
-  otpCode: string | null
-}
-
 export interface PaymentResponseDto {
   id: string
   orderId: string

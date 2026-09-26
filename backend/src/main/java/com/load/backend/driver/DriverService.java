@@ -139,6 +139,15 @@ public class DriverService {
         return assignmentRepository.save(assignment);
     }
 
+    /** Resolves the mobile number to deliver an OTP to, server-side only - never client-supplied. */
+    private String resolveCustomerMobileNumber(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Order not found."));
+        CustomerProfile profile = customerProfileRepository.findByUserId(order.getCustomerId())
+            .orElseThrow(() -> new NotFoundException("Customer profile not found."));
+        return MobileNumberNormalizer.normalize(profile.getMobileNumber());
+    }
+
     private UUID resolveDriverId(UUID driverUserId) {
         return driverRepository.findByUserId(driverUserId)
             .orElseThrow(() -> new NotFoundException("Driver profile not found."))
@@ -184,8 +193,5 @@ public class DriverService {
             || status == StopStatus.COMPLETED || status == StopStatus.FAILED) {
             throw new InvalidTransitionException("INVALID_TRANSITION", "Cannot act on a stop that is already " + status + ".");
         }
-    }
-
-    public record DriverArrivalResult(DriverAssignment assignment, String otpCode) {
     }
 }

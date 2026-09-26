@@ -2,7 +2,7 @@ import type { RescheduleReason, VerificationAttempt, VerificationMethod } from '
 import { driverAssignmentFromDto } from '@/services/api/adapters'
 import { errorResponse, successResponse } from '@/services/api/envelope'
 import { ApiRequestError, apiRequest } from '@/services/api/httpClient'
-import type { ArrivalResponseDto, AssignmentResponseDto } from '@/services/api/types'
+import type { AssignmentResponseDto } from '@/services/api/types'
 import type { DriverAssignmentResponse, DriverAssignmentsResponse } from '@/services/contracts'
 
 const toResult = (dto: AssignmentResponseDto): DriverAssignmentResponse =>
@@ -46,11 +46,11 @@ export const apiDriverService = {
 
   confirmArrival: async (assignmentId: string): Promise<DriverAssignmentResponse> => {
     try {
-      const dto = await apiRequest<ArrivalResponseDto>(`/api/driver/assignments/${assignmentId}/arrive`, {
+      const dto = await apiRequest<AssignmentResponseDto>(`/api/driver/assignments/${assignmentId}/arrive`, {
         method: 'POST',
         realm: 'driver',
       })
-      return toResult(dto.assignment)
+      return toResult(dto)
     } catch (error) {
       return toErrorResult(error)
     }
