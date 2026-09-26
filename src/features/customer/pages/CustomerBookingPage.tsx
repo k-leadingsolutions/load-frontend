@@ -11,7 +11,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Toast } from '@/components/ui/Toast'
 import { BookingSummaryCard } from '@/features/customer/booking/BookingSummaryCard'
 import { AddressSetupForm } from '@/features/customer/booking/AddressSetupForm'
-import { bookingWindows } from '@/features/customer/booking/bookingOptions'
+import { bookingWindows, isDeliveryWindowAfterPickup } from '@/features/customer/booking/bookingOptions'
 import { useCustomerOrderDraft } from '@/features/customer/booking/CustomerOrderDraftContext'
 import type { LaundryOrder } from '@/domain/models'
 import type { FulfilmentType } from '@/domain/models/booking'
@@ -158,6 +158,10 @@ export const CustomerBookingPage = () => {
         }
         if (!draft.deliveryWindow) {
           setToast({ message: 'Please select a delivery window.', tone: 'error' })
+          return
+        }
+        if (!isDeliveryWindowAfterPickup(draft.pickupWindow, draft.deliveryWindow)) {
+          setToast({ message: 'Delivery window must be after the pickup window.', tone: 'error' })
           return
         }
       }
@@ -450,20 +454,30 @@ export const CustomerBookingPage = () => {
                   <h2 className="text-heading text-ink">Delivery window</h2>
                   <p className="mt-1 text-body text-muted">Choose a convenient delivery time.</p>
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    {bookingWindows.map((windowLabel) => (
-                      <button
-                        key={windowLabel}
-                        type="button"
-                        onClick={() => setDeliveryWindow(windowLabel)}
-                        className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
-                          draft.deliveryWindow === windowLabel
-                            ? 'border-load-500 bg-load-50 shadow-card'
-                            : 'border-card-border bg-white hover:border-load-200'
-                        }`}
-                      >
-                        <p className="text-body text-ink">{windowLabel}</p>
-                      </button>
-                    ))}
+                    {bookingWindows.map((windowLabel) => {
+                      const isValidDelivery = isDeliveryWindowAfterPickup(draft.pickupWindow, windowLabel)
+                      return (
+                        <button
+                          key={windowLabel}
+                          type="button"
+                          disabled={!isValidDelivery}
+                          aria-disabled={!isValidDelivery}
+                          onClick={() => {
+                            if (!isValidDelivery) return
+                            setDeliveryWindow(windowLabel)
+                          }}
+                          className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
+                            draft.deliveryWindow === windowLabel
+                              ? 'border-load-500 bg-load-50 shadow-card'
+                              : isValidDelivery
+                                ? 'border-card-border bg-white hover:border-load-200'
+                                : 'border-card-border bg-slate-50 opacity-50 cursor-not-allowed'
+                          }`}
+                        >
+                          <p className="text-body text-ink">{windowLabel}</p>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               ) : null}

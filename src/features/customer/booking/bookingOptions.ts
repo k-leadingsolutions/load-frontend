@@ -35,6 +35,32 @@ export const generateBookingWindows = (referenceDate: Date = new Date()): string
 
 export const bookingWindows = generateBookingWindows()
 
+const BOOKING_WINDOW_PATTERN = /^(\d{4})-(\d{2})-(\d{2}) \| (\d{2}):(\d{2}) - \d{2}:\d{2}$/
+
+/**
+ * Parses a `'YYYY-MM-DD | HH:MM - HH:MM'` window label into its slot START
+ * timestamp (ms since epoch, local time), for chronological comparisons.
+ * Returns `null` if the label is empty or doesn't match the expected format.
+ */
+export const parseBookingWindowStart = (windowLabel: string): number | null => {
+  const match = BOOKING_WINDOW_PATTERN.exec(windowLabel.trim())
+  if (!match) return null
+  const [, year, month, day, hour, minute] = match
+  return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)).getTime()
+}
+
+/**
+ * A delivery window is only valid when it is strictly chronologically after
+ * the selected pickup window — the same slot, or an earlier slot, is never
+ * valid. Returns `false` (invalid) if either label is empty/unparseable.
+ */
+export const isDeliveryWindowAfterPickup = (pickupWindow: string, deliveryWindow: string): boolean => {
+  const pickupStart = parseBookingWindowStart(pickupWindow)
+  const deliveryStart = parseBookingWindowStart(deliveryWindow)
+  if (pickupStart === null || deliveryStart === null) return false
+  return deliveryStart > pickupStart
+}
+
 export const premiumBookingHighlights = [
   'Express turnaround upgrade',
   'Suggested add-ons based on service choice',
