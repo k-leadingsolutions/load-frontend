@@ -139,6 +139,22 @@ describe('CustomerBookingPage — Collection & Delivery / Review flow', () => {
     expect(await screen.findByText(/3 items\/services selected/i)).toBeInTheDocument()
   })
 
+  it('New Order → Everyday → select a service → Continue advances to Collection & Delivery (not back to Services)', async () => {
+    const user = userEvent.setup()
+    renderApp(appPaths.customerServices)
+
+    await user.click(await screen.findByRole('link', { name: /browse everyday/i }))
+    await screen.findByRole('heading', { name: 'Everyday' })
+
+    const washDryFoldCard = (await screen.findByText('Wash + Dry + Fold')).closest('article')!
+    await user.click(within(washDryFoldCard).getByRole('button', { name: 'Add service' }))
+
+    await user.click(await screen.findByRole('link', { name: /continue to collection & delivery/i }))
+
+    expect(await screen.findByText('Pickup address')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Services' })).not.toBeInTheDocument()
+  })
+
   it('"Start booking" duplicate flow no longer exists', async () => {
     renderApp('/customer/services/dry-cleaning')
     await screen.findByRole('heading', { name: 'Dry Cleaning' })
