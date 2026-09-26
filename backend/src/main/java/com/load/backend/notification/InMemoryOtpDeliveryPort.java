@@ -2,6 +2,7 @@ package com.load.backend.notification;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
@@ -12,11 +13,13 @@ import org.springframework.stereotype.Component;
  * verification step without the production API ever exposing it in a
  * response body.
  *
- * <p>This is registered unconditionally (no {@code @Profile} guard), matching
- * the existing {@code MockPosReadAdapter}/{@code MockPaymentProvider}
- * convention for capabilities awaiting real provider integration.
+ * <p>Restricted to non-production profiles via {@code @Profile("!prod")}: a
+ * real {@link OtpDeliveryPort} must be supplied under the {@code prod}
+ * profile, and the application must fail fast at startup if none is - never
+ * silently fall back to this in-memory adapter in production.
  */
 @Component
+@Profile("!prod")
 public class InMemoryOtpDeliveryPort implements OtpDeliveryPort {
 
     private final Map<String, String> lastSentCodes = new ConcurrentHashMap<>();

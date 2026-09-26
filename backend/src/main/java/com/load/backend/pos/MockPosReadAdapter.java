@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
@@ -12,8 +13,14 @@ import org.springframework.stereotype.Component;
  * available. Purely in-memory and read-only: no method here ever mutates POS or
  * LOAD order/payment state. Tests seed it directly via the package-visible
  * helper methods.
+ *
+ * <p>Restricted to non-production profiles via {@code @Profile("!prod")}: a
+ * real {@link PosReadPort} must be supplied under the {@code prod} profile,
+ * and the application must fail fast at startup if none is - never silently
+ * fall back to this mock in production.
  */
 @Component
+@Profile("!prod")
 public class MockPosReadAdapter implements PosReadPort {
 
     private final Map<UUID, PosInvoiceRecord> invoices = new ConcurrentHashMap<>();
