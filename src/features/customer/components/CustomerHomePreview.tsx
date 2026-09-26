@@ -49,7 +49,7 @@ export const CustomerHomePreview = () => {
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm text-white/80">Good morning, {data.profile.firstName}</p>
-            <h3 className="mt-1 text-2xl font-semibold">Life, well loaded.</h3>
+            <h3 className="mt-1 text-2xl font-semibold">LAUNDRY • COFFEE • DONE BEAUTIFULLY</h3>
           </div>
           <Badge tone="muted">Customer MVP</Badge>
         </div>

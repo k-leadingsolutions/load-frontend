@@ -45,7 +45,7 @@ export const RoleLayout = ({
           className="rounded-[2rem] bg-gradient-to-r from-load-600 to-load-800 p-6 text-white shadow-glow"
         >
           <p className="text-xs font-bold tracking-[0.25em] text-white/60 uppercase">LOAD</p>
-          <p className="mt-3 text-sm text-white/70">Life, well loaded.</p>
+          <p className="mt-3 text-sm text-white/70">LAUNDRY • COFFEE • DONE BEAUTIFULLY</p>
         </section>
       ) : (
         /* ── Standard role card with nav pills (Driver, Operations, Admin) ── */

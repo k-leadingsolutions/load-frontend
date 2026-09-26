@@ -8,7 +8,7 @@ export const WelcomePage = () => (
       <p className="mt-2 text-xs uppercase tracking-widest text-muted">Laundry · Coffee · More</p>
 
       <div className="mt-10">
-        <h1 className="text-display text-ink">Life, well loaded.</h1>
+        <h1 className="text-display text-ink">LAUNDRY • COFFEE • DONE BEAUTIFULLY</h1>
         <p className="mt-4 text-body text-muted leading-relaxed">
           One app for laundry, coffee and more. We collect, clean,
           craft and deliver — so you can focus on what matters.

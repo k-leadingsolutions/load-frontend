@@ -18,7 +18,7 @@ export const SplashPage = () => {
           Laundry · Coffee · More
         </p>
       </div>
-      <p className="absolute bottom-16 text-sm text-white/60">Life, well loaded.</p>
+      <p className="absolute bottom-16 text-sm text-white/60">LAUNDRY • COFFEE • DONE BEAUTIFULLY</p>
     </div>
   )
 }
