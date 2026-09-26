@@ -5,6 +5,7 @@ import com.load.backend.auth.dto.LoginRequest;
 import com.load.backend.auth.dto.RegisterCustomerRequest;
 import com.load.backend.customer.CustomerProfile;
 import com.load.backend.customer.CustomerProfileRepository;
+import com.load.backend.notification.MobileNumberNormalizer;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -45,7 +46,8 @@ public class AuthService {
         user = userRepository.save(user);
 
         CustomerProfile profile = new CustomerProfile(
-            user.getId(), request.firstName(), request.lastName(), request.mobileNumber()
+            user.getId(), request.firstName(), request.lastName(),
+            MobileNumberNormalizer.normalize(request.mobileNumber())
         );
         customerProfileRepository.save(profile);
 

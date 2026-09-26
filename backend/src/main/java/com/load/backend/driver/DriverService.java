@@ -3,6 +3,12 @@ package com.load.backend.driver;
 import com.load.backend.common.exception.ForbiddenException;
 import com.load.backend.common.exception.InvalidTransitionException;
 import com.load.backend.common.exception.NotFoundException;
+import com.load.backend.customer.CustomerProfile;
+import com.load.backend.customer.CustomerProfileRepository;
+import com.load.backend.notification.MobileNumberNormalizer;
+import com.load.backend.notification.OtpDeliveryPort;
+import com.load.backend.order.Order;
+import com.load.backend.order.OrderRepository;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.UUID;
@@ -22,12 +28,25 @@ public class DriverService {
 
     private final DriverAssignmentRepository assignmentRepository;
     private final DriverRepository driverRepository;
+    private final OrderRepository orderRepository;
+    private final CustomerProfileRepository customerProfileRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OtpDeliveryPort otpDeliveryPort;
 
-    public DriverService(DriverAssignmentRepository assignmentRepository, DriverRepository driverRepository, PasswordEncoder passwordEncoder) {
+    public DriverService(
+        DriverAssignmentRepository assignmentRepository,
+        DriverRepository driverRepository,
+        OrderRepository orderRepository,
+        CustomerProfileRepository customerProfileRepository,
+        PasswordEncoder passwordEncoder,
+        OtpDeliveryPort otpDeliveryPort
+    ) {
         this.assignmentRepository = assignmentRepository;
         this.driverRepository = driverRepository;
+        this.orderRepository = orderRepository;
+        this.customerProfileRepository = customerProfileRepository;
         this.passwordEncoder = passwordEncoder;
+        this.otpDeliveryPort = otpDeliveryPort;
     }
 
     @Transactional(readOnly = true)
@@ -44,20 +63,26 @@ public class DriverService {
         return assignmentRepository.save(assignment);
     }
 
-    /** Arrival generates a fresh OTP. Only the hash is persisted; the plaintext code is returned once, in lieu of SMS delivery (deferred). */
+    /**
+     * Arrival generates a fresh OTP. Only the BCrypt hash is persisted; the
+     * plaintext code is delivered to the customer's mobile number through
+     * {@link OtpDeliveryPort} and is never returned to the Driver's API
+     * response.
+     */
     @Transactional
-    public DriverArrivalResult confirmArrival(UUID driverUserId, UUID assignmentId) {
+    public DriverAssignment confirmArrival(UUID driverUserId, UUID assignmentId) {
         DriverAssignment assignment = getOwnedAssignment(driverUserId, assignmentId);
         requireStatus(assignment, StopStatus.EN_ROUTE);
 
+        String mobileNumber = resolveCustomerMobileNumber(assignment.getOrderId());
         String otp = String.format("%06d", RANDOM.nextInt(1_000_000));
+        otpDeliveryPort.send(mobileNumber, otp);
+
         assignment.setVerificationMethod(VerificationMethod.OTP);
         assignment.setVerificationStatus(VerificationStatus.AWAITING);
         assignment.setVerificationCodeHash(passwordEncoder.encode(otp));
         assignment.setStopStatus(StopStatus.ARRIVED);
-        assignmentRepository.save(assignment);
-
-        return new DriverArrivalResult(assignment, otp);
+        return assignmentRepository.save(assignment);
     }
 
     @Transactional
