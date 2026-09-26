@@ -7,8 +7,10 @@ import com.load.backend.customer.CustomerProfile;
 import com.load.backend.customer.CustomerProfileRepository;
 import com.load.backend.notification.MobileNumberNormalizer;
 import com.load.backend.notification.OtpDeliveryPort;
+import com.load.backend.order.FulfilmentType;
 import com.load.backend.order.Order;
 import com.load.backend.order.OrderRepository;
+import com.load.backend.order.OrderStatus;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.UUID;
@@ -110,13 +112,22 @@ public class DriverService {
         return assignmentRepository.save(assignment);
     }
 
+    /**
+     * Confirming a DELIVERY stop is the terminal event for a DELIVERY order's
+     * lifecycle - no separate Operations action exists (or should exist) after
+     * the Driver has physically completed delivery. Without this, a DELIVERY
+     * order could never reach {@code OrderStatus.COMPLETED}, unlike
+     * STORE_COLLECTION orders which Operations explicitly completes.
+     */
     @Transactional
     public DriverAssignment confirmDelivery(UUID driverUserId, UUID assignmentId) {
         DriverAssignment assignment = getOwnedAssignment(driverUserId, assignmentId);
         requireStopType(assignment, StopType.DELIVERY);
         requireVerified(assignment);
         assignment.setStopStatus(StopStatus.DELIVERED);
-        return assignmentRepository.save(assignment);
+        DriverAssignment saved = assignmentRepository.save(assignment);
+        completeDeliveryOrderIfEligible(assignment.getOrderId());
+        return saved;
     }
 
     @Transactional
@@ -146,6 +157,14 @@ public class DriverService {
         CustomerProfile profile = customerProfileRepository.findByUserId(order.getCustomerId())
             .orElseThrow(() -> new NotFoundException("Customer profile not found."));
         return MobileNumberNormalizer.normalize(profile.getMobileNumber());
+    }
+
+    private void completeDeliveryOrderIfEligible(UUID orderId) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order != null && order.getFulfilmentType() == FulfilmentType.DELIVERY && order.getStatus() == OrderStatus.OUT_FOR_DELIVERY) {
+            order.setStatus(OrderStatus.COMPLETED);
+            orderRepository.save(order);
+        }
     }
 
     private UUID resolveDriverId(UUID driverUserId) {
