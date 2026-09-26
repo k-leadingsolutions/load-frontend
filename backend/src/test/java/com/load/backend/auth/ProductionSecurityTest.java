@@ -7,6 +7,10 @@ import com.load.backend.support.HttpTestUtil;
 import com.load.backend.support.TestUserFactory;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
@@ -14,7 +18,6 @@ import javax.crypto.SecretKey;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -107,26 +110,33 @@ class ProductionSecurityTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void corsAllowsConfiguredFrontendOrigin() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setOrigin("http://localhost:5173");
-        headers.add("Access-Control-Request-Method", "GET");
+    void corsAllowsConfiguredFrontendOrigin() throws Exception {
+        HttpResponse<Void> response = sendPreflight("http://localhost:5173");
 
-        ResponseEntity<Void> response = restTemplate.exchange(
-            url("/api/customer/orders"), HttpMethod.OPTIONS, new org.springframework.http.HttpEntity<>(headers), Void.class);
-
-        assertThat(response.getHeaders().getAccessControlAllowOrigin()).isEqualTo("http://localhost:5173");
+        assertThat(response.headers().firstValue("Access-Control-Allow-Origin")).contains("http://localhost:5173");
     }
 
     @Test
-    void corsRejectsUnrecognisedOrigin() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setOrigin("https://attacker.example.com");
-        headers.add("Access-Control-Request-Method", "GET");
+    void corsRejectsUnrecognisedOrigin() throws Exception {
+        HttpResponse<Void> response = sendPreflight("https://attacker.example.com");
 
-        ResponseEntity<Void> response = restTemplate.exchange(
-            url("/api/customer/orders"), HttpMethod.OPTIONS, new org.springframework.http.HttpEntity<>(headers), Void.class);
+        assertThat(response.headers().firstValue("Access-Control-Allow-Origin")).isEmpty();
+    }
 
-        assertThat(response.getHeaders().getAccessControlAllowOrigin()).isNull();
+    /**
+     * Sends a real CORS preflight (OPTIONS + Origin + Access-Control-Request-Method)
+     * using the JDK's modern HttpClient. TestRestTemplate/HttpURLConnection silently
+     * strips the Origin and Access-Control-Request-* headers (they are on the JDK's
+     * legacy restricted-header list), which would make this test a false negative.
+     */
+    private HttpResponse<Void> sendPreflight(String origin) throws Exception {
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(url("/api/customer/orders")))
+            .method("OPTIONS", HttpRequest.BodyPublishers.noBody())
+            .header("Origin", origin)
+            .header("Access-Control-Request-Method", "GET")
+            .build();
+        return client.send(request, HttpResponse.BodyHandlers.discarding());
     }
 }
