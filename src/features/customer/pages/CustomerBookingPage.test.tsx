@@ -8,6 +8,7 @@ vi.mock('@/services/api/customerOrderService', async () => {
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import App from '@/App'
 import { AuthProvider } from '@/app/providers/AuthProvider'
 import { RequireCustomerAuth } from '@/app/router/RequireCustomerAuth'
 import { appPaths } from '@/app/router/paths'
@@ -153,6 +154,34 @@ describe('CustomerBookingPage — Collection & Delivery / Review flow', () => {
 
     expect(await screen.findByText('Pickup address')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Services' })).not.toBeInTheDocument()
+  })
+
+  it('regression: through the real app shell (PublicLayout/RequireCustomerAuth/RoleLayout), Continue does not lose the draft and land back on Services', async () => {
+    // Deliberately renders the REAL `App` (real BrowserRouter + the full
+    // PublicLayout > RequireCustomerAuth > CoffeeCartProvider >
+    // CustomerOrderDraftProvider > RoleLayout nesting from AppRouter),
+    // instead of the simplified `renderApp` harness above which mounts
+    // CustomerOrderDraftProvider directly above a bare MemoryRouter/Routes
+    // tree. That simplified harness cannot detect a regression where an
+    // ancestor *inside* the real route tree (e.g. a `key={location.pathname}`
+    // remount boundary sitting above the provider) wipes the draft on every
+    // navigation, because it never renders those ancestors at all.
+    window.history.pushState({}, '', appPaths.customerServices)
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(await screen.findByRole('link', { name: /browse everyday/i }))
+    await screen.findByRole('heading', { name: 'Everyday' })
+
+    const washDryFoldCard = (await screen.findByText('Wash + Dry + Fold')).closest('article')!
+    await user.click(within(washDryFoldCard).getByRole('button', { name: 'Add service' }))
+    await screen.findByText(/1 item\/service selected/i)
+
+    await user.click(await screen.findByRole('link', { name: /continue to collection & delivery/i }))
+
+    expect(await screen.findByText('Pickup address')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Services' })).not.toBeInTheDocument()
+    expect(window.location.pathname).toBe(appPaths.customerBooking)
   })
 
   it('"Start booking" duplicate flow no longer exists', async () => {

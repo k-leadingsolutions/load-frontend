@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '@/app/providers/useAuth'
 import { appPaths } from '@/app/router/paths'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
@@ -13,7 +13,6 @@ const navItems = [{ to: appPaths.home, label: 'Home' }]
 
 export const PublicLayout = () => {
   const { isAuthenticated, logout, user } = useAuth()
-  const location = useLocation()
 
   return (
     <div className="min-h-screen">
@@ -92,7 +91,7 @@ export const PublicLayout = () => {
         </div>
       </header>
       <main id="main-content" className="mx-auto max-w-7xl px-4 py-8 lg:px-6 lg:py-10">
-        <ErrorBoundary key={location.pathname} safeRoute={appPaths.home} safeRouteLabel="Back to home">
+        <ErrorBoundary safeRoute={appPaths.home} safeRouteLabel="Back to home">
           <Outlet />
         </ErrorBoundary>
       </main>
