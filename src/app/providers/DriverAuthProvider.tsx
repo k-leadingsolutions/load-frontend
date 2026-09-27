@@ -32,12 +32,16 @@ export const DriverAuthProvider = ({ children }: PropsWithChildren) => {
     setIsBootstrapping(false)
   }, [])
 
-  const login = useCallback(async (request: LoginRequest) => {
-    const profile = assertSuccess(await apiDriverAuthService.login(request))
+  const applyProfile = useCallback((profile: DriverProfile) => {
     setUser(profile)
     writeStoredDriverSession(profile)
     queryClient.invalidateQueries({ queryKey: ['driver-assignments'] })
   }, [queryClient])
+
+  const login = useCallback(async (request: LoginRequest) => {
+    const profile = assertSuccess(await apiDriverAuthService.login(request))
+    applyProfile(profile)
+  }, [applyProfile])
 
   const logout = useCallback(() => {
     setUser(null)
@@ -52,8 +56,9 @@ export const DriverAuthProvider = ({ children }: PropsWithChildren) => {
       isBootstrapping,
       login,
       logout,
+      adoptAuthenticatedSession: applyProfile,
     }),
-    [isBootstrapping, login, logout, user],
+    [applyProfile, isBootstrapping, login, logout, user],
   )
 
   return <DriverAuthContext.Provider value={value}>{children}</DriverAuthContext.Provider>

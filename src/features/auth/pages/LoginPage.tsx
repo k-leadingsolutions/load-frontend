@@ -4,10 +4,13 @@ import type React from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/app/providers/useAuth'
+import { useDriverAuth } from '@/app/providers/useDriverAuth'
+import { useOperationsAuth } from '@/app/providers/useOperationsAuth'
 import { appPaths } from '@/app/router/paths'
 import { AuthInput } from '@/features/auth/components/AuthInput'
 import type { LoginFormValues } from '@/features/auth/schemas'
 import { loginSchema } from '@/features/auth/schemas'
+import { resolveRoleAwareLogin } from '@/services/api/roleAwareLoginService'
 
 const AppleIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 814 1000" className="h-5 w-5" fill="currentColor" aria-hidden="true">
@@ -54,10 +57,12 @@ const SsoButton = ({ icon, label }: { icon: React.ReactNode; label: string }) =>
 export const LoginPage = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { login } = useAuth()
+  const { adoptAuthenticatedSession: adoptCustomerSession } = useAuth()
+  const { adoptAuthenticatedSession: adoptOperationsSession } = useOperationsAuth()
+  const { adoptAuthenticatedSession: adoptDriverSession } = useDriverAuth()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const locationState = location.state as { from?: { pathname?: string } } | null
-  const redirectTo = locationState?.from?.pathname ?? appPaths.customerHome
+  const redirectFrom = locationState?.from?.pathname
 
   const {
     register,
@@ -77,13 +82,27 @@ export const LoginPage = () => {
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null)
     try {
-      await login({
+      const result = await resolveRoleAwareLogin({
         ...(values.loginMethod === 'MOBILE'
           ? { mobileNumber: values.emailOrMobile }
           : { email: values.emailOrMobile }),
         password: values.password,
       })
-      navigate(redirectTo, { replace: true })
+
+      if (result.realm === 'operations') {
+        adoptOperationsSession(result.profile)
+        navigate(appPaths.operationsDashboard, { replace: true })
+        return
+      }
+
+      if (result.realm === 'driver') {
+        adoptDriverSession(result.profile)
+        navigate(appPaths.driverDashboard, { replace: true })
+        return
+      }
+
+      adoptCustomerSession(result.profile)
+      navigate(redirectFrom ?? appPaths.customerHome, { replace: true })
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Unable to sign in.')
     }

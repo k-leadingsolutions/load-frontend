@@ -32,19 +32,21 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     setIsBootstrapping(false)
   }, [])
 
-  const login = useCallback(async (request: LoginRequest) => {
-    const profile = assertSuccess(await apiAuthService.login(request))
+  const applyProfile = useCallback((profile: CustomerProfile) => {
     setUser(profile)
     writeStoredCustomerSession(profile)
     queryClient.invalidateQueries({ queryKey: ['customer-orders'] })
   }, [queryClient])
 
+  const login = useCallback(async (request: LoginRequest) => {
+    const profile = assertSuccess(await apiAuthService.login(request))
+    applyProfile(profile)
+  }, [applyProfile])
+
   const register = useCallback(async (request: RegisterRequest) => {
     const profile = assertSuccess(await apiAuthService.register(request))
-    setUser(profile)
-    writeStoredCustomerSession(profile)
-    queryClient.invalidateQueries({ queryKey: ['customer-orders'] })
-  }, [queryClient])
+    applyProfile(profile)
+  }, [applyProfile])
 
   const logout = useCallback(() => {
     setUser(null)
@@ -102,8 +104,9 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       logout,
       saveAddress,
       updateProfile,
+      adoptAuthenticatedSession: applyProfile,
     }),
-    [isBootstrapping, login, logout, register, saveAddress, updateProfile, user],
+    [applyProfile, isBootstrapping, login, logout, register, saveAddress, updateProfile, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

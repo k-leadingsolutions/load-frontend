@@ -25,13 +25,17 @@ export const OperationsAuthProvider = ({ children }: PropsWithChildren) => {
     setIsBootstrapping(false)
   }, [])
 
-  const login = useCallback(async (request: LoginRequest) => {
-    const profile = await apiOperationsAuthService.login(request)
+  const applyProfile = useCallback((profile: OperationsProfile) => {
     setUser(profile)
     writeStoredOperationsSession(profile)
     queryClient.invalidateQueries({ queryKey: ['operations-orders'] })
     queryClient.invalidateQueries({ queryKey: ['operations-assignments'] })
   }, [queryClient])
+
+  const login = useCallback(async (request: LoginRequest) => {
+    const profile = await apiOperationsAuthService.login(request)
+    applyProfile(profile)
+  }, [applyProfile])
 
   const logout = useCallback(() => {
     setUser(null)
@@ -48,8 +52,9 @@ export const OperationsAuthProvider = ({ children }: PropsWithChildren) => {
       isBootstrapping,
       login,
       logout,
+      adoptAuthenticatedSession: applyProfile,
     }),
-    [isBootstrapping, login, logout, user],
+    [applyProfile, isBootstrapping, login, logout, user],
   )
 
   return <OperationsAuthContext.Provider value={value}>{children}</OperationsAuthContext.Provider>

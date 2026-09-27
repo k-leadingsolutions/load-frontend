@@ -1,14 +1,17 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 
-vi.mock('@/services/api/authService', async () => {
+vi.mock('@/services/api/authService', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/api/authService')>()
   const { mockAuthService } = await import('@/services/mock')
-  return { apiAuthService: mockAuthService }
+  return { ...actual, apiAuthService: mockAuthService }
 })
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/app/providers/AuthProvider'
+import { DriverAuthProvider } from '@/app/providers/DriverAuthProvider'
+import { OperationsAuthProvider } from '@/app/providers/OperationsAuthProvider'
 import { RequireRole } from '@/app/router/RequireRole'
 import { appPaths } from '@/app/router/paths'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
@@ -22,22 +25,26 @@ const renderGuardedRoutes = (initialEntries: string[]) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <AuthProvider>
-        <MemoryRouter initialEntries={initialEntries}>
-          <Routes>
-            <Route path={appPaths.login} element={<LoginPage />} />
-            <Route path={appPaths.customerHome} element={<div>Customer home content</div>} />
-            <Route path={appPaths.unauthorized} element={<UnauthorizedPage />} />
-            <Route element={<RequireRole allowedRoles={['OPERATIONS']} />}>
-              <Route path={appPaths.operationsDashboard} element={<OperationsProbe />} />
-            </Route>
-            <Route element={<RequireRole allowedRoles={['DRIVER']} />}>
-              <Route path={appPaths.driverDashboard} element={<DriverProbe />} />
-            </Route>
-            <Route element={<RequireRole allowedRoles={['ADMIN']} />}>
-              <Route path={appPaths.adminOverview} element={<AdminProbe />} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
+        <DriverAuthProvider>
+          <OperationsAuthProvider>
+            <MemoryRouter initialEntries={initialEntries}>
+              <Routes>
+                <Route path={appPaths.login} element={<LoginPage />} />
+                <Route path={appPaths.customerHome} element={<div>Customer home content</div>} />
+                <Route path={appPaths.unauthorized} element={<UnauthorizedPage />} />
+                <Route element={<RequireRole allowedRoles={['OPERATIONS']} />}>
+                  <Route path={appPaths.operationsDashboard} element={<OperationsProbe />} />
+                </Route>
+                <Route element={<RequireRole allowedRoles={['DRIVER']} />}>
+                  <Route path={appPaths.driverDashboard} element={<DriverProbe />} />
+                </Route>
+                <Route element={<RequireRole allowedRoles={['ADMIN']} />}>
+                  <Route path={appPaths.adminOverview} element={<AdminProbe />} />
+                </Route>
+              </Routes>
+            </MemoryRouter>
+          </OperationsAuthProvider>
+        </DriverAuthProvider>
       </AuthProvider>
     </QueryClientProvider>,
   )
@@ -80,9 +87,43 @@ describe('role route guards', () => {
   })
 
   it('sends an authenticated customer session to the unauthorized page instead of the operations dashboard', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/api/auth/login')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ token: 'tok-cust', email: 'jane@example.com', role: 'CUSTOMER' }),
+          clone() {
+            return this
+          },
+        } as unknown as Response
+      }
+      if (url.endsWith('/api/customer/profile')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            userId: 'user-1',
+            firstName: 'Jane',
+            lastName: 'Doe',
+            mobileNumber: '+27821112222',
+            email: 'jane@example.com',
+          }),
+          clone() {
+            return this
+          },
+        } as unknown as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
     const user = userEvent.setup()
     renderGuardedRoutes([appPaths.login])
 
+    await user.click(screen.getByRole('button', { name: 'Email' }))
+    await user.clear(screen.getByLabelText('Email'))
+    await user.type(screen.getByLabelText('Email'), 'jane@example.com')
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     await waitFor(() => {
@@ -93,5 +134,7 @@ describe('role route guards', () => {
 
     expect(await screen.findByRole('heading', { name: /don't have access/i })).toBeInTheDocument()
     expect(screen.queryByText('Operations command centre content')).not.toBeInTheDocument()
+
+    vi.unstubAllGlobals()
   })
 })

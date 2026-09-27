@@ -18,6 +18,8 @@ export interface AuthContextValue {
   logout: () => void
   saveAddress: (address: Omit<Address, 'id'>) => Promise<Address | null>
   updateProfile: (details: ProfileDetailsUpdate) => void
+  /** Adopts an already-authenticated profile (e.g. from the shared role-aware login resolver) without re-issuing a network call. */
+  adoptAuthenticatedSession: (profile: CustomerProfile) => void
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined)

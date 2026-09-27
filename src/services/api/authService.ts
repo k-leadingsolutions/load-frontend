@@ -6,7 +6,8 @@ import { writeToken } from '@/services/api/tokenStore'
 import type { AuthResponseDto, CustomerProfileResponseDto } from '@/services/api/types'
 import type { AuthService } from '@/services/interfaces'
 
-const toCustomerProfile = (profile: CustomerProfileResponseDto): CustomerProfile => ({
+/** Exported for reuse by `resolveRoleAwareLogin`, which needs the identical mapping without duplicating it. */
+export const toCustomerProfile = (profile: CustomerProfileResponseDto): CustomerProfile => ({
   id: profile.userId,
   firstName: profile.firstName,
   lastName: profile.lastName,

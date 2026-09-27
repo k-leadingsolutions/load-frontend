@@ -1,14 +1,17 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 
-vi.mock('@/services/api/authService', async () => {
+vi.mock('@/services/api/authService', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/api/authService')>()
   const { mockAuthService } = await import('@/services/mock')
-  return { apiAuthService: mockAuthService }
+  return { ...actual, apiAuthService: mockAuthService }
 })
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/app/providers/AuthProvider'
+import { DriverAuthProvider } from '@/app/providers/DriverAuthProvider'
+import { OperationsAuthProvider } from '@/app/providers/OperationsAuthProvider'
 import { GuestOnlyRoute } from '@/app/router/GuestOnlyRoute'
 import { RequireCustomerAuth } from '@/app/router/RequireCustomerAuth'
 import { appPaths } from '@/app/router/paths'
@@ -22,19 +25,23 @@ const renderRoutes = (initialEntries: string[]) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <AuthProvider>
-        <MemoryRouter initialEntries={initialEntries}>
-          <Routes>
-            <Route element={<GuestOnlyRoute />}>
-              <Route path={appPaths.login} element={<LoginPage />} />
-              <Route path={appPaths.register} element={<RegisterPage />} />
-              <Route path={appPaths.otpVerify} element={<OtpPage />} />
-              <Route path={appPaths.biometricLogin} element={<BiometricLoginPage />} />
-            </Route>
-            <Route element={<RequireCustomerAuth />}>
-              <Route path={appPaths.customerHome} element={<CustomerHomePage />} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
+        <DriverAuthProvider>
+          <OperationsAuthProvider>
+            <MemoryRouter initialEntries={initialEntries}>
+              <Routes>
+                <Route element={<GuestOnlyRoute />}>
+                  <Route path={appPaths.login} element={<LoginPage />} />
+                  <Route path={appPaths.register} element={<RegisterPage />} />
+                  <Route path={appPaths.otpVerify} element={<OtpPage />} />
+                  <Route path={appPaths.biometricLogin} element={<BiometricLoginPage />} />
+                </Route>
+                <Route element={<RequireCustomerAuth />}>
+                  <Route path={appPaths.customerHome} element={<CustomerHomePage />} />
+                </Route>
+              </Routes>
+            </MemoryRouter>
+          </OperationsAuthProvider>
+        </DriverAuthProvider>
       </AuthProvider>
     </QueryClientProvider>,
   )
@@ -55,14 +62,50 @@ describe('auth pages', () => {
   })
 
   it('signs in with demo credentials and opens the customer account', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/api/auth/login')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ token: 'tok-demo', email: 'thando@example.com', role: 'CUSTOMER' }),
+          clone() {
+            return this
+          },
+        } as unknown as Response
+      }
+      if (url.endsWith('/api/customer/profile')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            userId: 'user-demo',
+            firstName: 'Thando',
+            lastName: 'Nkosi',
+            mobileNumber: '+27 82 555 0142',
+            email: 'thando@example.com',
+          }),
+          clone() {
+            return this
+          },
+        } as unknown as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
     const user = userEvent.setup()
     renderRoutes([appPaths.login])
 
+    await user.click(screen.getByRole('button', { name: 'Email' }))
+    await user.clear(screen.getByLabelText('Email'))
+    await user.type(screen.getByLabelText('Email'), 'thando@example.com')
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /thando/i })).toBeInTheDocument()
     })
+
+    vi.unstubAllGlobals()
   })
 
   it('renders OTP verification inputs and resend timer', async () => {

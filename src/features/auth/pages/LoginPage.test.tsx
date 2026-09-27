@@ -3,15 +3,21 @@ import { describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/app/providers/AuthProvider'
+import { DriverAuthProvider } from '@/app/providers/DriverAuthProvider'
+import { OperationsAuthProvider } from '@/app/providers/OperationsAuthProvider'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 
 const renderLoginPage = () =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <AuthProvider>
-        <MemoryRouter>
-          <LoginPage />
-        </MemoryRouter>
+        <DriverAuthProvider>
+          <OperationsAuthProvider>
+            <MemoryRouter>
+              <LoginPage />
+            </MemoryRouter>
+          </OperationsAuthProvider>
+        </DriverAuthProvider>
       </AuthProvider>
     </QueryClientProvider>,
   )
