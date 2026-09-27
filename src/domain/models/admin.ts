@@ -36,6 +36,8 @@ export interface DriverAssignment {
   distanceKm?: number
   etaMinutes?: number
   orderId: string
+  /** Human-friendly, immutable order number of the owning order (format: LD#####). Display-only — never used for routing/API calls. */
+  orderNumber?: string
   proofOfDelivery?: string
   scheduledWindow: string
   stopStatus: StopStatus
@@ -65,6 +67,13 @@ export interface ManagedUser {
 
 export interface ProductionOrder {
   id: string
+  /**
+   * Human-friendly, immutable, server-generated order number (format:
+   * LD##### e.g. LD10482). Display-only — never used for routing/API calls.
+   * Optional because existing mock fixtures already use an `LD#####`-style
+   * `id` directly; real API responses always populate this field.
+   */
+  orderNumber?: string
   internalNotes: string[]
   itemsSummary: string[]
   quantityReviewStatus: 'PENDING' | 'CONFIRMED' | 'ADJUSTED'

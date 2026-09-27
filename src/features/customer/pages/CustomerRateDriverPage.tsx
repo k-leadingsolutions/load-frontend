@@ -119,7 +119,7 @@ export const CustomerRateDriverPage = () => {
 
   if (submitted || existingRating) {
     return (
-      <SectionCard title="Thank you for your feedback!" description={`Your rating for order #${order.id} has been recorded.`}>
+      <SectionCard title="Thank you for your feedback!" description={`Your rating for order #${order.orderNumber ?? order.id} has been recorded.`}>
         <Link
           to={appPaths.customerOrders}
           className="inline-flex items-center justify-center rounded-pill bg-load-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-load-700"
@@ -134,7 +134,7 @@ export const CustomerRateDriverPage = () => {
 
   return (
     <div className="space-y-6">
-      <SectionCard title="Rate your driver" description={`Share feedback for order #${order.id}.`}>
+      <SectionCard title="Rate your driver" description={`Share feedback for order #${order.orderNumber ?? order.id}.`}>
         <form
           className="space-y-6"
           onSubmit={handleSubmit((values) => {

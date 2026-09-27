@@ -34,6 +34,7 @@ export const laundryOrderFromDto = (
 
   return {
     id: dto.id,
+    orderNumber: dto.orderNumber,
     customerId,
     status: dto.status,
     friendlyStatus: getFriendlyOrderStatus(dto.status),
@@ -91,22 +92,26 @@ const verificationStatusFromDto = (status: AssignmentResponseDto['verificationSt
  * to honest placeholders derived from the real order id, never fabricated
  * business data. `driverId` now comes directly from the DTO (the backend
  * assignment record owns it — no longer a client-supplied fallback).
+ * `orderNumber`, when the backend has resolved it, is used for the
+ * human-facing display label instead of a raw UUID fragment.
  */
 export const driverAssignmentFromDto = (dto: AssignmentResponseDto): DriverAssignment => {
   const verificationMethod = verificationMethodFromDto(dto.verificationMethod)
   const verificationStatus = verificationStatusFromDto(dto.verificationStatus)
+  const orderLabel = dto.orderNumber ?? `Order ${dto.orderId.slice(0, 8)}`
 
   return {
     id: dto.id,
     stopIndex: dto.stopIndex,
     driverId: dto.driverId,
     area: dto.stopType === 'PICKUP' ? 'Pickup' : 'Delivery',
-    customerName: `Order ${dto.orderId.slice(0, 8)}`,
+    customerName: orderLabel,
     driverName: '',
     ...(dto.failureReason ? { failureReason: dto.failureReason } : {}),
     ...(dto.failureNote ? { failureNote: dto.failureNote } : {}),
     addressLine: 'Address details available in the LOAD operations system',
     orderId: dto.orderId,
+    ...(dto.orderNumber ? { orderNumber: dto.orderNumber } : {}),
     scheduledWindow: '',
     stopStatus: dto.stopStatus,
     stopType: dto.stopType,
@@ -130,11 +135,12 @@ export const driverAssignmentFromDto = (dto: AssignmentResponseDto): DriverAssig
  */
 export const productionOrderFromDto = (dto: OrderResponseDto): ProductionOrder => ({
   id: dto.id,
+  orderNumber: dto.orderNumber,
   internalNotes: dto.internalNotes,
   itemsSummary: dto.services.map((service) => `${service.quantity} x ${service.serviceId} (${service.unitLabel})`),
   quantityReviewStatus: dto.quantityReviewStatus,
   receivedAtStore: dto.receivedAtStore,
-  customerName: `Order ${dto.id.slice(0, 8)}`,
+  customerName: dto.orderNumber,
   suburb: '',
   status: dto.status,
   stageLabel: ORDER_STATUS_MODEL[dto.status].label,

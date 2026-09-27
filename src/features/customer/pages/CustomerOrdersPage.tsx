@@ -161,7 +161,7 @@ export const CustomerOrdersPage = () => {
             <Card variant="brand" className="space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-caption text-muted">Order #{activeOrder.id}</p>
+                  <p className="text-caption text-muted">Order #{activeOrder.orderNumber ?? activeOrder.id}</p>
                   <h3 className="mt-1 text-heading text-ink">{activeOrder.friendlyStatus}</h3>
                 </div>
               </div>
@@ -211,7 +211,7 @@ export const CustomerOrdersPage = () => {
                 <Card key={order.id} variant="elevated">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
-                      <p className="text-title text-ink">#{order.id}</p>
+                      <p className="text-title text-ink">#{order.orderNumber ?? order.id}</p>
                       <p className="text-body text-muted">{order.friendlyStatus}</p>
                     </div>
                     <div className="flex flex-col items-end gap-2">

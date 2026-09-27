@@ -95,7 +95,7 @@ export const OperationsCollectionsPage = () => {
                 {rescheduleRequests.map((assignment) => (
                   <li key={assignment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-load-100 p-4">
                     <div>
-                      <p className="text-sm font-semibold text-ink">Order #{assignment.orderId} · {assignment.customerName}</p>
+                      <p className="text-sm font-semibold text-ink">Order #{assignment.orderNumber ?? assignment.orderId} · {assignment.customerName}</p>
                       <p className="mt-1 text-sm text-slate-500">
                         {assignment.rescheduleReason ?? 'No reason provided'}
                         {assignment.rescheduleNote ? ` — ${assignment.rescheduleNote}` : ''}
@@ -137,7 +137,7 @@ export const OperationsCollectionsPage = () => {
                   <li key={assignment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-load-100 p-4">
                     <div>
                       <p className="text-sm font-semibold text-ink">
-                        Order #{assignment.orderId} · {assignment.customerName} · {assignment.stopType === 'PICKUP' ? 'Collection' : 'Delivery'}
+                        Order #{assignment.orderNumber ?? assignment.orderId} · {assignment.customerName} · {assignment.stopType === 'PICKUP' ? 'Collection' : 'Delivery'}
                       </p>
                       <p className="mt-1 text-sm text-slate-500">
                         {assignment.failureReason ?? 'No reason provided'}
@@ -169,7 +169,7 @@ export const OperationsCollectionsPage = () => {
                 {readyForDelivery.map((order) => (
                   <li key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-load-100 p-4">
                     <div>
-                      <p className="text-sm font-semibold text-ink">#{order.id} · {order.customerName}</p>
+                      <p className="text-sm font-semibold text-ink">#{order.orderNumber ?? order.id} · {order.customerName}</p>
                       <p className="mt-1 text-sm text-slate-500">{order.assignedDriverName ? `Driver: ${order.assignedDriverName}` : 'No driver assigned'}</p>
                     </div>
                     <button
@@ -197,7 +197,7 @@ export const OperationsCollectionsPage = () => {
                 {readyForStoreCollection.map((order) => (
                   <li key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-load-100 p-4">
                     <div>
-                      <p className="text-sm font-semibold text-ink">#{order.id} · {order.customerName}</p>
+                      <p className="text-sm font-semibold text-ink">#{order.orderNumber ?? order.id} · {order.customerName}</p>
                       <p className="mt-1 text-sm text-slate-500">Pay at store</p>
                     </div>
                     <button

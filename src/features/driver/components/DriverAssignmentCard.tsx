@@ -57,7 +57,7 @@ export const DriverAssignmentCard = ({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-semibold text-ink">
-            Stop #{assignment.stopIndex} · {assignment.stopType} #{assignment.orderId}
+            Stop #{assignment.stopIndex} · {assignment.stopType} #{assignment.orderNumber ?? assignment.orderId}
           </p>
           <p className="mt-1 text-sm text-slate-500">{assignment.customerName} · {assignment.addressLine}</p>
         </div>

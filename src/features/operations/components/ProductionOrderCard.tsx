@@ -32,7 +32,7 @@ export const ProductionOrderCard = ({
     <article className="rounded-3xl border border-load-100 bg-white p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-load-700">#{order.id}</p>
+          <p className="text-sm font-semibold text-load-700">#{order.orderNumber ?? order.id}</p>
           <h2 className="mt-2 text-lg font-semibold text-ink">{order.customerName}</h2>
           <p className="mt-1 text-sm text-slate-500">{order.suburb}</p>
           <Link to={buildPath.operationsOrderDetail(order.id)} className="mt-1 inline-block text-sm font-semibold text-load-600 underline">

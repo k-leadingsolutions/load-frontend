@@ -12,6 +12,7 @@ import java.util.UUID;
 
 public record OrderResponse(
     UUID id,
+    String orderNumber,
     OrderStatus status,
     FulfilmentType fulfilmentType,
     UUID pickupAddressId,
@@ -38,6 +39,7 @@ public record OrderResponse(
 
         return new OrderResponse(
             order.getId(),
+            order.getOrderNumber(),
             order.getStatus(),
             order.getFulfilmentType(),
             order.getPickupAddressId(),

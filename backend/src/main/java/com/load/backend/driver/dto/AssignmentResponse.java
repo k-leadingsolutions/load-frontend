@@ -12,6 +12,7 @@ public record AssignmentResponse(
     UUID id,
     UUID driverId,
     UUID orderId,
+    String orderNumber,
     int stopIndex,
     StopType stopType,
     StopStatus stopStatus,
@@ -23,11 +24,22 @@ public record AssignmentResponse(
     String rescheduleNote,
     String operationsDecision
 ) {
+    /**
+     * Builds a response without the human-friendly order number, for call
+     * sites that have not (yet) resolved the owning order. Prefer
+     * {@link #from(DriverAssignment, String)} wherever the order number is
+     * available.
+     */
     public static AssignmentResponse from(DriverAssignment assignment) {
+        return from(assignment, null);
+    }
+
+    public static AssignmentResponse from(DriverAssignment assignment, String orderNumber) {
         return new AssignmentResponse(
             assignment.getId(),
             assignment.getDriverId(),
             assignment.getOrderId(),
+            orderNumber,
             assignment.getStopIndex(),
             assignment.getStopType(),
             assignment.getStopStatus(),

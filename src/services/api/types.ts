@@ -68,6 +68,8 @@ export interface ServiceSelectionDto {
 
 export interface OrderResponseDto {
   id: string
+  /** Human-friendly, immutable, server-generated order number (format: LD##### e.g. LD10482). Never a routing identifier. */
+  orderNumber: string
   status: BackendOrderStatus
   fulfilmentType: BackendFulfilmentType
   pickupAddressId: string
@@ -126,6 +128,8 @@ export interface AssignmentResponseDto {
   id: string
   driverId: string
   orderId: string
+  /** Human-friendly, immutable order number of the owning order, when the backend has resolved it. Never a routing identifier. */
+  orderNumber: string | null
   stopIndex: number
   stopType: BackendStopType
   stopStatus: BackendStopStatus

@@ -297,7 +297,7 @@ export const AdminOverviewPage = () => {
                   ) : (
                     orderRows.map((order) => (
                       <div key={order.id} className="rounded-2xl bg-load-50/60 p-4 text-sm text-slate-600">
-                        <p className="font-semibold text-ink">#{order.id}</p>
+                        <p className="font-semibold text-ink">#{order.orderNumber ?? order.id}</p>
                         <p>{order.friendlyStatus}</p>
                         <p>{formatCurrency(order.estimatedTotal)}</p>
                       </div>

@@ -87,6 +87,13 @@ export type InvoiceLifecycleStatus = 'NOT_AVAILABLE' | 'READY'
 
 export interface LaundryOrder {
   id: string
+  /**
+   * Human-friendly, immutable, server-generated order number (format:
+   * LD##### e.g. LD10482). Display-only — never used for routing/API calls.
+   * Optional because existing mock fixtures already use an `LD#####`-style
+   * `id` directly; real API responses always populate this field.
+   */
+  orderNumber?: string
   customerId: string
   status: OrderStatus
   friendlyStatus: string

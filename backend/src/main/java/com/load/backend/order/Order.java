@@ -19,6 +19,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 
 /**
  * The single LOAD order aggregate. The backend is authoritative for all state
@@ -32,6 +34,17 @@ public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    /**
+     * Human-friendly, immutable order number (format: LD##### e.g. LD10482).
+     * Generated server-side by a PostgreSQL sequence-backed column default
+     * (see V3 migration) - never assigned or guessed by application code, and
+     * never used as a routing/API identifier. {@code id} (UUID) remains the
+     * sole primary key / foreign key / API identifier everywhere.
+     */
+    @Generated(event = EventType.INSERT)
+    @Column(name = "order_number", insertable = false, updatable = false, unique = true, nullable = false, length = 20)
+    private String orderNumber;
 
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
@@ -159,6 +172,10 @@ public class Order {
 
     public UUID getId() {
         return id;
+    }
+
+    public String getOrderNumber() {
+        return orderNumber;
     }
 
     public UUID getCustomerId() {

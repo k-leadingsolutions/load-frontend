@@ -95,7 +95,7 @@ export const CustomerHomePreview = () => {
             {data.orders.map((order) => (
               <li key={order.id} className="rounded-2xl bg-load-50 p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold text-ink">#{order.id}</span>
+                  <span className="font-semibold text-ink">#{order.orderNumber ?? order.id}</span>
                   <span>{order.friendlyStatus}</span>
                 </div>
                 <p className="mt-1">Estimated total {formatCurrency(order.estimatedTotal)}</p>

@@ -77,7 +77,7 @@ const ActiveOrderCard = ({ order }: { order: LaundryOrder }) => {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p id="active-order-heading" className="text-caption text-muted">Order in progress</p>
-          <p className="text-title text-load-700">#{order.id}</p>
+          <p className="text-title text-load-700">#{order.orderNumber ?? order.id}</p>
         </div>
         <Badge tone="primary">{order.friendlyStatus}</Badge>
       </div>
@@ -365,7 +365,7 @@ export const CustomerHomePage = () => {
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-load-100 text-sm" aria-hidden="true">🧺</div>
                   <div>
-                    <p className="text-sm font-semibold text-ink">#{order.id}</p>
+                    <p className="text-sm font-semibold text-ink">#{order.orderNumber ?? order.id}</p>
                     <p className="text-caption text-muted">
                       {order.fulfilmentType === 'STORE_COLLECTION' ? 'Collect from LOAD' : (order.deliveryWindow?.windowLabel ?? 'To be confirmed')}
                     </p>

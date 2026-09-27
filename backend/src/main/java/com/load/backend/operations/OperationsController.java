@@ -10,6 +10,7 @@ import com.load.backend.operations.dto.QuantityReviewRequest;
 import com.load.backend.operations.dto.RescheduleDecisionRequest;
 import com.load.backend.operations.dto.StoreIntakeRequest;
 import com.load.backend.order.Order;
+import com.load.backend.order.OrderRepository;
 import com.load.backend.order.dto.OrderResponse;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -28,9 +29,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class OperationsController {
 
     private final OperationsService operationsService;
+    private final OrderRepository orderRepository;
 
-    public OperationsController(OperationsService operationsService) {
+    public OperationsController(OperationsService operationsService, OrderRepository orderRepository) {
         this.operationsService = operationsService;
+        this.orderRepository = orderRepository;
+    }
+
+    /** Enriches an assignment with its owning order's human-friendly order number. */
+    private AssignmentResponse toResponse(DriverAssignment assignment) {
+        String orderNumber = orderRepository.findOrderNumberById(assignment.getOrderId()).orElse(null);
+        return AssignmentResponse.from(assignment, orderNumber);
     }
 
     @GetMapping("/orders")
@@ -50,7 +59,7 @@ public class OperationsController {
 
     @GetMapping("/assignments")
     public ResponseEntity<List<AssignmentResponse>> listAssignments() {
-        return ResponseEntity.ok(operationsService.listAllAssignments().stream().map(AssignmentResponse::from).toList());
+        return ResponseEntity.ok(operationsService.listAllAssignments().stream().map(this::toResponse).toList());
     }
 
     @PostMapping("/orders/{orderId}/store-received")
@@ -95,7 +104,7 @@ public class OperationsController {
     @PostMapping("/orders/{orderId}/assign-driver")
     public ResponseEntity<AssignmentResponse> assignDriver(@PathVariable UUID orderId, @Valid @RequestBody AssignDriverRequest request) {
         DriverAssignment assignment = operationsService.assignDriver(orderId, request.driverId(), request.stopType());
-        return ResponseEntity.ok(AssignmentResponse.from(assignment));
+        return ResponseEntity.ok(toResponse(assignment));
     }
 
     @PostMapping("/orders/{orderId}/dispatch")
@@ -110,12 +119,12 @@ public class OperationsController {
 
     @PostMapping("/assignments/{assignmentId}/retry")
     public ResponseEntity<AssignmentResponse> retryFailedAttempt(@PathVariable UUID assignmentId) {
-        return ResponseEntity.ok(AssignmentResponse.from(operationsService.retryFailedAttempt(assignmentId)));
+        return ResponseEntity.ok(toResponse(operationsService.retryFailedAttempt(assignmentId)));
     }
 
     @PostMapping("/assignments/{assignmentId}/reschedule-decision")
     public ResponseEntity<AssignmentResponse> reviewReschedule(@PathVariable UUID assignmentId, @Valid @RequestBody RescheduleDecisionRequest request) {
         DriverAssignment assignment = operationsService.reviewRescheduleRequest(assignmentId, request.decision(), request.note());
-        return ResponseEntity.ok(AssignmentResponse.from(assignment));
+        return ResponseEntity.ok(toResponse(assignment));
     }
 }

@@ -102,7 +102,7 @@ export const DriverAssignmentsPage = () => {
           <ul className="mt-2 space-y-2">
             {completedAssignments.map((assignment) => (
               <li key={assignment.id} className="rounded-2xl border border-load-100 bg-load-25 p-3 text-sm text-slate-600">
-                Stop #{assignment.stopIndex} · {assignment.stopType} #{assignment.orderId} — {assignment.customerName}
+                Stop #{assignment.stopIndex} · {assignment.stopType} #{assignment.orderNumber ?? assignment.orderId} — {assignment.customerName}
               </li>
             ))}
           </ul>
