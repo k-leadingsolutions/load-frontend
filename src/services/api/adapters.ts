@@ -126,8 +126,10 @@ export const driverAssignmentFromDto = (dto: AssignmentResponseDto): DriverAssig
 /**
  * Maps a backend `OrderResponse` into the Operations `ProductionOrder` board
  * model. The backend does not yet expose customer name/address enrichment to
- * Operations (order-scoped only) — those cosmetic fields use honest
- * placeholders derived from the real order id, never fabricated data.
+ * Operations (order-scoped only) — those cosmetic fields use an honest
+ * placeholder rather than fabricated data. Deliberately distinct from
+ * `orderNumber` (never repeats the same LD##### value the UI already shows
+ * as the order's heading) — see ProductionOrderCard/OperationsCollectionsPage.
  * `quantityReviewStatus`/`internalNotes` now come from the backend's own
  * persisted fields (see V2 migration), and invoice/payment/window visibility
  * is mirrored directly from the same order aggregate — Operations never needs
@@ -140,7 +142,7 @@ export const productionOrderFromDto = (dto: OrderResponseDto): ProductionOrder =
   itemsSummary: dto.services.map((service) => `${service.quantity} x ${service.serviceId} (${service.unitLabel})`),
   quantityReviewStatus: dto.quantityReviewStatus,
   receivedAtStore: dto.receivedAtStore,
-  customerName: dto.orderNumber,
+  customerName: 'Customer details available in the LOAD operations system',
   suburb: '',
   status: dto.status,
   stageLabel: ORDER_STATUS_MODEL[dto.status].label,

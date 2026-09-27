@@ -6,11 +6,23 @@ import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { apiOperationsService } from '@/services/api/operationsService'
 import type { ApiError } from '@/domain/api'
+import type { DriverAssignment } from '@/domain/models'
 
 const QUERY_KEYS = {
   orders: ['operations-orders'],
   assignments: ['operations-driver-assignments'],
 } as const
+
+/**
+ * `customerName` sometimes mirrors the same `orderNumber`/`orderId` already
+ * shown as the order label (the backend does not yet expose customer name
+ * enrichment to Operations/Driver assignments) — never repeat it as if it
+ * were distinct customer information.
+ */
+const assignmentCustomerSuffix = (assignment: DriverAssignment) => {
+  const orderLabel = assignment.orderNumber ?? assignment.orderId
+  return assignment.customerName && assignment.customerName !== orderLabel ? ` · ${assignment.customerName}` : ''
+}
 
 export const OperationsCollectionsPage = () => {
   const queryClient = useQueryClient()
@@ -95,7 +107,7 @@ export const OperationsCollectionsPage = () => {
                 {rescheduleRequests.map((assignment) => (
                   <li key={assignment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-load-100 p-4">
                     <div>
-                      <p className="text-sm font-semibold text-ink">Order #{assignment.orderNumber ?? assignment.orderId} · {assignment.customerName}</p>
+                      <p className="text-sm font-semibold text-ink">Order #{assignment.orderNumber ?? assignment.orderId}{assignmentCustomerSuffix(assignment)}</p>
                       <p className="mt-1 text-sm text-slate-500">
                         {assignment.rescheduleReason ?? 'No reason provided'}
                         {assignment.rescheduleNote ? ` — ${assignment.rescheduleNote}` : ''}
@@ -137,7 +149,7 @@ export const OperationsCollectionsPage = () => {
                   <li key={assignment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-load-100 p-4">
                     <div>
                       <p className="text-sm font-semibold text-ink">
-                        Order #{assignment.orderNumber ?? assignment.orderId} · {assignment.customerName} · {assignment.stopType === 'PICKUP' ? 'Collection' : 'Delivery'}
+                        Order #{assignment.orderNumber ?? assignment.orderId}{assignmentCustomerSuffix(assignment)} · {assignment.stopType === 'PICKUP' ? 'Collection' : 'Delivery'}
                       </p>
                       <p className="mt-1 text-sm text-slate-500">
                         {assignment.failureReason ?? 'No reason provided'}

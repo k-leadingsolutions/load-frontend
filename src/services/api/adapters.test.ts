@@ -76,4 +76,11 @@ describe('order number mapping (LD##### human-friendly identifiers)', () => {
     expect(productionOrder.orderNumber).toBe(ORDER_NUMBER)
     expect(productionOrder.customerName).not.toContain(UUID.slice(0, 8))
   })
+
+  it('productionOrderFromDto never reuses orderNumber as customerName, to avoid duplicating the same LD##### label on screen', () => {
+    const productionOrder = productionOrderFromDto(baseOrderDto)
+
+    expect(productionOrder.customerName).not.toBe(ORDER_NUMBER)
+    expect(productionOrder.customerName).not.toContain(ORDER_NUMBER)
+  })
 })
