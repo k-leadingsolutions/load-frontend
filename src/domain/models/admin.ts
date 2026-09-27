@@ -97,8 +97,15 @@ export interface ProductionOrder {
   weightKg?: number
   /** Free-text intake/inspection notes captured at physical receipt, most recent first. */
   intakeNotes?: string[]
-  /** Collection/delivery window labels, mirrored from the same backend order aggregate. */
+  /**
+   * Collection/delivery window date + time-range label, mirrored from the
+   * same backend order aggregate. `*WindowLabel` is a time-range only (e.g.
+   * "09:00 - 11:00") — `*WindowDate` (ISO `YYYY-MM-DD`) must be combined with
+   * it to show the actual booked date, not just the time.
+   */
+  pickupWindowDate?: string
   pickupWindowLabel?: string
+  deliveryWindowDate?: string
   deliveryWindowLabel?: string
   /**
    * Read-only invoice/payment visibility sourced from the same backend order

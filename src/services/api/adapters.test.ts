@@ -83,4 +83,12 @@ describe('order number mapping (LD##### human-friendly identifiers)', () => {
     expect(productionOrder.customerName).not.toBe(ORDER_NUMBER)
     expect(productionOrder.customerName).not.toContain(ORDER_NUMBER)
   })
+
+  it('productionOrderFromDto carries the pickup/delivery window dates alongside their time-range labels', () => {
+    const productionOrder = productionOrderFromDto(baseOrderDto)
+
+    expect(productionOrder.pickupWindowDate).toBe(baseOrderDto.pickupWindowDate)
+    expect(productionOrder.pickupWindowLabel).toBe(baseOrderDto.pickupWindowLabel)
+    expect(productionOrder.deliveryWindowDate).toBeUndefined()
+  })
 })

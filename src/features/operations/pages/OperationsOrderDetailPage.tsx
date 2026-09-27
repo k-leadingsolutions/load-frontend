@@ -4,6 +4,7 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { apiOperationsService } from '@/services/api/operationsService'
+import { formatWindowDateAndTime } from '@/utils/format'
 
 export const OperationsOrderDetailPage = () => {
   const { orderId = '' } = useParams<{ orderId: string }>()
@@ -47,7 +48,7 @@ export const OperationsOrderDetailPage = () => {
   return (
     <div className="space-y-6">
       <SectionCard
-        title={`Order #${productionOrder.id}`}
+        title={`Order #${productionOrder.orderNumber ?? productionOrder.id}`}
         description={`${productionOrder.customerName} · ${productionOrder.suburb}`}
       >
         <div className="grid gap-4 sm:grid-cols-2">
@@ -76,13 +77,17 @@ export const OperationsOrderDetailPage = () => {
             {productionOrder.pickupWindowLabel ? (
               <div>
                 <p className="text-caption text-muted">Collection window</p>
-                <p className="text-body text-ink">{productionOrder.pickupWindowLabel}</p>
+                <p className="text-body text-ink">
+                  {formatWindowDateAndTime(productionOrder.pickupWindowDate, productionOrder.pickupWindowLabel)}
+                </p>
               </div>
             ) : null}
             {productionOrder.deliveryWindowLabel ? (
               <div>
                 <p className="text-caption text-muted">Delivery window</p>
-                <p className="text-body text-ink">{productionOrder.deliveryWindowLabel}</p>
+                <p className="text-body text-ink">
+                  {formatWindowDateAndTime(productionOrder.deliveryWindowDate, productionOrder.deliveryWindowLabel)}
+                </p>
               </div>
             ) : null}
           </div>

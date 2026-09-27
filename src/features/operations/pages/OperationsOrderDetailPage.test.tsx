@@ -9,7 +9,9 @@ vi.mock('@/services/api/operationsService', async () => {
   return { apiOperationsService: mockOperationsService }
 })
 import { OperationsOrderDetailPage } from '@/features/operations/pages/OperationsOrderDetailPage'
-import { __resetMockPosScenarios, __setMockPosScenario } from '@/services/mock'
+import { __resetMockPosScenarios, __setMockPosScenario, mockOperationsService } from '@/services/mock'
+import { successResponse } from '@/services/api/envelope'
+import type { ProductionOrder } from '@/domain/models'
 
 const renderPage = (orderId: string) =>
   render(
@@ -80,5 +82,56 @@ describe('OperationsOrderDetailPage', () => {
     renderPage('LD-UNKNOWN')
 
     expect(await screen.findByText('Order not found')).toBeInTheDocument()
+  })
+
+  it('shows the human-friendly orderNumber in the heading, never the raw UUID id, and preserves the UUID for routing', async () => {
+    const uuid = '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
+    const realApiOrder: ProductionOrder = {
+      id: uuid,
+      orderNumber: 'LD10482',
+      customerName: 'Customer details available in the LOAD operations system',
+      suburb: '',
+      status: 'BOOKING_RECEIVED',
+      stageLabel: 'Booking received',
+      qualityCheckPending: false,
+      internalNotes: [],
+      itemsSummary: [],
+      quantityReviewStatus: 'PENDING',
+      receivedAtStore: false,
+      fulfilmentType: 'DELIVERY',
+    }
+    vi.spyOn(mockOperationsService, 'getProductionOrder').mockResolvedValueOnce(successResponse(realApiOrder))
+
+    renderPage(uuid)
+
+    expect(await screen.findByText('Order #LD10482')).toBeInTheDocument()
+    expect(screen.queryByText(`Order #${uuid}`)).not.toBeInTheDocument()
+  })
+
+  it('shows the actual date combined with the stored time-range label for collection/delivery windows', async () => {
+    const realApiOrder: ProductionOrder = {
+      id: 'order-uuid-1',
+      orderNumber: 'LD10490',
+      customerName: 'Customer details available in the LOAD operations system',
+      suburb: '',
+      status: 'BOOKING_RECEIVED',
+      stageLabel: 'Booking received',
+      qualityCheckPending: false,
+      internalNotes: [],
+      itemsSummary: [],
+      quantityReviewStatus: 'PENDING',
+      receivedAtStore: false,
+      fulfilmentType: 'DELIVERY',
+      pickupWindowDate: '2026-08-08',
+      pickupWindowLabel: '09:00 - 11:00',
+      deliveryWindowDate: '2026-08-08',
+      deliveryWindowLabel: '14:00 - 16:00',
+    }
+    vi.spyOn(mockOperationsService, 'getProductionOrder').mockResolvedValueOnce(successResponse(realApiOrder))
+
+    renderPage('order-uuid-1')
+
+    expect(await screen.findByText(/Aug 2026 · 09:00 - 11:00/)).toBeInTheDocument()
+    expect(screen.getByText(/Aug 2026 · 14:00 - 16:00/)).toBeInTheDocument()
   })
 })
