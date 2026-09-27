@@ -1,7 +1,7 @@
-import { productionOrderFromDto, driverAssignmentFromDto } from '@/services/api/adapters'
+import { productionOrderFromDto, driverAssignmentFromDto, driverSummaryFromDto } from '@/services/api/adapters'
 import { errorResponse, successResponse } from '@/services/api/envelope'
 import { ApiRequestError, apiRequest } from '@/services/api/httpClient'
-import type { AssignmentResponseDto, DashboardMetricResponseDto, OrderResponseDto } from '@/services/api/types'
+import type { AssignmentResponseDto, DashboardMetricResponseDto, DriverSummaryResponseDto, OrderResponseDto } from '@/services/api/types'
 import type {
   DriverAssignmentResponse,
   DriverAssignmentsResponse,
@@ -159,6 +159,18 @@ export const apiOperationsService: OperationsService = {
       return errorResponse({
         code: error instanceof ApiRequestError ? String(error.status) : 'UNKNOWN',
         message: error instanceof Error ? error.message : 'Unable to load assignments.',
+      })
+    }
+  },
+
+  listAvailableDrivers: async () => {
+    try {
+      const dtos = await apiRequest<DriverSummaryResponseDto[]>('/api/operations/drivers', { realm: 'operations' })
+      return successResponse(dtos.map(driverSummaryFromDto))
+    } catch (error) {
+      return errorResponse({
+        code: error instanceof ApiRequestError ? String(error.status) : 'UNKNOWN',
+        message: error instanceof Error ? error.message : 'Unable to load drivers.',
       })
     }
   },

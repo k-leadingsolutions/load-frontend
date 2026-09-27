@@ -18,6 +18,12 @@ export interface DeliveryZone {
   name: string
 }
 
+/** A real, registered Driver Operations may assign to a stop. Never hardcoded/demo data. */
+export interface DriverSummary {
+  id: string
+  name: string
+}
+
 export interface DriverAssignment {
   id: string
   /** 1-based sequence within the driver's ordered stop list for the day. */

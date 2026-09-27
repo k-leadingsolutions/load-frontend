@@ -1,4 +1,5 @@
 import type {
+  AvailableDriversResponse,
   DashboardMetricsResponse,
   DriverAssignmentResponse,
   ProductionOrderResponse,
@@ -140,6 +141,8 @@ export interface OperationsService {
   addInternalNote(orderId: string, note: string): Promise<ProductionOrderResponse>
   advanceProductionStage(orderId: string): Promise<ProductionOrderResponse>
   getMetrics(): Promise<DashboardMetricsResponse>
+  /** Real, registered Driver accounts Operations may assign to a stop — never a hardcoded/demo list. */
+  listAvailableDrivers(): Promise<AvailableDriversResponse>
   assignDriver(orderId: string, driverId: string): Promise<ProductionOrderResponse>
   /** Read-only visibility into ordered Driver stops for Operations coordination (reschedule review, failed-attempt handling). */
   listDriverAssignments(): Promise<DriverAssignmentsResponse>

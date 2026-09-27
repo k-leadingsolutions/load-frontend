@@ -1,10 +1,26 @@
-import type { Address, DriverAssignment, LaundryOrder, ProductionOrder, VerificationMethod, VerificationStatus } from '@/domain/models'
+import type {
+  Address,
+  DriverAssignment,
+  DriverSummary,
+  LaundryOrder,
+  ProductionOrder,
+  VerificationMethod,
+  VerificationStatus,
+} from '@/domain/models'
 import { getFriendlyOrderStatus, ORDER_STATUS_MODEL } from '@/domain/orderStatus'
 import type {
   AddressResponseDto,
   AssignmentResponseDto,
+  DriverSummaryResponseDto,
   OrderResponseDto,
 } from '@/services/api/types'
+
+/**
+ * Fixed placeholder used wherever the backend does not yet expose customer
+ * name enrichment to Operations. Exported so pages can detect and omit it
+ * rather than rendering it as if it were real customer data.
+ */
+export const OPERATIONS_CUSTOMER_NAME_PLACEHOLDER = 'Customer details available in the LOAD operations system'
 
 export const addressFromDto = (dto: AddressResponseDto, isDefault: boolean): Address => ({
   id: dto.id,
@@ -142,7 +158,7 @@ export const productionOrderFromDto = (dto: OrderResponseDto): ProductionOrder =
   itemsSummary: dto.services.map((service) => `${service.quantity} x ${service.serviceId} (${service.unitLabel})`),
   quantityReviewStatus: dto.quantityReviewStatus,
   receivedAtStore: dto.receivedAtStore,
-  customerName: 'Customer details available in the LOAD operations system',
+  customerName: OPERATIONS_CUSTOMER_NAME_PLACEHOLDER,
   suburb: '',
   status: dto.status,
   stageLabel: ORDER_STATUS_MODEL[dto.status].label,
@@ -160,4 +176,10 @@ export const productionOrderFromDto = (dto: OrderResponseDto): ProductionOrder =
   ...(dto.invoiceStatus === 'READY' && dto.finalInvoiceTotal !== null
     ? { finalInvoiceTotal: dto.finalInvoiceTotal }
     : {}),
+})
+
+/** Maps a backend `DriverSummaryResponse` into the Operations driver-picker model. */
+export const driverSummaryFromDto = (dto: DriverSummaryResponseDto): DriverSummary => ({
+  id: dto.id,
+  name: dto.name,
 })

@@ -4,6 +4,7 @@ import type {
   DashboardMetric,
   DriverAssignment,
   DriverProfile,
+  DriverSummary,
   FulfilmentType,
   LaundryOrder,
   PricingQuote,
@@ -75,3 +76,5 @@ export type DriverAssignmentsResponse = ApiResponse<DriverAssignment[]>
 export type DriverAssignmentResponse = ApiResponse<DriverAssignment>
 export type DriverProfileResponse = ApiResponse<DriverProfile>
 export type DashboardMetricsResponse = ApiResponse<DashboardMetric[]>
+/** Real, registered Driver accounts Operations may assign to a stop — never a hardcoded/demo list. */
+export type AvailableDriversResponse = ApiResponse<DriverSummary[]>

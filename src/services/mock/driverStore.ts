@@ -40,6 +40,18 @@ const writeAssignments = (assignments: DriverAssignment[]) => {
 
 export const listStoredDriverAssignments = () => readAssignments()
 
+/**
+ * Persists a newly-created Driver stop assignment (e.g. Operations assigning
+ * a real Driver to an order's PICKUP stop). Mirrors the backend, which
+ * always creates a new `DriverAssignment` row rather than mutating an
+ * existing one.
+ */
+export const addStoredDriverAssignment = (assignment: DriverAssignment) => {
+  const assignments = readAssignments()
+  writeAssignments([...assignments, assignment])
+  return assignment
+}
+
 export const updateStoredDriverAssignment = (
   assignmentId: string,
   updater: (assignment: DriverAssignment) => DriverAssignment,

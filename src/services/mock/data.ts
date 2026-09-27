@@ -263,6 +263,8 @@ export const mockProductionOrders: ProductionOrder[] = [
     receivedAtStore: true,
     fulfilmentType: 'DELIVERY',
     weightKg: 6.2,
+    invoiceStatus: 'READY',
+    paymentStatus: 'CONFIRMED',
   },
   {
     id: 'LD10242',
@@ -276,6 +278,8 @@ export const mockProductionOrders: ProductionOrder[] = [
     quantityReviewStatus: 'CONFIRMED',
     receivedAtStore: true,
     fulfilmentType: 'STORE_COLLECTION',
+    invoiceStatus: 'READY',
+    paymentStatus: 'NOT_REQUIRED',
   },
   {
     id: 'LD10243',
@@ -290,6 +294,8 @@ export const mockProductionOrders: ProductionOrder[] = [
     receivedAtStore: true,
     fulfilmentType: 'DELIVERY',
     weightKg: 8.1,
+    invoiceStatus: 'READY',
+    paymentStatus: 'PENDING',
   },
 ]
 

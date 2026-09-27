@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.load.backend.driver.StopType;
 import com.load.backend.driver.dto.AssignmentResponse;
 import com.load.backend.operations.dto.DashboardMetricResponse;
+import com.load.backend.operations.dto.DriverSummaryResponse;
 import com.load.backend.operations.dto.InternalNoteRequest;
 import com.load.backend.operations.dto.QualityCheckRequest;
 import com.load.backend.operations.dto.QuantityReviewRequest;
@@ -201,6 +202,41 @@ class OperationsFlowTest extends AbstractIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).anyMatch(assignment -> assignment.orderId().equals(order.id()) && assignment.driverId().equals(driver.driverId()));
+    }
+
+    @Test
+    void availableDriversListsRealRegisteredDriversOnly() {
+        TestUserFactory.ProvisionedDriver driver = testUserFactory.createDriver("available-driver@example.com");
+        TestUserFactory.ProvisionedUser ops = testUserFactory.createOperationsUser("available-drivers-ops@example.com");
+
+        ResponseEntity<List<DriverSummaryResponse>> response = restTemplate.exchange(
+            url("/api/operations/drivers"), HttpMethod.GET, HttpTestUtil.authed(ops.token()),
+            new ParameterizedTypeReference<List<DriverSummaryResponse>>() { });
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).anyMatch(summary -> summary.id().equals(driver.driverId()) && summary.name() != null);
+    }
+
+    @Test
+    void assigningDriverToPickupStopMovesUnassignedDeliveryOrderToDriverAssigned() {
+        TestUserFactory.ProvisionedCustomer customer = testUserFactory.createCustomer("pickup-assign-customer@example.com");
+        TestUserFactory.ProvisionedDriver driver = testUserFactory.createDriver("pickup-assign-driver@example.com");
+        TestUserFactory.ProvisionedUser ops = testUserFactory.createOperationsUser("pickup-assign-ops@example.com");
+        String baseUrl = "http://localhost:" + port;
+
+        OrderResponse order = FlowTestSupport.createOrder(restTemplate, baseUrl, customer.token(), customer.addressId(), customer.addressId(), FulfilmentType.DELIVERY);
+        assertThat(order.status()).isEqualTo(OrderStatus.BOOKING_RECEIVED);
+
+        ResponseEntity<AssignmentResponse> assignResponse = FlowTestSupport.assignDriver(
+            restTemplate, baseUrl, ops.token(), order.id(), driver.driverId(), StopType.PICKUP);
+
+        assertThat(assignResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(assignResponse.getBody().driverId()).isEqualTo(driver.driverId());
+        assertThat(assignResponse.getBody().stopType()).isEqualTo(StopType.PICKUP);
+
+        ResponseEntity<OrderResponse> latest = restTemplate.exchange(
+            url("/api/operations/orders/" + order.id()), HttpMethod.GET, HttpTestUtil.authed(ops.token()), OrderResponse.class);
+        assertThat(latest.getBody().status()).isEqualTo(OrderStatus.DRIVER_ASSIGNED);
     }
 
     private OrderResponse advanceToQualityCheck(String opsToken, java.util.UUID orderId) {

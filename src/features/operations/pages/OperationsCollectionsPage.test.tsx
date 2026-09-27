@@ -46,16 +46,14 @@ describe('OperationsCollectionsPage', () => {
   })
 
   it('blocks dispatch for an unpaid DELIVERY order and surfaces an error', async () => {
-    const user = userEvent.setup()
     renderPage()
 
-    const listItem = (await screen.findByText(/#LD10243/)).closest('li')
-    expect(listItem).not.toBeNull()
-    const dispatchButton = within(listItem!).getByRole('button', { name: /dispatch for delivery/i })
-    await user.click(dispatchButton)
-
-    expect(await screen.findByText(/action could not be completed/i)).toBeInTheDocument()
-    expect(screen.getByText(/#LD10243/)).toBeInTheDocument()
+    await screen.findByText('Ready for dispatch (Driver delivery)')
+    // LD10243 is READY_FOR_DISPATCH but payment is still PENDING — genuinely
+    // dispatch-ineligible orders must never appear as if Operations could
+    // dispatch them (invoice/payment gates are preserved, not just enforced
+    // after a failed click).
+    expect(screen.queryByText(/#LD10243/)).not.toBeInTheDocument()
   })
 
   it('marks a STORE_COLLECTION order as collected without any Driver delivery assignment', async () => {
@@ -104,5 +102,68 @@ describe('OperationsCollectionsPage', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument()
     })
+  })
+
+  it('shows an eligible unassigned DELIVERY booking under Awaiting pickup assignment', async () => {
+    renderPage()
+
+    // LD10231 is BOOKING_RECEIVED + DELIVERY with no PICKUP assignment yet.
+    const listItem = (await screen.findByText(/#LD10231/)).closest('li')
+    expect(listItem).not.toBeNull()
+    expect(within(listItem!).getByRole('button', { name: /assign driver/i })).toBeInTheDocument()
+    expect(within(listItem!).getByRole('combobox')).toBeInTheDocument()
+  })
+
+  it('does not offer pickup assignment for orders that already have one, or for non-DELIVERY/non-early orders', async () => {
+    renderPage()
+
+    await screen.findByText('Awaiting pickup assignment')
+    // LD10235/LD10233/LD10241/LD10242/LD10243 are all either already past the
+    // pre-assignment stage or STORE_COLLECTION — none belong here.
+    const section = (await screen.findByText('Awaiting pickup assignment')).closest('section')
+    expect(section).not.toBeNull()
+    expect(within(section!).queryByText(/#LD10235/)).not.toBeInTheDocument()
+    expect(within(section!).queryByText(/#LD10242/)).not.toBeInTheDocument()
+  })
+
+  it('assigns a real Driver to the PICKUP stop and reflects it under Scheduled collections & deliveries', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const listItem = (await screen.findByText(/#LD10231/)).closest('li')
+    expect(listItem).not.toBeNull()
+    const select = within(listItem!).getByRole('combobox')
+    await user.selectOptions(select, 'driver-01')
+    const assignButton = within(listItem!).getByRole('button', { name: /assign driver/i })
+    await user.click(assignButton)
+
+    await waitFor(() => {
+      const scheduledSection = screen.getByText('Scheduled collections & deliveries').closest('section')
+      expect(within(scheduledSection!).queryAllByText(/#LD10231/).length).toBeGreaterThan(0)
+    })
+
+    const awaitingSection = screen.getByText('Awaiting pickup assignment').closest('section')
+    expect(awaitingSection).not.toBeNull()
+    expect(within(awaitingSection!).queryByText(/#LD10231/)).not.toBeInTheDocument()
+
+    const scheduledSection = screen.getByText('Scheduled collections & deliveries').closest('section')
+    expect(scheduledSection).not.toBeNull()
+    const scheduledEntry = within(scheduledSection!).getByText(/#LD10231/)
+    expect(scheduledEntry.textContent).toContain('Pickup')
+    expect(scheduledEntry.textContent).toContain('Sipho Khumalo')
+  })
+
+  it('shows orderNumber, stop type, Driver and stop status for an already-scheduled stop', async () => {
+    renderPage()
+
+    const scheduledSection = await screen.findByText('Scheduled collections & deliveries')
+    const section = scheduledSection.closest('section')
+    expect(section).not.toBeNull()
+    const entry = within(section!).getByText(/#LD10236/)
+    expect(entry.textContent).toContain('Pickup')
+    expect(entry.textContent).toContain('Sipho Khumalo')
+    const entryRow = entry.closest('li')
+    expect(entryRow).not.toBeNull()
+    expect(within(entryRow!).getByText('ASSIGNED')).toBeInTheDocument()
   })
 })

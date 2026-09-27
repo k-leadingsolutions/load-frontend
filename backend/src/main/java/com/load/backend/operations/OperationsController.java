@@ -4,6 +4,7 @@ import com.load.backend.driver.DriverAssignment;
 import com.load.backend.driver.dto.AssignmentResponse;
 import com.load.backend.operations.dto.AssignDriverRequest;
 import com.load.backend.operations.dto.DashboardMetricResponse;
+import com.load.backend.operations.dto.DriverSummaryResponse;
 import com.load.backend.operations.dto.InternalNoteRequest;
 import com.load.backend.operations.dto.QualityCheckRequest;
 import com.load.backend.operations.dto.QuantityReviewRequest;
@@ -99,6 +100,11 @@ public class OperationsController {
     @PostMapping("/orders/{orderId}/advance-production")
     public ResponseEntity<OrderResponse> advanceProductionStage(@PathVariable UUID orderId) {
         return ResponseEntity.ok(OrderResponse.from(operationsService.advanceProductionStage(orderId)));
+    }
+
+    @GetMapping("/drivers")
+    public ResponseEntity<List<DriverSummaryResponse>> listAvailableDrivers() {
+        return ResponseEntity.ok(operationsService.listAvailableDrivers());
     }
 
     @PostMapping("/orders/{orderId}/assign-driver")

@@ -16,6 +16,7 @@ import {
 } from '@/services/mock/data'
 import { getStoredOrder, listStoredOrders, prependStoredOrder } from '@/services/mock/orderStore'
 import {
+  addStoredDriverAssignment,
   listStoredDriverAssignments,
   updateStoredDriverAssignment,
 } from '@/services/mock/driverStore'
@@ -517,17 +518,45 @@ export const mockOperationsService: OperationsService = {
     const assignments = [...listStoredDriverAssignments()].sort((a, b) => a.stopIndex - b.stopIndex)
     return successResponse(assignments, 320)
   },
+  async listAvailableDrivers() {
+    return successResponse([{ id: mockDriverProfile.driverId, name: mockDriverProfile.name }], 220)
+  },
   async assignDriver(orderId: string, driverId: string) {
     const existing = listStoredProductionOrders().find((item) => item.id === orderId)
     if (!existing) {
       return errorResponse({ code: 'ORDER_NOT_FOUND', message: 'Production order could not be located.' }, 400)
     }
 
-    const driverName = listStoredDriverAssignments().find((assignment) => assignment.driverId === driverId)?.driverName
-      ?? mockDriverProfile.name
+    const driverName = driverId === mockDriverProfile.driverId
+      ? mockDriverProfile.name
+      : listStoredDriverAssignments().find((assignment) => assignment.driverId === driverId)?.driverName
+        ?? mockDriverProfile.name
+
+    // Mirrors the backend: always creates a new Driver stop record — never
+    // mutates an existing one — for the order's PICKUP leg.
+    const driverStopCount = listStoredDriverAssignments().filter((assignment) => assignment.driverId === driverId).length
+    addStoredDriverAssignment({
+      id: `assign-${orderId}-pickup-${Date.now()}`,
+      stopIndex: driverStopCount + 1,
+      driverId,
+      driverName,
+      area: existing.suburb || 'Assigned area',
+      customerName: existing.orderNumber ?? existing.id,
+      addressLine: 'Address details available in the LOAD operations system',
+      orderId,
+      ...(existing.orderNumber ? { orderNumber: existing.orderNumber } : {}),
+      scheduledWindow: existing.pickupWindowLabel ?? '',
+      stopStatus: 'ASSIGNED',
+      stopType: 'PICKUP',
+    })
 
     const order = updateStoredProductionOrder(orderId, (current) => ({
       ...current,
+      // Only advances status from the two pre-assignment stages — never
+      // overrides a status the order has already progressed past.
+      ...(current.status === 'BOOKING_RECEIVED' || current.status === 'PICKUP_SCHEDULED'
+        ? { status: 'DRIVER_ASSIGNED', stageLabel: ORDER_STATUS_MODEL.DRIVER_ASSIGNED.label }
+        : {}),
       assignedDriverId: driverId,
       assignedDriverName: driverName,
     }))

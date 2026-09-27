@@ -155,3 +155,10 @@ export interface DashboardMetricResponseDto {
   value: string
   changeLabel: string
 }
+
+/** A real, registered Driver Operations may assign to a stop. Never hardcoded/demo data. */
+export interface DriverSummaryResponseDto {
+  id: string
+  name: string
+}
+

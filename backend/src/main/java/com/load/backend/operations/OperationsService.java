@@ -10,6 +10,7 @@ import com.load.backend.driver.StopStatus;
 import com.load.backend.driver.StopType;
 import com.load.backend.invoice.InvoiceService;
 import com.load.backend.operations.dto.DashboardMetricResponse;
+import com.load.backend.operations.dto.DriverSummaryResponse;
 import com.load.backend.order.FulfilmentType;
 import com.load.backend.order.Order;
 import com.load.backend.order.OrderRepository;
@@ -111,6 +112,19 @@ public class OperationsService {
         }
         order.setStatus(transitionPolicy.nextStage(order.getStatus()));
         return orderRepository.save(order);
+    }
+
+    /**
+     * Real, registered Driver accounts Operations may assign to a stop —
+     * never a hardcoded/demo list. Sorted by name for a stable, predictable
+     * picker order.
+     */
+    @Transactional(readOnly = true)
+    public List<DriverSummaryResponse> listAvailableDrivers() {
+        return driverRepository.findAll().stream()
+            .map(DriverSummaryResponse::from)
+            .sorted(Comparator.comparing(DriverSummaryResponse::name))
+            .toList();
     }
 
     @Transactional
