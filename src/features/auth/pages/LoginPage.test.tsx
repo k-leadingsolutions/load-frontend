@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/app/providers/AuthProvider'
@@ -26,13 +26,32 @@ describe('LoginPage branding', () => {
 })
 
 describe('LoginPage social SSO', () => {
-  it('does not render any non-functional social sign-in controls', () => {
+  it('renders Apple, Google and Facebook sign-in controls with the "or continue with" divider', () => {
     renderLoginPage()
 
-    expect(screen.queryByText(/or continue with/i)).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /continue with apple/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /continue with google/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /continue with facebook/i })).not.toBeInTheDocument()
+    expect(screen.getByText(/or continue with/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /continue with apple/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /continue with facebook/i })).toBeInTheDocument()
+  })
+
+  it('keeps social sign-in controls safely non-authenticating (disabled, no mock alert) until real provider integration is configured', () => {
+    const alertSpy = vi.spyOn(window, 'alert')
+    renderLoginPage()
+
+    const appleButton = screen.getByRole('button', { name: /continue with apple/i })
+    const googleButton = screen.getByRole('button', { name: /continue with google/i })
+    const facebookButton = screen.getByRole('button', { name: /continue with facebook/i })
+
+    expect(appleButton).toBeDisabled()
+    expect(googleButton).toBeDisabled()
+    expect(facebookButton).toBeDisabled()
+
+    fireEvent.click(appleButton)
+    fireEvent.click(googleButton)
+    fireEvent.click(facebookButton)
+
+    expect(alertSpy).not.toHaveBeenCalled()
   })
 
   it('keeps email/mobile sign-in fully functional', () => {
