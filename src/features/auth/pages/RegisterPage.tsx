@@ -49,7 +49,7 @@ export const RegisterPage = () => {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <span className="text-4xl font-light tracking-tight text-load-600">load</span>
-          <p className="mt-1 text-xs uppercase tracking-widest text-muted">Laundry · Coffee · More</p>
+          <p className="mt-1 text-xs uppercase tracking-widest text-muted">LAUNDRY • COFFEE • DONE BEAUTIFULLY</p>
         </div>
 
         <div className="rounded-panel border border-card-border bg-white p-8 shadow-panel">
