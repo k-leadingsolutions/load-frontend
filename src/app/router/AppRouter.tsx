@@ -7,6 +7,8 @@ import { RequireOperationsRole } from '@/app/router/RequireOperationsRole'
 import { PublicLayout } from '@/app/layouts/PublicLayout'
 import { RoleLayout } from '@/app/layouts/RoleLayout'
 import { appPaths } from '@/app/router/paths'
+import { useAuth } from '@/app/providers/useAuth'
+import { useOperationsAuth } from '@/app/providers/useOperationsAuth'
 import { AdminOverviewPage } from '@/features/admin/pages/AdminOverviewPage'
 import { BiometricLoginPage } from '@/features/auth/pages/BiometricLoginPage'
 import { ForgotPasswordPage } from '@/features/auth/pages/ForgotPasswordPage'
@@ -53,7 +55,11 @@ import { NotFoundPage } from '@/features/shared/pages/NotFoundPage'
 import { RoadmapPlaceholderPage } from '@/features/shared/pages/RoadmapPlaceholderPage'
 import { UnauthorizedPage } from '@/features/shared/pages/UnauthorizedPage'
 
-export const AppRouter = () => (
+export const AppRouter = () => {
+  const { logout: logoutCustomerOrAdmin } = useAuth()
+  const { logout: logoutOperations } = useOperationsAuth()
+
+  return (
   <BrowserRouter>
     <Routes>
       <Route element={<PublicLayout />}>
@@ -113,6 +119,7 @@ export const AppRouter = () => (
                 roleLabel="Operations"
                 title="Operations command centre"
                 summary="Production receives and moves orders through every MVP laundry stage with quality-control visibility."
+                onSignOut={logoutOperations}
                 primaryLinks={[
                   { to: appPaths.operationsDashboard, label: 'Dashboard' },
                   { to: appPaths.operationsOrders, label: 'Orders' },
@@ -179,6 +186,7 @@ export const AppRouter = () => (
                 roleLabel="Admin"
                 title="Admin control tower (future scope)"
                 summary="Admin remains available but is intentionally deprioritised for current MVP delivery."
+                onSignOut={logoutCustomerOrAdmin}
                 primaryLinks={[
                   { to: appPaths.adminOverview, label: 'Overview' },
                 ]}
@@ -194,4 +202,5 @@ export const AppRouter = () => (
       </Route>
     </Routes>
   </BrowserRouter>
-)
+  )
+}

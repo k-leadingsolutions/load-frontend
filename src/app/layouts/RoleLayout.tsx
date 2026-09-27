@@ -22,6 +22,13 @@ interface RoleLayoutProps {
   greetingMode?: boolean
   /** Safe route to offer if a routed page crashes. Defaults to the first mobile nav link, or app home. */
   errorSafeRoute?: string
+  /**
+   * When provided, renders a "Sign out" action in the standard role card
+   * header that calls this handler (the role's own session-clearing logout).
+   * Omitted for roles that don't yet need it here (e.g. Customer uses its
+   * own greeting-mode header in PublicLayout; Driver is unchanged).
+   */
+  onSignOut?: () => void
 }
 
 export const RoleLayout = ({
@@ -32,6 +39,7 @@ export const RoleLayout = ({
   mobileNavLinks = [],
   greetingMode = false,
   errorSafeRoute,
+  onSignOut,
 }: RoleLayoutProps) => {
   const location = useLocation()
   const safeRoute = errorSafeRoute ?? mobileNavLinks[0]?.to ?? '/'
@@ -50,9 +58,22 @@ export const RoleLayout = ({
       ) : (
         /* ── Standard role card with nav pills (Driver, Operations, Admin) ── */
         <section className="rounded-[2rem] bg-gradient-to-r from-load-600 to-load-800 p-6 text-white shadow-glow">
-          <p className="text-xs font-semibold uppercase tracking-widest text-white/60">{roleLabel}</p>
-          {title ? <h1 className="mt-4 text-3xl font-semibold">{title}</h1> : null}
-          {summary ? <p className="mt-2 max-w-3xl text-sm text-white/80">{summary}</p> : null}
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-white/60">{roleLabel}</p>
+              {title ? <h1 className="mt-4 text-3xl font-semibold">{title}</h1> : null}
+              {summary ? <p className="mt-2 max-w-3xl text-sm text-white/80">{summary}</p> : null}
+            </div>
+            {onSignOut ? (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+              >
+                Sign out
+              </button>
+            ) : null}
+          </div>
           {primaryLinks.length > 0 ? (
             <nav aria-label={`${roleLabel} quick links`} className="mt-5 flex flex-wrap gap-2">
               {primaryLinks.map((item) => (
