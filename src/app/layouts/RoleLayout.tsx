@@ -44,8 +44,14 @@ export const RoleLayout = ({
   const location = useLocation()
   const safeRoute = errorSafeRoute ?? mobileNavLinks[0]?.to ?? '/'
 
+  const hasMobileNav = mobileNavLinks.length > 0
+
   return (
-    <div className="space-y-6 pb-24">
+    <div
+      className={`space-y-6 ${
+        hasMobileNav ? 'pb-[calc(6.5rem+env(safe-area-inset-bottom))]' : ''
+      }`}
+    >
       {greetingMode ? (
         /* ── Customer greeting card — no nav pills, just brand identity ── */
         <section
