@@ -1,4 +1,5 @@
 import type { PricingQuote } from '@/domain/models'
+import { buildCustomerEstimatePresentation } from '@/domain/estimatePresentation'
 import { formatCurrency, formatPoints } from '@/utils/format'
 
 interface BookingSummaryCardProps {
@@ -12,13 +13,14 @@ export const BookingSummaryCard = ({ canSubmit, isSubmitting, onSubmit, quote }:
   const deliveryProgress = quote
     ? Math.min(100, (quote.subtotal / quote.freeDeliveryThreshold) * 100)
     : 0
+  const estimate = buildCustomerEstimatePresentation(quote)
 
   return (
     <aside className="space-y-4 rounded-panel border border-load-100 bg-white p-5 shadow-panel">
       <div>
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-load-600">Estimate</p>
         <h2 className="mt-2 text-2xl font-semibold text-ink">
-          {quote ? formatCurrency(quote.estimatedTotal) : 'Select services'}
+          {estimate.headline}
         </h2>
         <p className="mt-2 text-sm text-slate-500">
           Real-time pricing uses basket, item, add-on, promotion, delivery, and loyalty rules.

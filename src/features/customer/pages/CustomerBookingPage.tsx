@@ -17,6 +17,8 @@ import { useCustomerOrderDraft } from '@/features/customer/booking/CustomerOrder
 import type { LaundryOrder } from '@/domain/models'
 import type { FulfilmentType } from '@/domain/models/booking'
 import { MAX_RECENT_ADDRESSES, sortAddressesByRecency } from '@/domain/address'
+import { buildCustomerEstimatePresentation } from '@/domain/estimatePresentation'
+import type { CustomerEstimatePresentation } from '@/domain/estimatePresentation'
 import { appPaths } from '@/app/router/paths'
 import { mockCatalogueService } from '@/services/mock'
 import { apiCustomerOrderService } from '@/services/api/customerOrderService'
@@ -50,6 +52,11 @@ export const CustomerBookingPage = () => {
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
   const [placedOrder, setPlacedOrder] = useState<LaundryOrder | null>(null)
+  // Snapshot of the estimate presentation at the moment of booking — the
+  // confirmation screen must show the exact same headline the Customer saw
+  // on Review, regardless of what the (Customer-scoped) order projection
+  // returned by the backend can express as a bare scalar.
+  const [confirmedEstimate, setConfirmedEstimate] = useState<CustomerEstimatePresentation | null>(null)
   const [pickupDateInput, setPickupDateInput] = useState<string>(() => extractDatePart(draft.pickupWindow))
   const [deliveryDateInput, setDeliveryDateInput] = useState<string>(() => extractDatePart(draft.deliveryWindow))
   const [showAllPickupAddresses, setShowAllPickupAddresses] = useState(false)
@@ -87,6 +94,11 @@ export const CustomerBookingPage = () => {
     },
     enabled: Boolean(quoteRequest),
   })
+
+  const reviewEstimate = useMemo(
+    () => buildCustomerEstimatePresentation(quoteQuery.data ?? null),
+    [quoteQuery.data],
+  )
 
   const placeOrderMutation = useMutation({
     mutationFn: async () => {
@@ -216,7 +228,9 @@ export const CustomerBookingPage = () => {
   const confirmOrder = async () => {
     try {
       setToast(null)
+      const estimateAtBooking = buildCustomerEstimatePresentation(quoteQuery.data ?? null)
       const order = await placeOrderMutation.mutateAsync()
+      setConfirmedEstimate(estimateAtBooking)
       setPlacedOrder(order)
       resetDraft()
     } catch (error) {
@@ -259,7 +273,7 @@ export const CustomerBookingPage = () => {
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted">Estimated amount</span>
                 <span className="font-semibold text-load-700">
-                  {formatCurrency(placedOrder.estimatedTotal)}
+                  {confirmedEstimate?.headline ?? formatCurrency(placedOrder.estimatedTotal)}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3">
@@ -699,7 +713,7 @@ export const CustomerBookingPage = () => {
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-slate-500">Estimated pricing</span>
                     <span className="text-xl font-semibold text-ink">
-                      {formatCurrency(quoteQuery.data?.estimatedTotal ?? 0)}
+                      {reviewEstimate.headline}
                     </span>
                   </div>
                   {(quoteQuery.data?.weightBasedItems?.length ?? 0) > 0 ? (
@@ -756,7 +770,7 @@ export const CustomerBookingPage = () => {
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-load-600">Estimated pricing</p>
               <h2 className="mt-2 text-2xl font-semibold text-ink">
-                {quoteQuery.data ? formatCurrency(quoteQuery.data.estimatedTotal) : 'Awaiting estimate'}
+                {quoteQuery.data ? reviewEstimate.headline : 'Awaiting estimate'}
               </h2>
             </div>
             <p className="text-sm text-slate-500">

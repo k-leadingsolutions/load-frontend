@@ -299,21 +299,23 @@ describe('CustomerBookingPage — Collection & Delivery / Review flow', () => {
   })
 })
 
-describe('CustomerBookingPage — regression: estimate continuity (never R0.00 when a valid estimate exists)', () => {
+describe('CustomerBookingPage — regression: estimate continuity (never a fabricated per-kg total, always an honest headline)', () => {
   beforeEach(() => {
     window.localStorage.clear()
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockCustomerProfile))
   })
 
-  it('shows the honest non-zero estimate (delivery fee) on Review when the only selected service has unknown/weight-based pricing (subtotal is 0)', async () => {
+  it('shows "from R<delivery fee> + weight-based services" on Review when the only selected service is weight-only (subtotal is 0, no fabricated laundry total)', async () => {
     const user = userEvent.setup()
     renderApp('/customer/services/everyday')
 
     // "Wash + Dry + Fold" is PER_KILOGRAM — it contributes 0 to `subtotal`
     // (only weight-based/assessment items do), but with the default DELIVERY
-    // fulfilment and no free-delivery threshold met, `estimatedTotal` still
-    // includes a non-zero delivery fee. The Review estimate must reflect
-    // that non-zero total, never fall back to the R0.00 subtotal.
+    // fulfilment and no free-delivery threshold met, the estimate still
+    // includes a non-zero delivery fee. The Review headline must reflect
+    // that honestly ("from R45.00 + weight-based services"), never a bare
+    // R0.00, and never present that delivery-only figure as a complete
+    // laundry total.
     const card = (await screen.findByText('Wash + Dry + Fold')).closest('article')!
     await user.click(within(card).getByRole('button', { name: 'Add service' }))
     await user.click(await screen.findByRole('link', { name: /continue to collection & delivery/i }))
@@ -323,12 +325,13 @@ describe('CustomerBookingPage — regression: estimate continuity (never R0.00 w
     await user.click(screen.getByRole('button', { name: /continue to review/i }))
     await waitFor(() => screen.getByText('Review your order'))
 
-    const estimateMatches = await screen.findAllByText(currencyText(45))
+    const expectedHeadline = `from ${currencyText(45)} + weight-based services`
+    const estimateMatches = await screen.findAllByText(expectedHeadline)
     expect(estimateMatches.length).toBeGreaterThan(0)
     expect(screen.queryByText(currencyText(0))).not.toBeInTheDocument()
   })
 
-  it('preserves the same non-zero estimate through to the confirmation screen', async () => {
+  it('preserves the same headline through to the confirmation screen', async () => {
     const user = userEvent.setup()
     renderApp('/customer/services/everyday')
 
@@ -343,7 +346,7 @@ describe('CustomerBookingPage — regression: estimate continuity (never R0.00 w
     await user.click(screen.getByRole('button', { name: 'Confirm Booking' }))
 
     await screen.findByText('Your booking is confirmed.', undefined, { timeout: 4000 })
-    expect(screen.getByText(currencyText(45))).toBeInTheDocument()
+    expect(screen.getByText(`from ${currencyText(45)} + weight-based services`)).toBeInTheDocument()
   })
 })
 

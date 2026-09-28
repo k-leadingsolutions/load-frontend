@@ -112,6 +112,15 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
     }]
   })
 
+  // Assessment-priced ("from R X") items DO have a real, known starting price
+  // (unlike QUOTE_REQUIRED items, whose price is entirely unknown). That
+  // starting price must contribute to `estimatedTotal` as a "from" floor —
+  // never silently dropped — so the headline never understates the estimate
+  // to just the delivery/express fee when a priced item was selected.
+  const fromAssessmentSubtotal = assessmentItems
+    .filter((item) => !item.isQuoteOnly)
+    .reduce((sum, item) => sum + item.startingPrice, 0)
+
   const addOnItems = request.addOnSelections.flatMap((selection) => {
     const addOn = mockAddOns.find((item) => item.id === selection.addOnId)
     if (!addOn || addOn.id === 'addon-express') {
@@ -181,7 +190,7 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
     subtotal,
     discountTotal,
     loyaltyRedemptionTotal,
-    estimatedTotal: Math.max(0, subtotal + deliveryFee + expressFee - discountTotal),
+    estimatedTotal: Math.max(0, subtotal + fromAssessmentSubtotal + deliveryFee + expressFee - discountTotal),
     loyaltyPreviewPoints: Math.round((subtotal + expressFee) * 5),
     freeDeliveryThreshold: 300,
     freeDeliveryGap: Math.max(0, 300 - subtotal),
