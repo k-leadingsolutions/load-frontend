@@ -48,8 +48,10 @@ import { OperationsCollectionsPage } from '@/features/operations/pages/Operation
 import { OperationsBoardPage } from '@/features/operations/pages/OperationsBoardPage'
 import { OperationsLoginPage } from '@/features/operations/pages/OperationsLoginPage'
 import { OperationsDashboardPage } from '@/features/operations/pages/OperationsDashboardPage'
+import { OperationsMorePage } from '@/features/operations/pages/OperationsMorePage'
 import { OperationsNotificationsPage } from '@/features/operations/pages/OperationsNotificationsPage'
 import { OperationsOrderDetailPage } from '@/features/operations/pages/OperationsOrderDetailPage'
+import { OperationsOrdersPage } from '@/features/operations/pages/OperationsOrdersPage'
 import { OperationsReportsPage } from '@/features/operations/pages/OperationsReportsPage'
 import { NotFoundPage } from '@/features/shared/pages/NotFoundPage'
 import { RoadmapPlaceholderPage } from '@/features/shared/pages/RoadmapPlaceholderPage'
@@ -125,17 +127,17 @@ export const AppRouter = () => {
                   { to: appPaths.operationsOrders, label: 'Orders', icon: '◷' },
                   { to: appPaths.operationsProduction, label: 'Production', icon: '◉' },
                   { to: appPaths.operationsCollections, label: 'Dispatch', icon: '➤' },
-                  { to: appPaths.operationsQC, label: 'More', icon: '☰' },
+                  { to: appPaths.operationsMore, label: 'More', icon: '☰' },
                 ]}
               />
             }
           >
           <Route path={appPaths.operationsDashboard} element={<OperationsDashboardPage />} />
-          <Route path={appPaths.operationsOrders} element={<OperationsBoardPage />} />
+          <Route path={appPaths.operationsOrders} element={<OperationsOrdersPage />} />
           <Route path={appPaths.operationsProduction} element={<OperationsBoardPage />} />
           <Route path={appPaths.operationsCollections} element={<OperationsCollectionsPage />} />
           <Route path={appPaths.operationsOrderDetail} element={<OperationsOrderDetailPage />} />
-          <Route path={appPaths.operationsQC} element={<OperationsBoardPage />} />
+          <Route path={appPaths.operationsMore} element={<OperationsMorePage />} />
           <Route path={appPaths.operationsNotifications} element={<OperationsNotificationsPage />} />
           <Route path={appPaths.operationsReports} element={<OperationsReportsPage />} />
           </Route>

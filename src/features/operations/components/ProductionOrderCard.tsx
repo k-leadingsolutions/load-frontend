@@ -5,18 +5,26 @@ import { buildPath } from '@/app/router/paths'
 import { getOperationsCustomerDisplayName } from '@/services/api/adapters'
 
 interface ProductionOrderCardProps {
-  isMutating: boolean
-  onAddNote: (note: string) => void
-  onAdvanceStage: () => void
-  onConfirmReceived: () => void
-  onQuantityReview: (status: 'CONFIRMED' | 'ADJUSTED') => void
-  onRecordIntake: (input: { weightKg?: number; notes?: string }) => void
-  onQcDecision: (passed: boolean, notes?: string) => void
+  /**
+   * 'workflow' (default) renders the full production action board (Confirm received,
+   * Advance stage, QC, store intake, notes) used on the Production page.
+   * 'summary' renders read-only order visibility (header, status lines, items, View
+   * details) with no action controls — used on the master Orders list.
+   */
+  variant?: 'workflow' | 'summary'
+  isMutating?: boolean
+  onAddNote?: (note: string) => void
+  onAdvanceStage?: () => void
+  onConfirmReceived?: () => void
+  onQuantityReview?: (status: 'CONFIRMED' | 'ADJUSTED') => void
+  onRecordIntake?: (input: { weightKg?: number; notes?: string }) => void
+  onQcDecision?: (passed: boolean, notes?: string) => void
   order: ProductionOrder
 }
 
 export const ProductionOrderCard = ({
-  isMutating,
+  variant = 'workflow',
+  isMutating = false,
   onAddNote,
   onAdvanceStage,
   onConfirmReceived,
@@ -72,6 +80,8 @@ export const ProductionOrderCard = ({
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {variant === 'workflow' ? (
+          <>
         <button
           type="button"
           onClick={onConfirmReceived}
@@ -90,7 +100,7 @@ export const ProductionOrderCard = ({
         </button>
         <button
           type="button"
-          onClick={() => onQuantityReview('CONFIRMED')}
+          onClick={() => onQuantityReview?.('CONFIRMED')}
           disabled={isMutating}
           className="rounded-full border border-load-200 bg-white px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -98,7 +108,7 @@ export const ProductionOrderCard = ({
         </button>
         <button
           type="button"
-          onClick={() => onQuantityReview('ADJUSTED')}
+          onClick={() => onQuantityReview?.('ADJUSTED')}
           disabled={isMutating}
           className="rounded-full border border-load-200 bg-white px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -106,7 +116,7 @@ export const ProductionOrderCard = ({
         </button>
         <button
           type="button"
-          onClick={() => onQcDecision(true)}
+          onClick={() => onQcDecision?.(true)}
           disabled={isMutating}
           className="rounded-full border border-load-200 bg-white px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
@@ -114,14 +124,17 @@ export const ProductionOrderCard = ({
         </button>
         <button
           type="button"
-          onClick={() => onQcDecision(false, 'Returned to production')}
+          onClick={() => onQcDecision?.(false, 'Returned to production')}
           disabled={isMutating}
           className="rounded-full border border-load-200 bg-white px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           QC fail
         </button>
+          </>
+        ) : null}
       </div>
 
+      {variant === 'workflow' ? (
       <div className="mt-4 space-y-2">
         <p className="text-sm font-semibold text-ink">Store intake (operational record only — never used to price the order)</p>
         <div className="grid gap-2 sm:grid-cols-[120px_1fr_auto]">
@@ -148,7 +161,7 @@ export const ProductionOrderCard = ({
               const parsedWeight = weightKg.trim() ? Number.parseFloat(weightKg) : undefined
               if (weightKg.trim() && (parsedWeight === undefined || Number.isNaN(parsedWeight))) return
               if (!weightKg.trim() && !intakeNotes.trim()) return
-              onRecordIntake({
+              onRecordIntake?.({
                 ...(parsedWeight !== undefined ? { weightKg: parsedWeight } : {}),
                 ...(intakeNotes.trim() ? { notes: intakeNotes.trim() } : {}),
               })
@@ -162,7 +175,9 @@ export const ProductionOrderCard = ({
           </button>
         </div>
       </div>
+      ) : null}
 
+      {variant === 'workflow' ? (
       <div className="mt-4 space-y-2">
         <label className="block text-sm font-semibold text-ink" htmlFor={`note-${order.id}`}>
           Internal note
@@ -181,7 +196,7 @@ export const ProductionOrderCard = ({
               return
             }
 
-            onAddNote(note.trim())
+            onAddNote?.(note.trim())
             setNote('')
           }}
           disabled={isMutating || !note.trim()}
@@ -190,6 +205,7 @@ export const ProductionOrderCard = ({
           Save note
         </button>
       </div>
+      ) : null}
 
       {order.internalNotes.length > 0 ? (
         <div className="mt-4 rounded-3xl border border-load-100 p-4 text-sm text-slate-600">

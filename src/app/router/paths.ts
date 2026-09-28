@@ -39,7 +39,7 @@ export const appPaths = {
   operationsProduction: '/operations/production',
   operationsCollections: '/operations/collections',
   operationsOrderDetail: '/operations/orders/:orderId',
-  operationsQC: '/operations/qc',
+  operationsMore: '/operations/more',
   operationsNotifications: '/operations/notifications',
   operationsReports: '/operations/reports',
   operationsLogin: '/operations/login',
