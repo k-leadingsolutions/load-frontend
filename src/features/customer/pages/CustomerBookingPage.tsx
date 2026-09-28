@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '@/app/providers/useAuth'
@@ -10,6 +10,7 @@ import { LoadingState } from '@/components/ui/LoadingState'
 import { Modal } from '@/components/ui/Modal'
 import { Toast } from '@/components/ui/Toast'
 import { BookingSummaryCard } from '@/features/customer/booking/BookingSummaryCard'
+import { BasketEditor } from '@/features/customer/booking/BasketEditor'
 import { AddressSetupForm } from '@/features/customer/booking/AddressSetupForm'
 import { evaluateDeliverySchedule, getWindowSlotsForDate, minBookablePickupDate } from '@/features/customer/booking/bookingOptions'
 import { useCustomerOrderDraft } from '@/features/customer/booking/CustomerOrderDraftContext'
@@ -113,13 +114,22 @@ export const CustomerBookingPage = () => {
     },
   })
 
+  // Route safety: a Customer must have selected at least one service via the
+  // category catalogue before *entering* Collection & Delivery or Review.
+  // Captured once per mount (not re-evaluated on every render) so that
+  // subsequently emptying the basket via the in-page basket editor keeps the
+  // Customer on this page (with an "Add items" CTA) instead of bouncing them
+  // back to Services mid-edit.
+  const hadItemsOnEntryRef = useRef<boolean | null>(null)
+  if (hadItemsOnEntryRef.current === null) {
+    hadItemsOnEntryRef.current = hasSelectedServices
+  }
+
   if (!user) {
     return <ErrorState title="Customer account unavailable" message="Please sign in again to continue." />
   }
 
-  // Route safety: a Customer must have selected at least one service via the
-  // category catalogue before reaching Collection & Delivery or Review.
-  if (!hasSelectedServices && !placedOrder) {
+  if (!hadItemsOnEntryRef.current && !placedOrder) {
     return <Navigate to={appPaths.customerServices} replace />
   }
 
@@ -152,18 +162,14 @@ export const CustomerBookingPage = () => {
     void touchAddressRecency(addressId)
   }
   const expressAddOn = addOns.find((addOn) => addOn.id === 'addon-express')
-  const selectedServices = draft.serviceSelections.flatMap((selection) => {
-    const service = services.find((item) => item.id === selection.serviceId)
-    return service ? [{ service, quantity: selection.quantity }] : []
-  })
-  const selectedAddOns = draft.addOnSelections.flatMap((selection) => {
-    const addOn = addOns.find((item) => item.id === selection.addOnId)
-    return addOn ? [{ addOn, quantity: selection.quantity }] : []
-  })
   const showConfirmation = placedOrder !== null
 
   const goNext = () => {
     if (step === 1) {
+      if (!hasSelectedServices) {
+        setToast({ message: 'Your basket is empty. Add at least one service to continue.', tone: 'error' })
+        return
+      }
       if (!draft.pickupAddressId) {
         setToast({ message: 'Please select a pickup address.', tone: 'error' })
         return
@@ -380,6 +386,25 @@ export const CustomerBookingPage = () => {
           {/* ── Step 1: Collection & delivery ─────────────────────────────── */}
           {step === 1 ? (
             <>
+              {/* Your basket — pre-confirmation basket editing (quantity +/- and remove) */}
+              <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-heading text-ink">Your basket</h2>
+                    <p className="mt-1 text-body text-muted">Adjust quantities or remove items before scheduling collection.</p>
+                  </div>
+                  <Link
+                    to={appPaths.customerServices}
+                    className="inline-flex flex-shrink-0 items-center gap-1 rounded-pill border border-load-200 px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50"
+                  >
+                    Add items
+                  </Link>
+                </div>
+                <div className="mt-5">
+                  <BasketEditor services={services} addOns={addOns} />
+                </div>
+              </div>
+
               {/* Fulfilment choice */}
               <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
                 <h2 className="text-heading text-ink">How should we return your order?</h2>
@@ -602,7 +627,7 @@ export const CustomerBookingPage = () => {
                 <Link to={appPaths.customerServices}>
                   <Button variant="outline" type="button">← Back</Button>
                 </Link>
-                <Button type="button" onClick={goNext}>
+                <Button type="button" onClick={goNext} disabled={!hasSelectedServices}>
                   Continue to Review →
                 </Button>
               </div>
@@ -619,58 +644,25 @@ export const CustomerBookingPage = () => {
                 </div>
 
                 <Card variant="flat" className="space-y-4">
-                  <div>
-                    <h3 className="text-title text-ink">Selected services</h3>
-                    <p className="mt-1 text-body text-muted">These items will be collected during your chosen pickup window.</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-title text-ink">Selected services</h3>
+                      <p className="mt-1 text-body text-muted">These items will be collected during your chosen pickup window.</p>
+                    </div>
+                    <Link
+                      to={appPaths.customerServices}
+                      className="inline-flex flex-shrink-0 items-center gap-1 rounded-pill border border-load-200 px-4 py-2 text-sm font-semibold text-load-700 transition hover:bg-load-50"
+                    >
+                      Edit items
+                    </Link>
                   </div>
-                  <ul className="space-y-3">
-                    {selectedServices.map(({ service, quantity }) => {
-                      if (service.pricingModel === 'PER_KILOGRAM') {
-                        return (
-                          <li key={service.id} className="flex items-center justify-between gap-3 text-sm">
-                            <span className="text-slate-600">{service.name}</span>
-                            <span className="font-semibold text-ink">{formatCurrency(service.basePrice)}/kg</span>
-                          </li>
-                        )
-                      }
-                      if (service.pricingModel === 'ASSESSMENT_REQUIRED' || service.pricingModel === 'QUOTE_REQUIRED') {
-                        return (
-                          <li key={service.id} className="flex items-center justify-between gap-3 text-sm">
-                            <span className="text-slate-600">{service.name}</span>
-                            <span className="font-semibold text-ink">
-                              {service.basePrice > 0 ? `from ${formatCurrency(service.basePrice)}` : 'Quote required'}
-                            </span>
-                          </li>
-                        )
-                      }
-                      return (
-                        <li key={service.id} className="flex items-center justify-between gap-3 text-sm">
-                          <span className="text-slate-600">
-                            {service.name} × {quantity}
-                          </span>
-                          <span className="font-semibold text-ink">
-                            {formatCurrency(quantity * service.basePrice)}
-                          </span>
-                        </li>
-                      )
-                    })}
-                    {selectedAddOns.map(({ addOn, quantity }) => (
-                      <li key={addOn.id} className="flex items-center justify-between gap-3 text-sm">
-                        <span className="text-slate-600">
-                          {addOn.name} × {quantity}
-                        </span>
-                        <span className="font-semibold text-ink">
-                          {formatCurrency(quantity * addOn.price)}
-                        </span>
-                      </li>
-                    ))}
-                    {draft.expressRequested && expressAddOn ? (
-                      <li className="flex items-center justify-between gap-3 text-sm">
-                        <span className="text-slate-600">Express turnaround</span>
-                        <span className="font-semibold text-ink">{formatCurrency(expressAddOn.price)}</span>
-                      </li>
-                    ) : null}
-                  </ul>
+                  <BasketEditor services={services} addOns={addOns} />
+                  {draft.expressRequested && expressAddOn ? (
+                    <div className="flex items-center justify-between gap-3 rounded-card border border-card-border bg-white p-3 text-sm">
+                      <span className="text-slate-600">Express turnaround</span>
+                      <span className="font-semibold text-ink">{formatCurrency(expressAddOn.price)}</span>
+                    </div>
+                  ) : null}
                 </Card>
 
                 <div className="grid gap-4 md:grid-cols-2">
@@ -749,7 +741,7 @@ export const CustomerBookingPage = () => {
                   type="button"
                   onClick={() => void confirmOrder()}
                   loading={placeOrderMutation.isPending}
-                  disabled={!hasAddresses}
+                  disabled={!hasAddresses || !hasSelectedServices}
                 >
                   Confirm Booking
                 </Button>

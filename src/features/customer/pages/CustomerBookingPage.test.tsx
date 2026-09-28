@@ -727,3 +727,151 @@ describe('CustomerBookingPage — regression: compact address picker beyond 3 sa
     expect(within(pickupSection).getByRole('button', { name: 'Show fewer addresses' })).toBeInTheDocument()
   })
 })
+
+describe('CustomerBookingPage — regression: pre-confirmation basket editing', () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockCustomerProfile))
+  })
+
+  it('supports quantity +/- and explicit remove directly from the Collection & Delivery basket editor', async () => {
+    const user = userEvent.setup()
+    await selectFixedServiceAndContinue(user) // Shirt / Blouse (FIXED_SERVICE) × 1
+
+    const basketSection = screen.getByText('Your basket').closest('.rounded-panel')! as HTMLElement
+    expect(within(basketSection).getByTestId('basket-quantity-dc-shirt-blouse')).toHaveTextContent('1')
+
+    await user.click(within(basketSection).getByRole('button', { name: /increase shirt \/ blouse/i }))
+    expect(within(basketSection).getByTestId('basket-quantity-dc-shirt-blouse')).toHaveTextContent('2')
+
+    await user.click(within(basketSection).getByRole('button', { name: /decrease shirt \/ blouse/i }))
+    expect(within(basketSection).getByTestId('basket-quantity-dc-shirt-blouse')).toHaveTextContent('1')
+
+    await user.click(within(basketSection).getByRole('button', { name: /remove shirt \/ blouse from basket/i }))
+    expect(within(basketSection).queryByTestId('basket-quantity-dc-shirt-blouse')).not.toBeInTheDocument()
+    expect(within(basketSection).getByTestId('basket-empty-state')).toBeInTheDocument()
+  })
+
+  it('supports Add/Remove for weight- and assessment-priced items from the basket editor (never a fabricated quantity)', async () => {
+    const user = userEvent.setup()
+    renderApp('/customer/services/everyday')
+    const washCard = (await screen.findByText('Wash + Dry + Fold')).closest('article')!
+    await user.click(within(washCard).getByRole('button', { name: 'Add service' })) // Wash + Dry + Fold, PER_KILOGRAM
+    await user.click(await screen.findByRole('link', { name: /continue to collection & delivery/i }))
+    await waitFor(() => screen.getByText('Pickup address'))
+
+    const basketSection = screen.getByText('Your basket').closest('.rounded-panel')! as HTMLElement
+    expect(within(basketSection).getByText('Wash + Dry + Fold')).toBeInTheDocument()
+    expect(within(basketSection).queryByRole('button', { name: /increase wash/i })).not.toBeInTheDocument()
+
+    await user.click(within(basketSection).getByRole('button', { name: /remove wash \+ dry \+ fold from basket/i }))
+    expect(within(basketSection).queryByText('Wash + Dry + Fold')).not.toBeInTheDocument()
+    expect(within(basketSection).getByTestId('basket-empty-state')).toBeInTheDocument()
+  })
+
+  it('recalculates the live estimate immediately after a basket quantity edit', async () => {
+    const user = userEvent.setup()
+    await selectFixedServiceAndContinue(user)
+
+    const summaryAside = screen.getByText('Estimate').closest('aside')! as HTMLElement
+    const estimateBefore = await waitFor(() => {
+      const heading = within(summaryAside).getByRole('heading', { level: 2 })
+      expect(heading.textContent).not.toBe('Select services')
+      return heading.textContent
+    })
+
+    const basketSection = screen.getByText('Your basket').closest('.rounded-panel')! as HTMLElement
+    await user.click(within(basketSection).getByRole('button', { name: /increase shirt \/ blouse/i }))
+
+    await waitFor(() => {
+      const heading = within(summaryAside).getByRole('heading', { level: 2 })
+      expect(heading.textContent).not.toBe(estimateBefore)
+    })
+  })
+
+  it('disables Continue to Review and shows an Add items CTA when the basket becomes empty on Collection & Delivery', async () => {
+    const user = userEvent.setup()
+    await selectFixedServiceAndContinue(user)
+
+    const basketSection = screen.getByText('Your basket').closest('.rounded-panel')! as HTMLElement
+    await user.click(within(basketSection).getByRole('button', { name: /remove shirt \/ blouse from basket/i }))
+
+    expect(screen.getByRole('button', { name: /continue to review/i })).toBeDisabled()
+    expect(within(within(basketSection).getByTestId('basket-empty-state')).getByRole('link', { name: 'Add items' })).toBeInTheDocument()
+  })
+
+  it('Add items → category flow → View order preserves the entire booking draft (basket, address, fulfilment, pickup window)', async () => {
+    const user = userEvent.setup()
+    await selectFixedServiceAndContinue(user)
+    await user.click(screen.getByRole('button', { name: /pickup & collect in store/i }))
+    await fillCollectionDetails(user)
+
+    const basketSection = screen.getByText('Your basket').closest('.rounded-panel')! as HTMLElement
+    await user.click(within(basketSection).getByRole('link', { name: 'Add items' }))
+
+    await screen.findByRole('heading', { name: 'Services' })
+    await user.click(await screen.findByRole('link', { name: /browse sneaker care/i }))
+    const sneakerCard = (await screen.findByText('Fresh Clean')).closest('article')!
+    await user.click(within(sneakerCard).getByRole('button', { name: /increase fresh clean/i }))
+
+    await user.click(await screen.findByRole('link', { name: /continue to collection & delivery/i }))
+    await screen.findByText('Pickup address')
+
+    // Fulfilment, address and window selections survived the round trip.
+    expect(screen.getByRole('button', { name: /pickup & collect in store/i })).toHaveAttribute('aria-pressed', 'true')
+
+    // Basket now contains the original item plus the newly-added one.
+    const basketSectionAfter = screen.getByText('Your basket').closest('.rounded-panel')! as HTMLElement
+    expect(within(basketSectionAfter).getByText(/shirt \/ blouse/i)).toBeInTheDocument()
+    expect(within(basketSectionAfter).getByText(/fresh clean/i)).toBeInTheDocument()
+
+    // Continuing to Review requires no re-entry of pickup details, proving they were preserved.
+    await user.click(screen.getByRole('button', { name: /continue to review/i }))
+    await waitFor(() => screen.getByText('Review your order'))
+    expect(screen.queryByText(/please select a pickup/i)).not.toBeInTheDocument()
+  })
+
+  it('Review → Edit items → Review preserves every selection and reflects basket edits made along the way', async () => {
+    const user = userEvent.setup()
+    await selectFixedServiceAndContinue(user)
+    await fillCollectionDetails(user)
+    await user.click(screen.getByRole('button', { name: /continue to review/i }))
+    await waitFor(() => screen.getByText('Review your order'))
+
+    const reviewBasketCard = screen.getByText('Selected services').closest('.rounded-card')! as HTMLElement
+    expect(within(reviewBasketCard).getByTestId('basket-quantity-dc-shirt-blouse')).toHaveTextContent('1')
+
+    await user.click(screen.getByRole('link', { name: 'Edit items' }))
+    await screen.findByRole('heading', { name: 'Services' })
+
+    await user.click(await screen.findByRole('link', { name: /browse dry cleaning/i }))
+    await user.click(await screen.findByRole('button', { name: /increase shirt \/ blouse/i }))
+
+    await user.click(await screen.findByRole('link', { name: /continue to collection & delivery/i }))
+    await screen.findByText('Pickup address')
+    await user.click(screen.getByRole('button', { name: /continue to review/i }))
+
+    await waitFor(() => screen.getByText('Review your order'))
+    const reviewBasketCardAfter = screen.getByText('Selected services').closest('.rounded-card')! as HTMLElement
+    expect(within(reviewBasketCardAfter).getByTestId('basket-quantity-dc-shirt-blouse')).toHaveTextContent('2')
+    expect(screen.getByRole('button', { name: 'Confirm Booking' })).not.toBeDisabled()
+  })
+
+  it('Review shows a clear Edit items action, and an emptied basket disables Confirm Booking with an Add items CTA', async () => {
+    const user = userEvent.setup()
+    await selectFixedServiceAndContinue(user)
+    await fillCollectionDetails(user)
+    await user.click(screen.getByRole('button', { name: /continue to review/i }))
+    await waitFor(() => screen.getByText('Review your order'))
+
+    expect(screen.getByRole('link', { name: 'Edit items' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm Booking' })).not.toBeDisabled()
+
+    const reviewBasketCard = screen.getByText('Selected services').closest('.rounded-card')! as HTMLElement
+    await user.click(within(reviewBasketCard).getByRole('button', { name: /remove shirt \/ blouse from basket/i }))
+
+    expect(within(reviewBasketCard).getByTestId('basket-empty-state')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm Booking' })).toBeDisabled()
+    expect(within(reviewBasketCard).getByRole('link', { name: 'Add items' })).toBeInTheDocument()
+  })
+})
