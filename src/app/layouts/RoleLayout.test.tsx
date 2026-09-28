@@ -61,6 +61,21 @@ describe('RoleLayout', () => {
     expect(contentWrapper.style.paddingBottom).toMatch(/^calc\(.*env\(safe-area-inset-bottom\).*\)$/)
   })
 
+  it('still renders the header quick-links nav for roles with no bottom nav (Admin), preserving its only navigation', () => {
+    render(
+      <MemoryRouter>
+        <RoleLayout
+          roleLabel="Admin"
+          title="Admin control tower"
+          primaryLinks={[{ to: '/admin/overview', label: 'Overview' }]}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('navigation', { name: 'Admin quick links' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Admin navigation' })).not.toBeInTheDocument()
+  })
+
   it('does not reserve bottom clearance when there is no mobile nav to overlap', () => {
     const { container } = render(
       <MemoryRouter>

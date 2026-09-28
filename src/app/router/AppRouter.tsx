@@ -120,13 +120,6 @@ export const AppRouter = () => {
                 title="Operations command centre"
                 summary="Production receives and moves orders through every MVP laundry stage with quality-control visibility."
                 onSignOut={logoutOperations}
-                primaryLinks={[
-                  { to: appPaths.operationsDashboard, label: 'Dashboard' },
-                  { to: appPaths.operationsOrders, label: 'Orders' },
-                  { to: appPaths.operationsProduction, label: 'Production' },
-                  { to: appPaths.operationsCollections, label: 'Collections / Dispatch' },
-                  { to: appPaths.operationsQC, label: 'More' },
-                ]}
                 mobileNavLinks={[
                   { to: appPaths.operationsDashboard, label: 'Dashboard', icon: '⌂' },
                   { to: appPaths.operationsOrders, label: 'Orders', icon: '◷' },
@@ -155,13 +148,6 @@ export const AppRouter = () => {
                 roleLabel="Driver"
                 title="Driver run management"
                 summary="Drivers manage pickups and deliveries with customer instructions, confirmation actions, and proof-ready workflows."
-                primaryLinks={[
-                  { to: appPaths.driverDashboard, label: 'Dashboard' },
-                  { to: appPaths.driverRoute, label: 'Route' },
-                  { to: appPaths.driverRuns, label: 'Orders' },
-                  { to: appPaths.driverNotifications, label: 'Messages' },
-                  { to: appPaths.driverProfile, label: 'Profile' },
-                ]}
                 mobileNavLinks={[
                   { to: appPaths.driverDashboard, label: 'Dashboard', icon: '⌂' },
                   { to: appPaths.driverRoute, label: 'Route', icon: '➤' },
