@@ -8,7 +8,7 @@ import {
 } from 'react'
 import type { CustomerOrderDraft, FulfilmentType } from '@/domain/models/booking'
 import { approvedLaundryServices } from '@/services/mock/approvedLaundryCatalogue'
-import { isDeliveryWindowAfterPickup } from '@/features/customer/booking/bookingOptions'
+import { evaluateDeliverySchedule } from '@/features/customer/booking/bookingOptions'
 
 /**
  * Client-side Customer laundry order draft — the single source of truth for
@@ -122,10 +122,16 @@ export const CustomerOrderDraftProvider = ({ children }: PropsWithChildren) => {
 
   const setPickupWindow = useCallback((windowLabel: string) => {
     setDraft((prev) => {
-      // If the existing delivery selection is no longer chronologically
-      // after the newly-selected pickup window (including the same slot),
-      // clear it rather than silently leaving an invalid combination.
-      const deliveryStillValid = prev.deliveryWindow !== '' && isDeliveryWindowAfterPickup(windowLabel, prev.deliveryWindow)
+      // If the existing delivery selection is no longer feasible against the
+      // newly-selected pickup window (chronology, operating hours, or the
+      // minimum production gap), clear it rather than silently leaving an
+      // invalid combination in place.
+      const deliveryStillValid =
+        prev.deliveryWindow !== '' &&
+        evaluateDeliverySchedule(windowLabel, prev.deliveryWindow, {
+          pickupAddressId: prev.pickupAddressId,
+          deliveryAddressId: prev.deliveryAddressId,
+        }).feasible
       return {
         ...prev,
         pickupWindow: windowLabel,

@@ -89,6 +89,16 @@ describe('auth pages', () => {
           },
         } as unknown as Response
       }
+      if (url.endsWith('/api/customer/addresses')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => [],
+          clone() {
+            return this
+          },
+        } as unknown as Response
+      }
       throw new Error(`Unexpected fetch: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)

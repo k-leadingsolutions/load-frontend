@@ -1,5 +1,6 @@
 import type { CustomerProfile, DriverProfile, OperationsProfile } from '@/domain/models'
 import type { LoginRequest } from '@/services/contracts'
+import { apiAddressService } from '@/services/api/addressService'
 import { toCustomerProfile } from '@/services/api/authService'
 import { apiRequest, ApiRequestError } from '@/services/api/httpClient'
 import { writeToken } from '@/services/api/tokenStore'
@@ -73,7 +74,8 @@ export const resolveRoleAwareLogin = async (request: LoginRequest): Promise<Role
   writeToken('customer', auth.token)
   try {
     const profile = await apiRequest<CustomerProfileResponseDto>('/api/customer/profile', { realm: 'customer' })
-    return { realm: 'customer', profile: toCustomerProfile(profile) }
+    const addresses = await apiAddressService.listAddresses().catch(() => [])
+    return { realm: 'customer', profile: toCustomerProfile(profile, addresses) }
   } catch (error) {
     throw toAuthError(error, 'Authentication request failed.')
   }

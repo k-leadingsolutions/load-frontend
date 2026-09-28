@@ -11,7 +11,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Toast } from '@/components/ui/Toast'
 import { BookingSummaryCard } from '@/features/customer/booking/BookingSummaryCard'
 import { AddressSetupForm } from '@/features/customer/booking/AddressSetupForm'
-import { bookingWindows, isDeliveryWindowAfterPickup } from '@/features/customer/booking/bookingOptions'
+import { evaluateDeliverySchedule, getWindowSlotsForDate, minBookablePickupDate } from '@/features/customer/booking/bookingOptions'
 import { useCustomerOrderDraft } from '@/features/customer/booking/CustomerOrderDraftContext'
 import type { LaundryOrder } from '@/domain/models'
 import type { FulfilmentType } from '@/domain/models/booking'
@@ -26,6 +26,9 @@ const STEP_LABELS: Record<BookingStep, string> = {
   1: 'Collection & delivery',
   2: 'Review',
 }
+
+/** Extracts the `YYYY-MM-DD` date part from a `'YYYY-MM-DD | HH:MM - HH:MM'` window label. */
+const extractDatePart = (windowLabel: string): string => windowLabel.split('|')[0]?.trim() ?? ''
 
 export const CustomerBookingPage = () => {
   const { user, saveAddress } = useAuth()
@@ -45,6 +48,8 @@ export const CustomerBookingPage = () => {
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
   const [placedOrder, setPlacedOrder] = useState<LaundryOrder | null>(null)
+  const [pickupDateInput, setPickupDateInput] = useState<string>(() => extractDatePart(draft.pickupWindow))
+  const [deliveryDateInput, setDeliveryDateInput] = useState<string>(() => extractDatePart(draft.deliveryWindow))
   const catalogueQuery = useQuery({
     queryKey: ['service-catalogue'],
     queryFn: () => mockCatalogueService.getCatalogue(),
@@ -160,8 +165,12 @@ export const CustomerBookingPage = () => {
           setToast({ message: 'Please select a delivery window.', tone: 'error' })
           return
         }
-        if (!isDeliveryWindowAfterPickup(draft.pickupWindow, draft.deliveryWindow)) {
-          setToast({ message: 'Delivery window must be after the pickup window.', tone: 'error' })
+        const scheduleEvaluation = evaluateDeliverySchedule(draft.pickupWindow, draft.deliveryWindow, {
+          pickupAddressId: draft.pickupAddressId,
+          deliveryAddressId: draft.deliveryAddressId,
+        })
+        if (!scheduleEvaluation.feasible) {
+          setToast({ message: scheduleEvaluation.reason ?? 'Delivery window must be after the pickup window.', tone: 'error' })
           return
         }
       }
@@ -171,6 +180,16 @@ export const CustomerBookingPage = () => {
   }
 
   const goBack = () => setStep((s) => (s - 1) as BookingStep)
+
+  const handlePickupDateChange = (nextDate: string) => {
+    setPickupDateInput(nextDate)
+    setPickupWindow('')
+  }
+
+  const handleDeliveryDateChange = (nextDate: string) => {
+    setDeliveryDateInput(nextDate)
+    setDeliveryWindow('')
+  }
 
   const confirmOrder = async () => {
     try {
@@ -187,6 +206,8 @@ export const CustomerBookingPage = () => {
     setPlacedOrder(null)
     setToast(null)
     setStep(1)
+    setPickupDateInput('')
+    setDeliveryDateInput('')
   }
 
   // ── Confirmation screen ─────────────────────────────────────────────────────
@@ -210,7 +231,7 @@ export const CustomerBookingPage = () => {
           <div className="rounded-card bg-load-50 p-4 text-left text-sm">
             <div className="flex items-center justify-between gap-3 border-b border-load-100 pb-3">
               <span className="text-muted">Order reference</span>
-              <span className="text-title text-ink">#{placedOrder.id}</span>
+              <span className="text-title text-ink">#{placedOrder.orderNumber ?? placedOrder.id}</span>
             </div>
             <div className="space-y-3 pt-3">
               <div className="flex items-center justify-between gap-3">
@@ -429,56 +450,105 @@ export const CustomerBookingPage = () => {
               {/* Pickup window */}
               <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
                 <h2 className="text-heading text-ink">Pickup window</h2>
-                <p className="mt-1 text-body text-muted">Choose a convenient collection time.</p>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  {bookingWindows.map((windowLabel) => (
-                    <button
-                      key={windowLabel}
-                      type="button"
-                      onClick={() => setPickupWindow(windowLabel)}
-                      className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
-                        draft.pickupWindow === windowLabel
-                          ? 'border-load-500 bg-load-50 shadow-card'
-                          : 'border-card-border bg-white hover:border-load-200'
-                      }`}
-                    >
-                      <p className="text-body text-ink">{windowLabel}</p>
-                    </button>
-                  ))}
+                <p className="mt-1 text-body text-muted">Choose a collection date and time (Africa/Johannesburg).</p>
+                <div className="mt-5">
+                  <label htmlFor="pickup-date" className="block text-sm font-medium text-ink">
+                    Pickup date
+                  </label>
+                  <input
+                    id="pickup-date"
+                    type="date"
+                    min={minBookablePickupDate()}
+                    value={pickupDateInput}
+                    onChange={(e) => handlePickupDateChange(e.target.value)}
+                    className="mt-2 w-full max-w-xs rounded-card border border-card-border bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-load-400 focus:ring-2 focus:ring-load-100"
+                  />
                 </div>
+                {pickupDateInput ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {getWindowSlotsForDate(pickupDateInput).map((windowLabel) => (
+                      <button
+                        key={windowLabel}
+                        type="button"
+                        onClick={() => setPickupWindow(windowLabel)}
+                        className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
+                          draft.pickupWindow === windowLabel
+                            ? 'border-load-500 bg-load-50 shadow-card'
+                            : 'border-card-border bg-white hover:border-load-200'
+                        }`}
+                      >
+                        <p className="text-body text-ink">{windowLabel.split('|')[1]?.trim()}</p>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
               {/* Delivery window — only relevant for DELIVERY fulfilment */}
               {draft.fulfilmentType === 'DELIVERY' ? (
                 <div className="rounded-panel border border-card-border bg-white p-5 shadow-card">
                   <h2 className="text-heading text-ink">Delivery window</h2>
-                  <p className="mt-1 text-body text-muted">Choose a convenient delivery time.</p>
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    {bookingWindows.map((windowLabel) => {
-                      const isValidDelivery = isDeliveryWindowAfterPickup(draft.pickupWindow, windowLabel)
-                      return (
-                        <button
-                          key={windowLabel}
-                          type="button"
-                          disabled={!isValidDelivery}
-                          aria-disabled={!isValidDelivery}
-                          onClick={() => {
-                            if (!isValidDelivery) return
-                            setDeliveryWindow(windowLabel)
-                          }}
-                          className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
-                            draft.deliveryWindow === windowLabel
-                              ? 'border-load-500 bg-load-50 shadow-card'
-                              : isValidDelivery
-                                ? 'border-card-border bg-white hover:border-load-200'
-                                : 'border-card-border bg-slate-50 opacity-50 cursor-not-allowed'
-                          }`}
-                        >
-                          <p className="text-body text-ink">{windowLabel}</p>
-                        </button>
-                      )
-                    })}
+                  <p className="mt-1 text-body text-muted">
+                    Choose a delivery date and time — LOAD needs at least 24 hours to process your order after pickup.
+                  </p>
+                  <div className="mt-5">
+                    <label htmlFor="delivery-date" className="block text-sm font-medium text-ink">
+                      Delivery date
+                    </label>
+                    <input
+                      id="delivery-date"
+                      type="date"
+                      min={pickupDateInput || minBookablePickupDate()}
+                      value={deliveryDateInput}
+                      onChange={(e) => handleDeliveryDateChange(e.target.value)}
+                      className="mt-2 w-full max-w-xs rounded-card border border-card-border bg-white px-4 py-2.5 text-sm text-ink outline-none focus:border-load-400 focus:ring-2 focus:ring-load-100"
+                    />
                   </div>
+                  {deliveryDateInput ? (
+                    <>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {getWindowSlotsForDate(deliveryDateInput).map((windowLabel) => {
+                          const evaluation = evaluateDeliverySchedule(draft.pickupWindow, windowLabel, {
+                            pickupAddressId: draft.pickupAddressId,
+                            deliveryAddressId: draft.deliveryAddressId,
+                          })
+                          const isValidDelivery = evaluation.feasible
+                          return (
+                            <button
+                              key={windowLabel}
+                              type="button"
+                              disabled={!isValidDelivery}
+                              aria-disabled={!isValidDelivery}
+                              onClick={() => {
+                                if (!isValidDelivery) return
+                                setDeliveryWindow(windowLabel)
+                              }}
+                              className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
+                                draft.deliveryWindow === windowLabel
+                                  ? 'border-load-500 bg-load-50 shadow-card'
+                                  : isValidDelivery
+                                    ? 'border-card-border bg-white hover:border-load-200'
+                                    : 'border-card-border bg-slate-50 opacity-50 cursor-not-allowed'
+                              }`}
+                            >
+                              <p className="text-body text-ink">{windowLabel.split('|')[1]?.trim()}</p>
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {getWindowSlotsForDate(deliveryDateInput).every(
+                        (windowLabel) =>
+                          !evaluateDeliverySchedule(draft.pickupWindow, windowLabel, {
+                            pickupAddressId: draft.pickupAddressId,
+                            deliveryAddressId: draft.deliveryAddressId,
+                          }).feasible,
+                      ) ? (
+                        <p className="mt-3 text-sm text-amber-700">
+                          No delivery windows are available on this date — please choose a later date.
+                        </p>
+                      ) : null}
+                    </>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -603,7 +673,7 @@ export const CustomerBookingPage = () => {
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-slate-500">Estimated pricing</span>
                     <span className="text-xl font-semibold text-ink">
-                      {formatCurrency(quoteQuery.data?.knownEstimatedSubtotal ?? quoteQuery.data?.estimatedTotal ?? 0)}
+                      {formatCurrency(quoteQuery.data?.estimatedTotal ?? 0)}
                     </span>
                   </div>
                   {(quoteQuery.data?.weightBasedItems?.length ?? 0) > 0 ? (
@@ -660,7 +730,7 @@ export const CustomerBookingPage = () => {
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-load-600">Estimated pricing</p>
               <h2 className="mt-2 text-2xl font-semibold text-ink">
-                {quoteQuery.data ? formatCurrency(quoteQuery.data.knownEstimatedSubtotal ?? quoteQuery.data.estimatedTotal) : 'Awaiting estimate'}
+                {quoteQuery.data ? formatCurrency(quoteQuery.data.estimatedTotal) : 'Awaiting estimate'}
               </h2>
             </div>
             <p className="text-sm text-slate-500">

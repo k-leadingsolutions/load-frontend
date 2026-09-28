@@ -92,6 +92,9 @@ describe('Role-aware login/bootstrap', () => {
           email: 'jane@example.com',
         })
       }
+      if (url.endsWith('/api/customer/addresses')) {
+        return jsonResponse([])
+      }
       throw new Error(`Unexpected fetch: ${url}`)
     })
 

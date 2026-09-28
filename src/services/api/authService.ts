@@ -1,21 +1,33 @@
-import type { CustomerProfile } from '@/domain/models'
+import type { Address, CustomerProfile } from '@/domain/models'
 import type { CustomerProfileResponse, LoginRequest, RegisterRequest } from '@/services/contracts'
+import { apiAddressService } from '@/services/api/addressService'
 import { errorResponse, successResponse } from '@/services/api/envelope'
 import { apiRequest, ApiRequestError } from '@/services/api/httpClient'
 import { writeToken } from '@/services/api/tokenStore'
 import type { AuthResponseDto, CustomerProfileResponseDto } from '@/services/api/types'
 import type { AuthService } from '@/services/interfaces'
 
+/**
+ * Fetches the Customer's persisted backend address book so it can be
+ * hydrated into their profile at login/bootstrap time. Backend-persisted
+ * addresses are the source of truth — never localStorage — so this must be
+ * called on every fresh login/profile fetch, not just when a new address is
+ * added during the current session. A listing failure never blocks sign-in;
+ * it just means the Customer starts the session with an empty address book
+ * (the same degraded experience as if they hadn't added one yet).
+ */
+const fetchCustomerAddresses = (): Promise<Address[]> => apiAddressService.listAddresses().catch(() => [])
+
 /** Exported for reuse by `resolveRoleAwareLogin`, which needs the identical mapping without duplicating it. */
-export const toCustomerProfile = (profile: CustomerProfileResponseDto): CustomerProfile => ({
+export const toCustomerProfile = (profile: CustomerProfileResponseDto, addresses: Address[] = []): CustomerProfile => ({
   id: profile.userId,
   firstName: profile.firstName,
   lastName: profile.lastName,
   mobileNumber: profile.mobileNumber,
   email: profile.email,
   role: 'CUSTOMER',
-  defaultAddressId: '',
-  addresses: [],
+  defaultAddressId: addresses.find((address) => address.isDefault)?.id ?? addresses[0]?.id ?? '',
+  addresses,
   loyalty: { tier: 'Silver', points: 0, availableRewards: 0, loadBalance: 0 },
 })
 
@@ -24,7 +36,8 @@ const authenticate = async (path: string, body: unknown): Promise<CustomerProfil
     const auth = await apiRequest<AuthResponseDto>(path, { method: 'POST', body })
     writeToken('customer', auth.token)
     const profile = await apiRequest<CustomerProfileResponseDto>('/api/customer/profile', { realm: 'customer' })
-    return successResponse(toCustomerProfile(profile))
+    const addresses = await fetchCustomerAddresses()
+    return successResponse(toCustomerProfile(profile, addresses))
   } catch (error) {
     const message = error instanceof ApiRequestError ? error.message : 'Authentication request failed.'
     return errorResponse({ code: 'AUTH_FAILED', message })
@@ -62,7 +75,8 @@ export const apiAuthService: Pick<AuthService, 'login' | 'register' | 'getProfil
   getProfile: async () => {
     try {
       const profile = await apiRequest<CustomerProfileResponseDto>('/api/customer/profile', { realm: 'customer' })
-      return successResponse(toCustomerProfile(profile))
+      const addresses = await fetchCustomerAddresses()
+      return successResponse(toCustomerProfile(profile, addresses))
     } catch (error) {
       const message = error instanceof ApiRequestError ? error.message : 'Unable to load your profile.'
       return errorResponse({ code: 'PROFILE_FETCH_FAILED', message })
