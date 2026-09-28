@@ -177,19 +177,30 @@ export const RoleLayout = ({
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `flex min-w-[54px] flex-col items-center gap-1 rounded-card px-2 py-1 text-[11px] transition ${
+                `flex min-w-[54px] flex-col items-center gap-1 rounded-card px-2 py-1.5 text-[11px] transition ${
+                  isActive ? 'bg-load-100' : 'bg-transparent'
+                } ${
                   item.emphasis
                     ? isActive
                       ? 'font-bold text-load-700'
                       : 'font-bold text-load-600'
                     : isActive
-                      ? 'font-medium text-load-700'
+                      ? 'font-semibold text-load-700'
                       : 'font-medium text-muted'
                 }`
               }
             >
-              <span aria-hidden="true">{item.icon}</span>
-              <span>{item.label}</span>
+              {({ isActive }) => (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className={`text-base leading-none transition-transform ${isActive ? 'scale-125' : 'scale-100'}`}
+                  >
+                    {item.icon}
+                  </span>
+                  <span>{item.label}</span>
+                </>
+              )}
             </NavLink>
           ))}
         </nav>

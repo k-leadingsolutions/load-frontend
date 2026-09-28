@@ -1,8 +1,39 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import { RoleLayout } from '@/app/layouts/RoleLayout'
+
+/**
+ * Renders RoleLayout with real nested routing so bottom-nav active state is
+ * driven by the actual current location (via NavLink), matching how
+ * AppRouter wires each role's routes in production.
+ */
+const renderWithRoutes = (initialEntry: string) =>
+  render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <Routes>
+        <Route
+          element={
+            <RoleLayout
+              roleLabel="Operations"
+              title="Operations command centre"
+              mobileNavLinks={[
+                { to: '/operations/dashboard', label: 'Dashboard', icon: '⌂' },
+                { to: '/operations/orders', label: 'Orders', icon: '◷' },
+                { to: '/operations/collections', label: 'Dispatch', icon: '➤', emphasis: true },
+              ]}
+            />
+          }
+        >
+          <Route path="/operations/dashboard" element={<div>Dashboard page</div>} />
+          <Route path="/operations/orders" element={<div>Orders page</div>} />
+          <Route path="/operations/orders/:orderId" element={<div>Order detail page</div>} />
+          <Route path="/operations/collections" element={<div>Collections page</div>} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  )
 
 describe('RoleLayout', () => {
   it('renders a Sign out action that calls the provided handler when onSignOut is given', async () => {
@@ -138,5 +169,64 @@ describe('RoleLayout', () => {
     } finally {
       globalThis.ResizeObserver = originalResizeObserver
     }
+  })
+
+  describe('bottom-nav active-state UX', () => {
+    it('marks the current destination active with stronger font weight and the brand pill indicator, while other items stay secondary', () => {
+      renderWithRoutes('/operations/orders')
+
+      const activeLink = screen.getByRole('link', { name: /Orders/i })
+      const inactiveLink = screen.getByRole('link', { name: /Dashboard/i })
+
+      // Accessible active-state signal (React Router's built-in aria-current).
+      expect(activeLink).toHaveAttribute('aria-current', 'page')
+      expect(inactiveLink).not.toHaveAttribute('aria-current')
+
+      // Stronger font weight for the active item; inactive items stay secondary.
+      expect(activeLink.className).toContain('font-semibold')
+      expect(inactiveLink.className).toContain('font-medium')
+      expect(inactiveLink.className).not.toContain('font-semibold')
+      expect(inactiveLink.className).toContain('text-muted')
+
+      // Existing LOAD brand indicator (bg-load-100 pill, same family used for
+      // status/active chips elsewhere in the app) — only on the active item.
+      expect(activeLink.className).toContain('bg-load-100')
+      expect(inactiveLink.className).not.toContain('bg-load-100')
+
+      // Strengthened active icon treatment (scaled up vs. resting size).
+      const activeIcon = activeLink.querySelector('span[aria-hidden="true"]') as HTMLElement
+      const inactiveIcon = inactiveLink.querySelector('span[aria-hidden="true"]') as HTMLElement
+      expect(activeIcon.className).toContain('scale-125')
+      expect(inactiveIcon.className).toContain('scale-100')
+      expect(inactiveIcon.className).not.toContain('scale-125')
+    })
+
+    it('keeps the parent nav item active on nested/detail routes (e.g. /operations/orders/:id => Orders)', () => {
+      renderWithRoutes('/operations/orders/ld-1023')
+
+      expect(screen.getByText('Order detail page')).toBeInTheDocument()
+
+      const ordersLink = screen.getByRole('link', { name: /Orders/i })
+      expect(ordersLink).toHaveAttribute('aria-current', 'page')
+      expect(ordersLink.className).toContain('font-semibold')
+      expect(ordersLink.className).toContain('bg-load-100')
+
+      const dashboardLink = screen.getByRole('link', { name: /Dashboard/i })
+      expect(dashboardLink).not.toHaveAttribute('aria-current')
+      expect(dashboardLink.className).not.toContain('bg-load-100')
+    })
+
+    it('applies the same active-state pill/weight treatment to emphasis (CTA) items when active', () => {
+      renderWithRoutes('/operations/collections')
+
+      const activeEmphasisLink = screen.getByRole('link', { name: /Dispatch/i })
+      expect(activeEmphasisLink).toHaveAttribute('aria-current', 'page')
+      expect(activeEmphasisLink.className).toContain('font-bold')
+      expect(activeEmphasisLink.className).toContain('text-load-700')
+      expect(activeEmphasisLink.className).toContain('bg-load-100')
+
+      const inactiveNonEmphasisLink = screen.getByRole('link', { name: /Dashboard/i })
+      expect(inactiveNonEmphasisLink.className).not.toContain('bg-load-100')
+    })
   })
 })
