@@ -5,8 +5,10 @@ import com.load.backend.customer.dto.AddressResponse;
 import com.load.backend.customer.dto.CreateAddressRequest;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,5 +36,12 @@ public class CustomerAddressController {
             .map(AddressResponse::from)
             .toList();
         return ResponseEntity.ok(responses);
+    }
+
+    /** Marks an address as just used (selected as pickup/delivery), bumping it to the front of "most recently used". */
+    @PostMapping("/{id}/select")
+    public ResponseEntity<AddressResponse> select(@PathVariable UUID id) {
+        Address address = addressService.touchLastUsed(CurrentUser.userId(), id);
+        return ResponseEntity.ok(AddressResponse.from(address));
     }
 }

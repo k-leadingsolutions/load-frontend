@@ -13,6 +13,7 @@ import {
 } from '@/services/mock/sessionStore'
 import { apiAuthService } from '@/services/api/authService'
 import { apiAddressService } from '@/services/api/addressService'
+import { findDuplicateAddress } from '@/domain/address'
 
 const assertSuccess = <TData,>(response: { data?: TData; error?: { message?: string }; status: 'success' | 'error' }) => {
   if (response.status === 'error' || !response.data) {
@@ -59,6 +60,27 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       return null
     }
 
+    // Avoid submitting an obvious duplicate: reuse (and bump the recency of)
+    // an existing address with the same normalized identity instead of
+    // creating another row. The backend enforces this too, but checking
+    // client-side first saves a round trip for the common case.
+    const duplicate = findDuplicateAddress(user.addresses, address)
+    if (duplicate) {
+      let touched = duplicate
+      try {
+        touched = await apiAddressService.selectAddress(duplicate.id, duplicate.isDefault)
+      } catch {
+        // Recency is a UX nicety — if the touch call fails, still resolve
+        // with the existing address rather than blocking address selection.
+      }
+
+      const nextAddresses = user.addresses.map((item) => (item.id === touched.id ? touched : item))
+      const updatedUser: CustomerProfile = { ...user, addresses: nextAddresses }
+      setUser(updatedUser)
+      writeStoredCustomerSession(updatedUser)
+      return touched
+    }
+
     const isDefault = address.isDefault ?? user.addresses.length === 0
     const created = await apiAddressService.createAddress(
       {
@@ -86,6 +108,43 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     return created
   }, [user])
 
+  const touchAddressRecency = useCallback(async (addressId: string) => {
+    if (!user || !user.addresses.some((address) => address.id === addressId)) {
+      return
+    }
+
+    // Optimistic local bump so "most recently used" ordering feels instant;
+    // the network call is fire-and-forget best-effort persistence.
+    const optimisticTimestamp = new Date().toISOString()
+    setUser((current) => {
+      if (!current) {
+        return current
+      }
+      const nextAddresses = current.addresses.map((address) =>
+        address.id === addressId ? { ...address, lastUsedAt: optimisticTimestamp } : address,
+      )
+      const next = { ...current, addresses: nextAddresses }
+      writeStoredCustomerSession(next)
+      return next
+    })
+
+    try {
+      const isDefault = user.addresses.find((address) => address.id === addressId)?.isDefault
+      const touched = await apiAddressService.selectAddress(addressId, isDefault)
+      setUser((current) => {
+        if (!current) {
+          return current
+        }
+        const nextAddresses = current.addresses.map((address) => (address.id === touched.id ? touched : address))
+        const next = { ...current, addresses: nextAddresses }
+        writeStoredCustomerSession(next)
+        return next
+      })
+    } catch {
+      // Best-effort only — the optimistic local update above already covers the UX.
+    }
+  }, [user])
+
   const updateProfile = useCallback((details: ProfileDetailsUpdate) => {
     if (!user) {
       return
@@ -103,10 +162,11 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       register,
       logout,
       saveAddress,
+      touchAddressRecency,
       updateProfile,
       adoptAuthenticatedSession: applyProfile,
     }),
-    [applyProfile, isBootstrapping, login, logout, register, saveAddress, updateProfile, user],
+    [applyProfile, isBootstrapping, login, logout, register, saveAddress, touchAddressRecency, updateProfile, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

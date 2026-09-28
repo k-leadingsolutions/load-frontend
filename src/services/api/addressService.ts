@@ -31,4 +31,13 @@ export const apiAddressService = {
     const dtos = await apiRequest<AddressResponseDto[]>('/api/customer/addresses', { realm: 'customer' })
     return dtos.map((dto, index) => addressFromDto(dto, index === 0))
   },
+
+  /** Marks an address as just used (selected as pickup/delivery), bumping its recency for "most recently used" ordering. */
+  selectAddress: async (addressId: string, isDefault = false): Promise<Address> => {
+    const dto = await apiRequest<AddressResponseDto>(`/api/customer/addresses/${addressId}/select`, {
+      method: 'POST',
+      realm: 'customer',
+    })
+    return addressFromDto(dto, isDefault)
+  },
 }

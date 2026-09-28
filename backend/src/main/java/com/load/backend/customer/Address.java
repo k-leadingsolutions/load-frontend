@@ -7,6 +7,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 
 @Entity
@@ -37,6 +39,19 @@ public class Address {
     @Column(name = "postal_code", nullable = false)
     private String postalCode;
 
+    /**
+     * Identity key derived from the normalized (trimmed, lower-cased)
+     * address fields, excluding the user-editable label. Used to detect
+     * duplicate address submissions server-side. See
+     * {@link #buildNormalizedKey}.
+     */
+    @Column(name = "normalized_key", nullable = false, length = 600)
+    private String normalizedKey;
+
+    /** Last time this address was created, re-submitted as a duplicate, or explicitly selected — drives "most recently used" ordering. */
+    @Column(name = "last_used_at", nullable = false)
+    private Instant lastUsedAt;
+
     @Version
     private long version;
 
@@ -52,6 +67,34 @@ public class Address {
         this.suburb = suburb;
         this.city = city;
         this.postalCode = postalCode;
+        this.normalizedKey = buildNormalizedKey(line1, line2, suburb, city, postalCode);
+        this.lastUsedAt = Instant.now();
+    }
+
+    /**
+     * Canonical duplicate-detection key: trimmed, lower-cased line1/line2/
+     * suburb/city/postalCode joined with a separator. Deliberately does NOT
+     * include the label — two addresses with the same physical location but
+     * different labels ("Home" vs "Mom's House") are still the same address.
+     */
+    public static String buildNormalizedKey(String line1, String line2, String suburb, String city, String postalCode) {
+        return String.join(
+            "|",
+            normalizePart(line1),
+            normalizePart(line2),
+            normalizePart(suburb),
+            normalizePart(city),
+            normalizePart(postalCode)
+        );
+    }
+
+    private static String normalizePart(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /** Marks this address as just used (freshly created, re-submitted as a duplicate, or explicitly selected in the booking flow). */
+    public void touch() {
+        this.lastUsedAt = Instant.now();
     }
 
     public UUID getId() {
@@ -84,5 +127,13 @@ public class Address {
 
     public String getPostalCode() {
         return postalCode;
+    }
+
+    public String getNormalizedKey() {
+        return normalizedKey;
+    }
+
+    public Instant getLastUsedAt() {
+        return lastUsedAt;
     }
 }

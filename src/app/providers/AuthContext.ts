@@ -17,6 +17,8 @@ export interface AuthContextValue {
   register: (request: RegisterRequest) => Promise<void>
   logout: () => void
   saveAddress: (address: Omit<Address, 'id'>) => Promise<Address | null>
+  /** Marks an address as just used (selected as pickup/delivery in booking), bumping its recency for "most recently used" ordering. */
+  touchAddressRecency: (addressId: string) => Promise<void>
   updateProfile: (details: ProfileDetailsUpdate) => void
   /** Adopts an already-authenticated profile (e.g. from the shared role-aware login resolver) without re-issuing a network call. */
   adoptAuthenticatedSession: (profile: CustomerProfile) => void

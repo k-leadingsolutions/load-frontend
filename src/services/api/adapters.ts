@@ -57,6 +57,7 @@ export const addressFromDto = (dto: AddressResponseDto, isDefault: boolean): Add
   province: '',
   postalCode: dto.postalCode,
   isDefault,
+  lastUsedAt: dto.lastUsedAt,
 })
 
 /**

@@ -10,6 +10,8 @@ export interface Address {
   postalCode: string
   deliveryInstructions?: string
   isDefault?: boolean
+  /** ISO-8601 instant of last use (created, re-submitted as a duplicate, or explicitly selected). Drives "most recently used" ordering. Absent for addresses sourced outside the backend-persisted flow. */
+  lastUsedAt?: string
 }
 
 export interface LoyaltyWallet {

@@ -28,6 +28,8 @@ export interface AddressResponseDto {
   suburb: string
   city: string
   postalCode: string
+  /** ISO-8601 instant. Drives "most recently used" ordering server-side; also bumped by POST .../addresses/{id}/select. */
+  lastUsedAt: string
 }
 
 export type BackendOrderStatus =

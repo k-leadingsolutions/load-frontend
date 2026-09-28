@@ -15,6 +15,7 @@ import { evaluateDeliverySchedule, getWindowSlotsForDate, minBookablePickupDate 
 import { useCustomerOrderDraft } from '@/features/customer/booking/CustomerOrderDraftContext'
 import type { LaundryOrder } from '@/domain/models'
 import type { FulfilmentType } from '@/domain/models/booking'
+import { MAX_RECENT_ADDRESSES, sortAddressesByRecency } from '@/domain/address'
 import { appPaths } from '@/app/router/paths'
 import { mockCatalogueService } from '@/services/mock'
 import { apiCustomerOrderService } from '@/services/api/customerOrderService'
@@ -31,7 +32,7 @@ const STEP_LABELS: Record<BookingStep, string> = {
 const extractDatePart = (windowLabel: string): string => windowLabel.split('|')[0]?.trim() ?? ''
 
 export const CustomerBookingPage = () => {
-  const { user, saveAddress } = useAuth()
+  const { user, saveAddress, touchAddressRecency } = useAuth()
   const queryClient = useQueryClient()
   const {
     draft,
@@ -50,6 +51,8 @@ export const CustomerBookingPage = () => {
   const [placedOrder, setPlacedOrder] = useState<LaundryOrder | null>(null)
   const [pickupDateInput, setPickupDateInput] = useState<string>(() => extractDatePart(draft.pickupWindow))
   const [deliveryDateInput, setDeliveryDateInput] = useState<string>(() => extractDatePart(draft.deliveryWindow))
+  const [showAllPickupAddresses, setShowAllPickupAddresses] = useState(false)
+  const [showAllDeliveryAddresses, setShowAllDeliveryAddresses] = useState(false)
   const catalogueQuery = useQuery({
     queryKey: ['service-catalogue'],
     queryFn: () => mockCatalogueService.getCatalogue(),
@@ -135,6 +138,19 @@ export const CustomerBookingPage = () => {
 
   const { services, addOns } = catalogueQuery.data.data
   const hasAddresses = user.addresses.length > 0
+  const sortedAddresses = sortAddressesByRecency(user.addresses)
+  const visiblePickupAddresses = showAllPickupAddresses ? sortedAddresses : sortedAddresses.slice(0, MAX_RECENT_ADDRESSES)
+  const visibleDeliveryAddresses = showAllDeliveryAddresses ? sortedAddresses : sortedAddresses.slice(0, MAX_RECENT_ADDRESSES)
+
+  const handleSelectPickupAddress = (addressId: string) => {
+    setPickupAddressId(addressId)
+    void touchAddressRecency(addressId)
+  }
+
+  const handleSelectDeliveryAddress = (addressId: string) => {
+    setDeliveryAddressId(addressId)
+    void touchAddressRecency(addressId)
+  }
   const expressAddOn = addOns.find((addOn) => addOn.id === 'addon-express')
   const selectedServices = draft.serviceSelections.flatMap((selection) => {
     const service = services.find((item) => item.id === selection.serviceId)
@@ -403,11 +419,11 @@ export const CustomerBookingPage = () => {
                   </Button>
                 </div>
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  {user.addresses.map((address) => (
+                  {visiblePickupAddresses.map((address) => (
                     <button
                       key={address.id}
                       type="button"
-                      onClick={() => setPickupAddressId(address.id)}
+                      onClick={() => handleSelectPickupAddress(address.id)}
                       className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
                         draft.pickupAddressId === address.id
                           ? 'border-load-500 bg-load-50 shadow-card'
@@ -420,6 +436,15 @@ export const CustomerBookingPage = () => {
                     </button>
                   ))}
                 </div>
+                {sortedAddresses.length > MAX_RECENT_ADDRESSES ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllPickupAddresses((current) => !current)}
+                    className="mt-3 text-sm font-semibold text-load-700 hover:underline"
+                  >
+                    {showAllPickupAddresses ? 'Show fewer addresses' : `View all addresses (${sortedAddresses.length})`}
+                  </button>
+                ) : null}
               </div>
 
               {/* Delivery address — only relevant for DELIVERY fulfilment */}
@@ -428,11 +453,11 @@ export const CustomerBookingPage = () => {
                   <h2 className="text-heading text-ink">Delivery address</h2>
                   <p className="mt-1 text-body text-muted">Where should clean laundry be delivered?</p>
                   <div className="mt-5 grid gap-3 md:grid-cols-2">
-                    {user.addresses.map((address) => (
+                    {visibleDeliveryAddresses.map((address) => (
                       <button
                         key={address.id}
                         type="button"
-                        onClick={() => setDeliveryAddressId(address.id)}
+                        onClick={() => handleSelectDeliveryAddress(address.id)}
                         className={`rounded-card border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 ${
                           draft.deliveryAddressId === address.id
                             ? 'border-load-500 bg-load-50 shadow-card'
@@ -444,6 +469,15 @@ export const CustomerBookingPage = () => {
                       </button>
                     ))}
                   </div>
+                  {sortedAddresses.length > MAX_RECENT_ADDRESSES ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllDeliveryAddresses((current) => !current)}
+                      className="mt-3 text-sm font-semibold text-load-700 hover:underline"
+                    >
+                      {showAllDeliveryAddresses ? 'Show fewer addresses' : `View all addresses (${sortedAddresses.length})`}
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
 

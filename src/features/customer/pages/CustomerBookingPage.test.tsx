@@ -612,3 +612,118 @@ describe('CustomerBookingPage — regression: persisted multi-address selection'
     createAddressSpy.mockRestore()
   })
 })
+
+describe('CustomerBookingPage — regression: duplicate address protection', () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockCustomerProfile))
+  })
+
+  it('"Add address" reuses the existing address instead of creating a duplicate row when it matches (ignoring case/whitespace/label)', async () => {
+    const user = userEvent.setup()
+    const createAddressSpy = vi.spyOn(apiAddressService, 'createAddress')
+    const selectAddressSpy = vi.spyOn(apiAddressService, 'selectAddress').mockResolvedValue({
+      ...mockCustomerProfile.addresses[1],
+      lastUsedAt: new Date().toISOString(),
+    })
+    await selectFixedServiceAndContinue(user)
+
+    await user.click(screen.getByRole('button', { name: 'Add address' }))
+    await user.click(screen.getByRole('button', { name: 'Custom' }))
+    // Same physical address as the existing "Office" (177 Oxford Road, Rosebank, Johannesburg, 2196),
+    // just a different label, different case and extra whitespace.
+    await user.type(await screen.findByLabelText('Custom label'), 'My Work Address')
+    const streetInput = screen.getByLabelText('Street address')
+    await user.clear(streetInput)
+    await user.type(streetInput, '  177 OXFORD ROAD  ')
+    const suburbInput = screen.getByLabelText('Suburb')
+    await user.clear(suburbInput)
+    await user.type(suburbInput, ' rosebank ')
+    const cityInput = screen.getByLabelText('City / Town')
+    await user.clear(cityInput)
+    await user.type(cityInput, ' JOHANNESBURG ')
+    const postalInput = screen.getByLabelText('Postal code')
+    await user.clear(postalInput)
+    await user.type(postalInput, '2196')
+    await user.click(screen.getByRole('button', { name: 'Save address' }))
+
+    await waitFor(() => expect(selectAddressSpy).toHaveBeenCalledWith(mockCustomerProfile.addresses[1].id, undefined))
+    expect(createAddressSpy).not.toHaveBeenCalled()
+
+    // Still exactly the original two addresses — no new "My Work Address" row, and the original label is untouched.
+    const pickupSection = screen.getByText('Pickup address').closest('.rounded-panel')! as HTMLElement
+    expect(within(pickupSection).queryByText('My Work Address')).not.toBeInTheDocument()
+    expect(within(pickupSection).getAllByRole('button', { name: /Home|Office/ })).toHaveLength(2)
+
+    createAddressSpy.mockRestore()
+    selectAddressSpy.mockRestore()
+  })
+})
+
+describe('CustomerBookingPage — regression: recency-based address ordering', () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockCustomerProfile))
+  })
+
+  it('selecting an address bumps it to the front of the list (most recently used first)', async () => {
+    const user = userEvent.setup()
+    const selectAddressSpy = vi.spyOn(apiAddressService, 'selectAddress').mockResolvedValue({
+      ...mockCustomerProfile.addresses[1],
+      lastUsedAt: new Date().toISOString(),
+    })
+    await selectFixedServiceAndContinue(user)
+
+    const pickupSection = () => screen.getByText('Pickup address').closest('.rounded-panel')! as HTMLElement
+    const addressButtonLabels = () =>
+      within(pickupSection())
+        .getAllByRole('button')
+        .map((button) => button.textContent ?? '')
+        .filter((text) => text.includes('Home') || text.includes('Office'))
+
+    // "Home" (addr-sandton-1) is first by default (array order, no usage recorded yet).
+    expect(addressButtonLabels()[0]).toContain('Home')
+
+    // Select "Office" (addr-rosebank-2) — it should now sort to the front.
+    await user.click(within(pickupSection()).getByText('Office'))
+
+    await waitFor(() => expect(selectAddressSpy).toHaveBeenCalledWith(mockCustomerProfile.addresses[1].id, undefined))
+    await waitFor(() => expect(addressButtonLabels()[0]).toContain('Office'))
+
+    selectAddressSpy.mockRestore()
+  })
+})
+
+describe('CustomerBookingPage — regression: compact address picker beyond 3 saved addresses', () => {
+  const manyAddressesProfile = {
+    ...mockCustomerProfile,
+    addresses: [
+      mockCustomerProfile.addresses[0],
+      mockCustomerProfile.addresses[1],
+      { id: 'addr-extra-3', label: 'Gym', line1: '5 Fitness Ave', suburb: 'Bryanston', city: 'Sandton', province: 'Gauteng', postalCode: '2021' },
+      { id: 'addr-extra-4', label: 'Parents', line1: '9 Family Road', suburb: 'Fourways', city: 'Sandton', province: 'Gauteng', postalCode: '2055' },
+    ],
+  }
+
+  beforeEach(() => {
+    window.localStorage.clear()
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(manyAddressesProfile))
+  })
+
+  it('shows only the 3 most recently used addresses by default, with a "View all" control to reveal the rest', async () => {
+    const user = userEvent.setup()
+    await selectFixedServiceAndContinue(user)
+
+    const pickupSection = screen.getByText('Pickup address').closest('.rounded-panel')! as HTMLElement
+    expect(within(pickupSection).getByText('Home')).toBeInTheDocument()
+    expect(within(pickupSection).getByText('Office')).toBeInTheDocument()
+    expect(within(pickupSection).getByText('Gym')).toBeInTheDocument()
+    expect(within(pickupSection).queryByText('Parents')).not.toBeInTheDocument()
+
+    const viewAllButton = within(pickupSection).getByRole('button', { name: 'View all addresses (4)' })
+    await user.click(viewAllButton)
+
+    expect(within(pickupSection).getByText('Parents')).toBeInTheDocument()
+    expect(within(pickupSection).getByRole('button', { name: 'Show fewer addresses' })).toBeInTheDocument()
+  })
+})
