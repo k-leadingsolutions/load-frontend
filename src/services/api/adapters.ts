@@ -22,6 +22,31 @@ import type {
  */
 export const OPERATIONS_CUSTOMER_NAME_PLACEHOLDER = 'Customer details available in the LOAD operations system'
 
+/**
+ * Single source of truth for whether a `customerName` value is safe to
+ * display to Operations as real customer data. Rejects:
+ *  - the synthetic backend placeholder string, and
+ *  - values that merely mirror the order's own label (orderNumber/id) —
+ *    i.e. never derive/display "customer identity" from the order number.
+ * Returns `undefined` when there is nothing genuine to show, so callers can
+ * omit the customer line cleanly instead of rendering a fabricated value.
+ */
+export const getOperationsCustomerDisplayName = (
+  customerName: string | undefined,
+  orderLabel: string | undefined,
+): string | undefined => {
+  if (!customerName) {
+    return undefined
+  }
+  if (customerName === OPERATIONS_CUSTOMER_NAME_PLACEHOLDER) {
+    return undefined
+  }
+  if (orderLabel && customerName === orderLabel) {
+    return undefined
+  }
+  return customerName
+}
+
 export const addressFromDto = (dto: AddressResponseDto, isDefault: boolean): Address => ({
   id: dto.id,
   label: dto.label,

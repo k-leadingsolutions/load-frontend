@@ -50,3 +50,30 @@ describe('ProductionOrderCard order number display', () => {
     expect(screen.getByText('#LD10235')).toBeInTheDocument()
   })
 })
+
+describe('ProductionOrderCard customer name display', () => {
+  it('renders a real customer name when the backend has resolved one', () => {
+    renderCard({ ...baseOrder, orderNumber: 'LD10482', customerName: 'Thando Mokoena' })
+
+    expect(screen.getByText('Thando Mokoena')).toBeInTheDocument()
+  })
+
+  it('never renders the synthetic Operations customer placeholder text', () => {
+    renderCard({
+      ...baseOrder,
+      orderNumber: 'LD10482',
+      customerName: 'Customer details available in the LOAD operations system',
+    })
+
+    expect(screen.queryByText(/Customer details available in the LOAD operations system/i)).not.toBeInTheDocument()
+  })
+
+  it('omits the customer line cleanly (no fabricated name) when customerName merely mirrors the order label', () => {
+    renderCard({ ...baseOrder, orderNumber: 'LD10482', customerName: 'LD10482' })
+
+    // Order number itself is still shown once (as "#LD10482"), but must not
+    // also be duplicated as if it were a customer name.
+    expect(screen.getByText('#LD10482')).toBeInTheDocument()
+    expect(screen.queryByText('LD10482', { selector: 'h2' })).not.toBeInTheDocument()
+  })
+})

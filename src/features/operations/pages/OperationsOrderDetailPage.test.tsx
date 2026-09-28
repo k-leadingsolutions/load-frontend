@@ -38,6 +38,32 @@ describe('OperationsOrderDetailPage', () => {
     expect(screen.getByText('Sipho Khumalo')).toBeInTheDocument()
   })
 
+  it('never renders the synthetic Operations customer placeholder text, and omits the customer line cleanly when it is all the backend provides', async () => {
+    const realApiOrder: ProductionOrder = {
+      id: 'order-uuid-placeholder',
+      orderNumber: 'LD10499',
+      customerName: 'Customer details available in the LOAD operations system',
+      suburb: 'Sandton',
+      status: 'BOOKING_RECEIVED',
+      stageLabel: 'Booking received',
+      qualityCheckPending: false,
+      internalNotes: [],
+      itemsSummary: [],
+      quantityReviewStatus: 'PENDING',
+      receivedAtStore: false,
+      fulfilmentType: 'DELIVERY',
+    }
+    vi.spyOn(mockOperationsService, 'getProductionOrder').mockResolvedValueOnce(successResponse(realApiOrder))
+
+    renderPage('order-uuid-placeholder')
+
+    expect(await screen.findByText('Order #LD10499')).toBeInTheDocument()
+    expect(screen.queryByText(/Customer details available in the LOAD operations system/i)).not.toBeInTheDocument()
+    // Suburb still renders on its own — the customer line is omitted cleanly,
+    // not replaced with a fabricated value.
+    expect(screen.getByText('Sandton')).toBeInTheDocument()
+  })
+
   it('remains functional and shows an unavailable notice when refreshing invoice while POS cannot be reached', async () => {
     const user = userEvent.setup()
     __setMockPosScenario('LD10235', { kind: 'UNAVAILABLE' })

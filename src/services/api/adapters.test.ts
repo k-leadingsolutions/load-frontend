@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { driverAssignmentFromDto, laundryOrderFromDto, productionOrderFromDto } from '@/services/api/adapters'
+import {
+  driverAssignmentFromDto,
+  getOperationsCustomerDisplayName,
+  laundryOrderFromDto,
+  OPERATIONS_CUSTOMER_NAME_PLACEHOLDER,
+  productionOrderFromDto,
+} from '@/services/api/adapters'
 import type { AssignmentResponseDto, OrderResponseDto } from '@/services/api/types'
 
 const UUID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301'
@@ -90,5 +96,24 @@ describe('order number mapping (LD##### human-friendly identifiers)', () => {
     expect(productionOrder.pickupWindowDate).toBe(baseOrderDto.pickupWindowDate)
     expect(productionOrder.pickupWindowLabel).toBe(baseOrderDto.pickupWindowLabel)
     expect(productionOrder.deliveryWindowDate).toBeUndefined()
+  })
+})
+
+describe('getOperationsCustomerDisplayName (Operations customer placeholder omission)', () => {
+  it('returns the real customer name unchanged when it is genuine and distinct from the order label', () => {
+    expect(getOperationsCustomerDisplayName('Thando Mokoena', ORDER_NUMBER)).toBe('Thando Mokoena')
+  })
+
+  it('returns undefined for the synthetic Operations placeholder string, never rendering it as customer data', () => {
+    expect(getOperationsCustomerDisplayName(OPERATIONS_CUSTOMER_NAME_PLACEHOLDER, ORDER_NUMBER)).toBeUndefined()
+  })
+
+  it('returns undefined when customerName merely mirrors the order label (never derives identity from orderNumber/id)', () => {
+    expect(getOperationsCustomerDisplayName(ORDER_NUMBER, ORDER_NUMBER)).toBeUndefined()
+  })
+
+  it('returns undefined when customerName is empty/undefined, so callers can omit the line cleanly', () => {
+    expect(getOperationsCustomerDisplayName(undefined, ORDER_NUMBER)).toBeUndefined()
+    expect(getOperationsCustomerDisplayName('', ORDER_NUMBER)).toBeUndefined()
   })
 })

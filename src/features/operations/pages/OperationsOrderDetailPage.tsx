@@ -4,6 +4,7 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { apiOperationsService } from '@/services/api/operationsService'
+import { getOperationsCustomerDisplayName } from '@/services/api/adapters'
 import { formatWindowDateAndTime } from '@/utils/format'
 
 export const OperationsOrderDetailPage = () => {
@@ -45,11 +46,14 @@ export const OperationsOrderDetailPage = () => {
     return <ErrorState title="Order not found" message={`No operational record exists for #${orderId}.`} />
   }
 
+  const orderLabel = productionOrder.orderNumber ?? productionOrder.id
+  const customerDisplayName = getOperationsCustomerDisplayName(productionOrder.customerName, orderLabel)
+
   return (
     <div className="space-y-6">
       <SectionCard
-        title={`Order #${productionOrder.orderNumber ?? productionOrder.id}`}
-        description={`${productionOrder.customerName} · ${productionOrder.suburb}`}
+        title={`Order #${orderLabel}`}
+        description={customerDisplayName ? `${customerDisplayName} · ${productionOrder.suburb}` : productionOrder.suburb}
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div>

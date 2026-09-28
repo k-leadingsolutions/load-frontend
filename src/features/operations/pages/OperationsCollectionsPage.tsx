@@ -5,7 +5,7 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { apiOperationsService } from '@/services/api/operationsService'
-import { OPERATIONS_CUSTOMER_NAME_PLACEHOLDER } from '@/services/api/adapters'
+import { getOperationsCustomerDisplayName } from '@/services/api/adapters'
 import { formatWindowDateAndTime } from '@/utils/format'
 import type { ApiError } from '@/domain/api'
 import type { DriverAssignment, ProductionOrder } from '@/domain/models'
@@ -18,18 +18,23 @@ const QUERY_KEYS = {
 
 /**
  * `customerName` sometimes mirrors the same `orderNumber`/`orderId` already
- * shown as the order label (the backend does not yet expose customer name
- * enrichment to Operations/Driver assignments) — never repeat it as if it
- * were distinct customer information.
+ * shown as the order label, or is the synthetic backend placeholder (the
+ * backend does not yet expose customer name enrichment to
+ * Operations/Driver assignments) — never repeat/display either as if it
+ * were distinct real customer information.
  */
 const assignmentCustomerSuffix = (assignment: DriverAssignment) => {
   const orderLabel = assignment.orderNumber ?? assignment.orderId
-  return assignment.customerName && assignment.customerName !== orderLabel ? ` · ${assignment.customerName}` : ''
+  const customerDisplayName = getOperationsCustomerDisplayName(assignment.customerName, orderLabel)
+  return customerDisplayName ? ` · ${customerDisplayName}` : ''
 }
 
-/** Same rule as `assignmentCustomerSuffix`, for the fixed Operations placeholder string. */
-const orderCustomerSuffix = (order: ProductionOrder) =>
-  order.customerName && order.customerName !== OPERATIONS_CUSTOMER_NAME_PLACEHOLDER ? ` · ${order.customerName}` : ''
+/** Same rule as `assignmentCustomerSuffix`, for `ProductionOrder` records. */
+const orderCustomerSuffix = (order: ProductionOrder) => {
+  const orderLabel = order.orderNumber ?? order.id
+  const customerDisplayName = getOperationsCustomerDisplayName(order.customerName, orderLabel)
+  return customerDisplayName ? ` · ${customerDisplayName}` : ''
+}
 
 /**
  * Server-authoritative dispatch eligibility, mirrored here only for display
