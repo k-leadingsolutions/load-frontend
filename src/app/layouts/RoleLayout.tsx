@@ -1,5 +1,24 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
+
+/**
+ * The fixed mobile nav's own offset from the viewport bottom
+ * (`bottom-[calc(1rem+env(safe-area-inset-bottom))]` below) plus a small
+ * visual breathing-room buffer. Kept in one place so the content clearance
+ * calculation below can never silently drift out of sync with the nav's
+ * actual position.
+ */
+const NAV_BOTTOM_OFFSET_AND_BUFFER_REM = 1.5
+
+/**
+ * Conservative clearance used only until the real nav height has been
+ * measured in the browser (e.g. during the very first paint). Real devices
+ * may render the nav taller than this (longer/wrapped labels, larger text
+ * settings, different item counts per role) — measurement below is what
+ * keeps clearance correct once mounted, not this constant.
+ */
+const FALLBACK_NAV_HEIGHT_PX = 88
 
 interface MobileNavItem {
   to: string
@@ -45,13 +64,60 @@ export const RoleLayout = ({
   const safeRoute = errorSafeRoute ?? mobileNavLinks[0]?.to ?? '/'
 
   const hasMobileNav = mobileNavLinks.length > 0
+  const navRef = useRef<HTMLElement | null>(null)
+  const [measuredNavHeight, setMeasuredNavHeight] = useState<number | null>(null)
+
+  /*
+   * The static Tailwind class this replaced (`pb-[calc(6.5rem+...)]`) baked
+   * in a guessed nav height that has no guaranteed relationship to the nav's
+   * actual rendered footprint — which varies per role (different item
+   * counts/labels), per viewport width, and per device text-size setting.
+   * jsdom-based unit tests can only assert that class string is present;
+   * jsdom never performs real CSS layout, so they cannot detect an actual
+   * pixel overlap when the guess is wrong in a real browser. Measuring the
+   * nav's real height and deriving clearance from it keeps content always
+   * fully clear of the fixed nav, regardless of its true rendered size.
+   */
+  useLayoutEffect(() => {
+    if (!hasMobileNav) {
+      setMeasuredNavHeight(null)
+      return
+    }
+
+    const node = navRef.current
+    if (!node) {
+      return
+    }
+
+    const applyHeight = (height: number) => {
+      if (height > 0) {
+        setMeasuredNavHeight(height)
+      }
+    }
+
+    applyHeight(node.getBoundingClientRect().height)
+
+    if (typeof ResizeObserver === 'undefined') {
+      return
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const boxSize = entry.borderBoxSize?.[0]
+        applyHeight(boxSize ? boxSize.blockSize : entry.contentRect.height)
+      }
+    })
+    observer.observe(node)
+
+    return () => observer.disconnect()
+  }, [hasMobileNav, mobileNavLinks.length])
+
+  const contentBottomClearance = hasMobileNav
+    ? `calc(${measuredNavHeight ?? FALLBACK_NAV_HEIGHT_PX}px + ${NAV_BOTTOM_OFFSET_AND_BUFFER_REM}rem + env(safe-area-inset-bottom))`
+    : undefined
 
   return (
-    <div
-      className={`space-y-6 ${
-        hasMobileNav ? 'pb-[calc(6.5rem+env(safe-area-inset-bottom))]' : ''
-      }`}
-    >
+    <div className="space-y-6" style={contentBottomClearance ? { paddingBottom: contentBottomClearance } : undefined}>
       {greetingMode ? (
         /* ── Customer greeting card — no nav pills, just brand identity ── */
         <section
@@ -102,6 +168,7 @@ export const RoleLayout = ({
 
       {mobileNavLinks.length > 0 ? (
         <nav
+          ref={navRef}
           aria-label={`${roleLabel} navigation`}
           className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-20 mx-auto flex max-w-lg items-center justify-between rounded-panel border border-card-border bg-white/95 px-4 py-2 shadow-panel backdrop-blur"
         >
