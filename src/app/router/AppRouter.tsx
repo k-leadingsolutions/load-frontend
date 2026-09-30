@@ -35,6 +35,7 @@ import { CustomerServiceCategoryPage } from '@/features/customer/pages/CustomerS
 import { CustomerServicesPage } from '@/features/customer/pages/CustomerServicesPage'
 import { CoffeeCartPage } from '@/features/customer/coffee/CoffeeCartPage'
 import { CoffeeCartProvider } from '@/features/customer/coffee/CoffeeCartContext'
+import { CoffeeActiveBasketBar } from '@/features/customer/coffee/CoffeeActiveBasketBar'
 import { CustomerOrderDraftProvider } from '@/features/customer/booking/CustomerOrderDraftContext'
 import { FoundationPage } from '@/features/foundation/pages/FoundationPage'
 import { LandingPage } from '@/features/foundation/pages/LandingPage'
@@ -92,6 +93,7 @@ export const AppRouter = () => {
                   { to: appPaths.customerRewards, label: 'Rewards', icon: '⭐' },
                   { to: appPaths.customerProfile, label: 'More', icon: '☰' },
                 ]}
+                basketBar={<CoffeeActiveBasketBar />}
               />
             }
           >

@@ -319,7 +319,7 @@ const ProductCustomizerBody = ({
 export const CoffeeCategoryDetail = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [customizingProduct, setCustomizingProduct] = useState<CoffeeProduct | null>(null)
-  const { addItem, itemCount, subtotal } = useCoffeeCart()
+  const { addItem } = useCoffeeCart()
   const sectionRefs = useRef<Partial<Record<string, HTMLElement | null>>>({})
 
   const groupedDrinks = useMemo(() => {
@@ -369,7 +369,7 @@ export const CoffeeCategoryDetail = () => {
   }
 
   return (
-    <div className={itemCount > 0 ? 'space-y-6 pb-24' : 'space-y-6'}>
+    <div className="space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
         <Link to={appPaths.customerServices} className="font-semibold text-load-600 hover:text-load-700">
@@ -450,22 +450,6 @@ export const CoffeeCategoryDetail = () => {
           />
         ) : null}
       </Modal>
-
-      {itemCount > 0 ? (
-        <div className="fixed inset-x-0 bottom-16 z-40 flex justify-center px-4 sm:bottom-4">
-          <Link
-            to={appPaths.customerCoffeeCart}
-            className="flex w-full max-w-md items-center justify-between gap-3 rounded-pill bg-load-700 px-5 py-3 text-white shadow-panel transition hover:bg-load-800"
-          >
-            <span className="text-sm font-semibold">
-              {itemCount} {itemCount === 1 ? 'item' : 'items'} in cart
-            </span>
-            <span className="text-sm font-semibold">
-              View cart · {formatCurrency(subtotal)}
-            </span>
-          </Link>
-        </div>
-      ) : null}
 
       {toastMessage ? (
         <Toast message={toastMessage} tone="success" onDismiss={() => setToastMessage(null)} />

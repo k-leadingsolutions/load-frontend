@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
@@ -19,6 +19,13 @@ const NAV_BOTTOM_OFFSET_AND_BUFFER_REM = 1.5
  * keeps clearance correct once mounted, not this constant.
  */
 const FALLBACK_NAV_HEIGHT_PX = 88
+
+/**
+ * Visual breathing-room gap kept between the active-basket bar and the nav
+ * immediately below it, so the two persistent elements never visually fuse
+ * into one another (the original overlap defect this replaces).
+ */
+const BASKET_BAR_GAP_REM = 0.75
 
 interface MobileNavItem {
   to: string
@@ -48,6 +55,17 @@ interface RoleLayoutProps {
    * own greeting-mode header in PublicLayout; Driver is unchanged).
    */
   onSignOut?: () => void
+  /**
+   * Renders a persistent active-basket CTA (e.g. Coffee's floating "View
+   * cart" bar) positioned directly above the fixed mobile nav, with its own
+   * measured height folded into the content bottom clearance below. Kept as
+   * an opaque, role-agnostic slot — RoleLayout never imports basket state
+   * itself — so only routes that actually have a basket (Customer) supply
+   * it. The supplied element is expected to render `null` itself when the
+   * basket is empty; RoleLayout measures whatever it renders (including
+   * zero) rather than assuming a fixed height.
+   */
+  basketBar?: ReactNode
 }
 
 export const RoleLayout = ({
@@ -59,6 +77,7 @@ export const RoleLayout = ({
   greetingMode = false,
   errorSafeRoute,
   onSignOut,
+  basketBar,
 }: RoleLayoutProps) => {
   const location = useLocation()
   const safeRoute = errorSafeRoute ?? mobileNavLinks[0]?.to ?? '/'
@@ -112,9 +131,64 @@ export const RoleLayout = ({
     return () => observer.disconnect()
   }, [hasMobileNav, mobileNavLinks.length])
 
+  const basketBarRef = useRef<HTMLDivElement | null>(null)
+  const [measuredBasketBarHeight, setMeasuredBasketBarHeight] = useState(0)
+
+  /*
+   * The wrapper below is always mounted whenever `basketBar` is supplied, even
+   * while the basket is empty (the supplied element itself renders `null` in
+   * that case), so its measured height is genuinely 0 — not a fallback guess
+   * — while empty, and grows to the real rendered height the instant an item
+   * is added. This keeps "no unnecessary empty spacing" true for the empty
+   * state without needing RoleLayout to know anything about basket contents.
+   */
+  useLayoutEffect(() => {
+    if (!basketBar) {
+      setMeasuredBasketBarHeight(0)
+      return
+    }
+
+    const node = basketBarRef.current
+    if (!node) {
+      return
+    }
+
+    const applyHeight = (height: number) => setMeasuredBasketBarHeight(height)
+
+    applyHeight(node.getBoundingClientRect().height)
+
+    if (typeof ResizeObserver === 'undefined') {
+      return
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const boxSize = entry.borderBoxSize?.[0]
+        applyHeight(boxSize ? boxSize.blockSize : entry.contentRect.height)
+      }
+    })
+    observer.observe(node)
+
+    return () => observer.disconnect()
+  }, [basketBar])
+
+  const basketBarPresent = Boolean(basketBar) && measuredBasketBarHeight > 0
+  const basketBarClearance = basketBarPresent ? `calc(${measuredBasketBarHeight}px + ${BASKET_BAR_GAP_REM}rem)` : '0px'
+
   const contentBottomClearance = hasMobileNav
-    ? `calc(${measuredNavHeight ?? FALLBACK_NAV_HEIGHT_PX}px + ${NAV_BOTTOM_OFFSET_AND_BUFFER_REM}rem + env(safe-area-inset-bottom))`
+    ? `calc(${measuredNavHeight ?? FALLBACK_NAV_HEIGHT_PX}px + ${NAV_BOTTOM_OFFSET_AND_BUFFER_REM}rem + env(safe-area-inset-bottom) + ${basketBarClearance})`
     : undefined
+
+  /*
+   * Positioned relative to the nav's own measured height so the basket bar
+   * always sits directly above it — with a fixed visual gap — regardless of
+   * how tall the nav renders for a given role/viewport/text size. This is
+   * the single authoritative stacking calculation for both persistent
+   * elements; nothing else in the app hardcodes a `bottom` offset for either.
+   */
+  const basketBarBottomOffset = hasMobileNav
+    ? `calc(1rem + env(safe-area-inset-bottom) + ${measuredNavHeight ?? FALLBACK_NAV_HEIGHT_PX}px + ${BASKET_BAR_GAP_REM}rem)`
+    : 'calc(1rem + env(safe-area-inset-bottom))'
 
   return (
     <div className="space-y-6" style={contentBottomClearance ? { paddingBottom: contentBottomClearance } : undefined}>
@@ -165,6 +239,16 @@ export const RoleLayout = ({
       <ErrorBoundary key={location.pathname} safeRoute={safeRoute} safeRouteLabel={`Back to ${roleLabel}`}>
         <Outlet />
       </ErrorBoundary>
+
+      {basketBar ? (
+        <div
+          ref={basketBarRef}
+          className="fixed inset-x-4 z-20 mx-auto flex max-w-md justify-center"
+          style={{ bottom: basketBarBottomOffset }}
+        >
+          {basketBar}
+        </div>
+      ) : null}
 
       {mobileNavLinks.length > 0 ? (
         <nav

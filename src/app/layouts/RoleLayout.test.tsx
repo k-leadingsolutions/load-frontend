@@ -171,6 +171,91 @@ describe('RoleLayout', () => {
     }
   })
 
+  describe('active basket bar slot (basketBar prop)', () => {
+    it('renders nothing extra and reserves no additional clearance when basketBar is omitted', () => {
+      const { container } = render(
+        <MemoryRouter>
+          <RoleLayout
+            roleLabel="Operations"
+            title="Operations command centre"
+            mobileNavLinks={[{ to: '/operations/dashboard', label: 'Dashboard', icon: '⌂' }]}
+          />
+        </MemoryRouter>,
+      )
+
+      expect(screen.queryByRole('link', { name: /view cart/i })).not.toBeInTheDocument()
+      const contentWrapper = container.firstElementChild as HTMLElement
+      // Clearance still reflects only the nav (fallback height) — no basket-bar term appended.
+      expect(contentWrapper.style.paddingBottom).toContain('88px')
+    })
+
+    it('renders an arbitrary basketBar element positioned above the nav, without RoleLayout knowing anything about baskets', () => {
+      render(
+        <MemoryRouter>
+          <RoleLayout
+            roleLabel="Customer"
+            greetingMode
+            mobileNavLinks={[{ to: '/customer/home', label: 'Home', icon: '⌂' }]}
+            basketBar={<div data-testid="stub-basket-bar">Stub basket bar</div>}
+          />
+        </MemoryRouter>,
+      )
+
+      // RoleLayout renders whatever opaque node it is given — no Coffee/Laundry
+      // coupling exists inside the shared shell itself.
+      expect(screen.getByTestId('stub-basket-bar')).toBeInTheDocument()
+      expect(screen.getByRole('navigation', { name: 'Customer navigation' })).toBeInTheDocument()
+    })
+
+    it('folds the basket bar\'s real measured height into the reserved content clearance so it never hides content', () => {
+      const basketBarHeightPx = 64
+      let resizeCallback: ResizeObserverCallback | null = null
+      let observedCount = 0
+
+      class FakeResizeObserver {
+        constructor(callback: ResizeObserverCallback) {
+          resizeCallback = callback
+        }
+        observe(target: Element) {
+          observedCount += 1
+          // First observed node is the nav (fixed fallback), second is the basket bar.
+          const height = observedCount === 1 ? 88 : basketBarHeightPx
+          Object.defineProperty(target, 'getBoundingClientRect', {
+            configurable: true,
+            value: () => ({ height }) as DOMRect,
+          })
+          resizeCallback?.(
+            [{ target, contentRect: { height } } as unknown as ResizeObserverEntry],
+            this as unknown as ResizeObserver,
+          )
+        }
+        unobserve() {}
+        disconnect() {}
+      }
+
+      const originalResizeObserver = globalThis.ResizeObserver
+      globalThis.ResizeObserver = FakeResizeObserver as unknown as typeof ResizeObserver
+
+      try {
+        const { container } = render(
+          <MemoryRouter>
+            <RoleLayout
+              roleLabel="Customer"
+              greetingMode
+              mobileNavLinks={[{ to: '/customer/home', label: 'Home', icon: '⌂' }]}
+              basketBar={<div>1 item · R52,00</div>}
+            />
+          </MemoryRouter>,
+        )
+
+        const contentWrapper = container.firstElementChild as HTMLElement
+        expect(contentWrapper.style.paddingBottom).toContain(`${basketBarHeightPx}px`)
+      } finally {
+        globalThis.ResizeObserver = originalResizeObserver
+      }
+    })
+  })
+
   describe('bottom-nav active-state UX', () => {
     it('marks the current destination active with stronger font weight and the brand pill indicator, while other items stay secondary', () => {
       renderWithRoutes('/operations/orders')

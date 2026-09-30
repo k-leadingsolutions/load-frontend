@@ -6,6 +6,7 @@ import { CustomerServicesPage } from '@/features/customer/pages/CustomerServices
 import { CustomerServiceCategoryPage } from '@/features/customer/pages/CustomerServiceCategoryPage'
 import { CoffeeCartProvider } from '@/features/customer/coffee/CoffeeCartContext'
 import { CustomerOrderDraftProvider } from '@/features/customer/booking/CustomerOrderDraftContext'
+import { CoffeeActiveBasketBar } from '@/features/customer/coffee/CoffeeActiveBasketBar'
 import { formatCurrency } from '@/utils/format'
 
 /** DOM text is whitespace-normalized (nbsp → space) by Testing Library queries. */
@@ -18,6 +19,7 @@ const renderServices = (initialEntry: string) =>
     <CoffeeCartProvider>
       <CustomerOrderDraftProvider>
         <MemoryRouter initialEntries={[initialEntry]}>
+          <CoffeeActiveBasketBar />
           <Routes>
             <Route path={appPaths.customerServices} element={<CustomerServicesPage />} />
             <Route path={appPaths.customerServiceCategory} element={<CustomerServiceCategoryPage />} />
@@ -151,7 +153,7 @@ describe('LOAD Coffee category', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.queryByText(/item.*in cart/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /view cart/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
@@ -164,7 +166,7 @@ describe('LOAD Coffee category', () => {
       within(screen.getByRole('article', { name: 'Cappuccino' })).getByRole('button', { name: 'Customize & add' }),
     )
     await user.click(within(await screen.findByRole('dialog', { name: 'Cappuccino' })).getByRole('button', { name: 'Add to order' }))
-    expect(await screen.findByText('1 item in cart')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /view cart: 1 item/i })).toBeInTheDocument()
 
     // Open (and cancel) a second product's customizer — basket must remain at 1 item.
     await user.click(
@@ -173,7 +175,7 @@ describe('LOAD Coffee category', () => {
     const latteDialog = await screen.findByRole('dialog', { name: 'Latte' })
     await user.click(within(latteDialog).getByRole('button', { name: 'Cancel' }))
 
-    expect(await screen.findByText('1 item in cart')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /view cart: 1 item/i })).toBeInTheDocument()
   })
 
   describe('modifier applicability by menu section', () => {
