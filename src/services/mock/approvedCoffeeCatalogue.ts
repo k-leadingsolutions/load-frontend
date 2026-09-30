@@ -59,7 +59,34 @@ export const coffeeModifiers: Modifier[] = [
   { id: 'cream', name: 'Cream', priceAdjustment: 8, available: true },
 ]
 
-const allModifierIds = coffeeModifiers.map((m) => m.id)
+// ─── Modifier applicability by menu section ────────────────────────────────────
+//
+// Not every modifier makes sense on every drink (e.g. "Decaf"/"Extra espresso
+// shot" only apply to espresso-based drinks; a fruit Refresher has no dairy
+// base to swap out). Rather than defaulting every product to the full
+// modifier list, group the existing `coffeeModifiers` ids by menu section and
+// let `drink()` look up the right group for each product's `subCategoryLabel`.
+// This reuses the existing per-product `CoffeeProduct.modifierIds` field —
+// no domain model extension is required, only correcting the catalogue data.
+const ESPRESSO_EXTRAS = ['decaf', 'extra-shot']
+const MILK_ALTERNATIVES = ['oat-milk', 'almond-milk', 'coconut-milk']
+const SYRUPS = ['vanilla-syrup', 'caramel-syrup', 'hazelnut-syrup']
+const TOPPINGS = ['whipped-cream', 'cream']
+
+/**
+ * Per-section applicable modifier ids. Sections not listed (e.g. Refreshers)
+ * have no applicable modifiers — those drinks are added with size choice only.
+ */
+const modifierIdsBySubCategory: Partial<Record<(typeof coffeeSubcategories)[number], string[]>> = {
+  Coffee: [...ESPRESSO_EXTRAS, ...MILK_ALTERNATIVES, ...SYRUPS, ...TOPPINGS],
+  'Iced Coffee': [...ESPRESSO_EXTRAS, ...MILK_ALTERNATIVES, ...SYRUPS, ...TOPPINGS],
+  Matcha: [...MILK_ALTERNATIVES, ...SYRUPS, ...TOPPINGS],
+  Chocolate: [...MILK_ALTERNATIVES, ...SYRUPS, ...TOPPINGS],
+  Freezos: [...MILK_ALTERNATIVES, ...SYRUPS, ...TOPPINGS],
+  'Tea + Iced Tea': [...MILK_ALTERNATIVES, ...SYRUPS],
+  // Refreshers intentionally omitted: fruit-based drinks with no coffee,
+  // dairy or cream base — none of the existing modifiers apply.
+}
 
 // ─── Drinks (Coffee, Iced Coffee, Matcha, Chocolate, Freezos, Refreshers, Tea) ─
 
@@ -79,7 +106,7 @@ const drink = (
   ...(largePrice !== undefined ? { largePrice } : {}),
   favourite,
   available: true,
-  modifierIds: allModifierIds,
+  modifierIds: modifierIdsBySubCategory[subCategoryLabel] ?? [],
 })
 
 export const coffeeProducts: CoffeeProduct[] = [
