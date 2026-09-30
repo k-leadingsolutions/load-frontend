@@ -12,6 +12,15 @@ export interface Address {
   isDefault?: boolean
   /** ISO-8601 instant of last use (created, re-submitted as a duplicate, or explicitly selected). Drives "most recently used" ordering. Absent for addresses sourced outside the backend-persisted flow. */
   lastUsedAt?: string
+  /**
+   * Distance, in kilometres, between the LOAD store and this address —
+   * drives distance-tiered delivery pricing (see `domain/deliveryPricing.ts`).
+   * There is currently no real geocoding/routing integration anywhere in
+   * this codebase; this is demo/seed data only (never inferred from
+   * suburb/city/postcode) until a real distance-resolution service is
+   * wired in. Absent when the distance has not been resolved.
+   */
+  distanceKm?: number
 }
 
 export interface LoyaltyWallet {

@@ -56,6 +56,16 @@ export interface QuoteRequest {
   promotionCode?: string
   expressRequested: boolean
   useLoyaltyPoints?: boolean
+  /** How the completed order returns to the Customer. Defaults to DELIVERY when omitted. */
+  fulfilmentType?: FulfilmentType
+  /**
+   * Resolved distance, in kilometres, between the LOAD store and the
+   * Customer's selected address — drives distance-tiered delivery pricing
+   * (see `domain/deliveryPricing.ts`). Distance resolution is deliberately
+   * the caller's responsibility (e.g. `resolveDeliveryDistanceKm`); omit
+   * when no address has been selected yet rather than fabricating a value.
+   */
+  distanceKm?: number
 }
 
 export type CustomerProfileResponse = ApiResponse<CustomerProfile>

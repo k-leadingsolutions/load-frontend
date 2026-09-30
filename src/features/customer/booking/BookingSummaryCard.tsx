@@ -10,9 +10,12 @@ interface BookingSummaryCardProps {
 }
 
 export const BookingSummaryCard = ({ canSubmit, isSubmitting, onSubmit, quote }: BookingSummaryCardProps) => {
-  const deliveryProgress = quote
-    ? Math.min(100, (quote.subtotal / quote.freeDeliveryThreshold) * 100)
-    : 0
+  const deliveryPricing = quote?.deliveryPricing ?? null
+  // Free-delivery progress only exists for tiers with a defined threshold
+  // (1–5km / >5–10km). >10km has no threshold — never invent one — and
+  // STORE_COLLECTION / not-yet-resolved distance have no `deliveryPricing`
+  // at all, so no progress is shown either.
+  const showFreeDeliveryProgress = deliveryPricing?.freeDeliveryThreshold !== undefined
   const estimate = buildCustomerEstimatePresentation(quote)
 
   return (
@@ -38,19 +41,24 @@ export const BookingSummaryCard = ({ canSubmit, isSubmitting, onSubmit, quote }:
             ))}
           </div>
 
-          <div>
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-slate-500">Free delivery progress</span>
-              <span className="font-semibold text-load-700">
-                {quote.freeDeliveryGap > 0
-                  ? `${formatCurrency(quote.freeDeliveryGap)} to go`
-                  : 'Free delivery unlocked'}
-              </span>
+          {showFreeDeliveryProgress && deliveryPricing ? (
+            <div>
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-slate-500">Free delivery progress</span>
+                <span className="font-semibold text-load-700">
+                  {deliveryPricing.freeDeliveryUnlocked
+                    ? 'Free delivery unlocked'
+                    : `${formatCurrency(deliveryPricing.remainingForFreeDelivery ?? 0)} to go`}
+                </span>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-load-100">
+                <div
+                  className="h-2 rounded-full bg-load-600"
+                  style={{ width: `${Math.min(deliveryPricing.progressPercentage ?? 0, 100)}%` }}
+                />
+              </div>
             </div>
-            <div className="mt-2 h-2 rounded-full bg-load-100">
-              <div className="h-2 rounded-full bg-load-600" style={{ width: `${deliveryProgress}%` }} />
-            </div>
-          </div>
+          ) : null}
 
           <div className="rounded-3xl border border-load-100 p-4 text-sm text-slate-600">
             <p>Loyalty preview: {formatPoints(quote.loyaltyPreviewPoints)}</p>
@@ -82,3 +90,4 @@ export const BookingSummaryCard = ({ canSubmit, isSubmitting, onSubmit, quote }:
     </aside>
   )
 }
+

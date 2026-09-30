@@ -1,4 +1,5 @@
 import type { PaymentStatus } from '@/domain/models/order'
+import type { DeliveryPricingResult } from '@/domain/deliveryPricing'
 
 // ─── Pricing model enum ───────────────────────────────────────────────────────
 
@@ -101,8 +102,26 @@ export interface PricingQuote {
   loyaltyRedemptionTotal: number
   estimatedTotal: number
   loyaltyPreviewPoints: number
-  freeDeliveryThreshold: number
-  freeDeliveryGap: number
+  /**
+   * @deprecated Read `deliveryPricing.freeDeliveryThreshold` instead — this
+   * flat field cannot express the >10km tier, which has no threshold at all.
+   * Kept only so any not-yet-migrated reader still gets a real, per-tier
+   * value (never a fabricated flat R300) rather than failing to compile.
+   */
+  freeDeliveryThreshold?: number
+  /** @deprecated Read `deliveryPricing.remainingForFreeDelivery` instead. */
+  freeDeliveryGap?: number
+  /**
+   * Distance-tiered delivery fee and free-delivery progress — the single
+   * shared calculation result (see `domain/deliveryPricing.ts`). This is the
+   * authoritative source for delivery pricing UI; `deliveryFee` above is
+   * simply `deliveryPricing.effectiveDeliveryFee` kept for convenience.
+   * `null` when delivery pricing cannot yet be calculated: STORE_COLLECTION
+   * (no return-delivery leg — always fee-free) or DELIVERY with a
+   * not-yet-resolved distance (e.g. no address selected yet). Never
+   * fabricate a tier in either case.
+   */
+  deliveryPricing: DeliveryPricingResult | null
   lineItems: PricingQuoteItem[]
   /** Included when service is PER_KILOGRAM – estimate only */
   estimatedWeightKg?: number

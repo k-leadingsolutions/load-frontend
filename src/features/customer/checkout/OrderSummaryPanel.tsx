@@ -8,8 +8,6 @@ interface OrderSummaryPanelProps {
   isWeightBased: boolean
 }
 
-const DELIVERY_FEE = 45
-
 const formatLineAmount = (amount: number, negative = false) => `${negative ? '-' : ''}${formatCurrency(amount)}`
 
 const getPaymentSummary = (quote: PricingQuote, tip: TipSelection): PaymentSummary => {
@@ -25,7 +23,9 @@ const getPaymentSummary = (quote: PricingQuote, tip: TipSelection): PaymentSumma
   const loyaltyDiscount = Math.abs(
     quote.lineItems.find((item) => item.id === 'loyalty-redemption')?.totalPrice ?? 0,
   )
-  const freeDeliveryDiscount = quote.deliveryFee === 0 && quote.freeDeliveryGap === 0 ? DELIVERY_FEE : 0
+  const freeDeliveryDiscount = quote.deliveryFee === 0 && quote.deliveryPricing?.freeDeliveryUnlocked
+    ? quote.deliveryPricing.standardDeliveryFee
+    : 0
 
   return {
     servicesSubtotal,
@@ -53,7 +53,10 @@ export const OrderSummaryPanel = ({ quote, tip, isWeightBased }: OrderSummaryPan
   }
 
   const paymentSummary = getPaymentSummary(quote, tip)
-  const deliveryProgress = Math.min(100, (quote.subtotal / quote.freeDeliveryThreshold) * 100)
+  const deliveryPricing = quote.deliveryPricing
+  const deliveryProgress = deliveryPricing?.freeDeliveryThreshold !== undefined
+    ? Math.min(deliveryPricing.progressPercentage ?? 0, 100)
+    : 0
   const promotionName = quote.promotions.find((promotion) =>
     promotion.discountType === 'FIXED' || promotion.discountType === 'PERCENTAGE')
 
@@ -71,19 +74,21 @@ export const OrderSummaryPanel = ({ quote, tip, isWeightBased }: OrderSummaryPan
           </div>
         ) : null}
 
-        <div>
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-slate-500">Free delivery progress</span>
-            <span className="font-semibold text-load-700">
-              {quote.freeDeliveryGap > 0
-                ? `${formatCurrency(quote.freeDeliveryGap)} to go`
-                : 'Free delivery unlocked'}
-            </span>
+        {deliveryPricing?.freeDeliveryThreshold !== undefined ? (
+          <div>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-slate-500">Free delivery progress</span>
+              <span className="font-semibold text-load-700">
+                {deliveryPricing.freeDeliveryUnlocked
+                  ? 'Free delivery unlocked'
+                  : `${formatCurrency(deliveryPricing.remainingForFreeDelivery ?? 0)} to go`}
+              </span>
+            </div>
+            <div className="mt-2 h-2 rounded-full bg-load-100">
+              <div className="h-2 rounded-full bg-load-600" style={{ width: `${deliveryProgress}%` }} />
+            </div>
           </div>
-          <div className="mt-2 h-2 rounded-full bg-load-100">
-            <div className="h-2 rounded-full bg-load-600" style={{ width: `${deliveryProgress}%` }} />
-          </div>
-        </div>
+        ) : null}
 
         <div className="space-y-3 text-sm">
           <div className="flex items-center justify-between gap-3">

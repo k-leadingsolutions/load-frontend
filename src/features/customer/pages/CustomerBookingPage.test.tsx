@@ -305,16 +305,17 @@ describe('CustomerBookingPage — regression: estimate continuity (never a fabri
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockCustomerProfile))
   })
 
-  it('renders the exact regression: Wash + Dry + Fold R45/kg + Delivery R45 shows per-line pricing and "Calculated after weighing" (never a fabricated delivery-as-laundry-price headline)', async () => {
+  it('renders the exact regression: Wash + Dry + Fold R45/kg + Delivery R49 shows per-line pricing and "Calculated after weighing" (never a fabricated delivery-as-laundry-price headline)', async () => {
     const user = userEvent.setup()
     renderApp('/customer/services/everyday')
 
     // "Wash + Dry + Fold" is PER_KILOGRAM — it contributes 0 to `subtotal`
     // (only exact-priced items do), but with the default DELIVERY
-    // fulfilment and no free-delivery threshold met, a R45 delivery fee
-    // still applies. The Review estimate must show the per-kg rate and the
-    // delivery fee as separate, honest lines, and must NEVER headline the
-    // delivery fee alone as if it were the laundry price estimate.
+    // fulfilment (default demo address is within the 1–5km / R49 tier) and
+    // no free-delivery threshold met, a R49 delivery fee still applies. The
+    // Review estimate must show the per-kg rate and the delivery fee as
+    // separate, honest lines, and must NEVER headline the delivery fee
+    // alone as if it were the laundry price estimate.
     const card = (await screen.findByText('Wash + Dry + Fold')).closest('article')!
     await user.click(within(card).getByRole('button', { name: 'Add service' }))
     await user.click(await screen.findByRole('link', { name: /continue to collection & delivery/i }))
@@ -324,10 +325,13 @@ describe('CustomerBookingPage — regression: estimate continuity (never a fabri
     await user.click(screen.getByRole('button', { name: /continue to review/i }))
     await waitFor(() => screen.getByText('Review your order'))
 
-    // Selected-service line presentation: per-kg rate and delivery fee shown separately.
+    // Selected-service line presentation: per-kg rate and delivery fee shown
+    // separately. The delivery fee itself is now resolved asynchronously
+    // (it depends on the selected address's distance tier), so it must be
+    // awaited rather than asserted synchronously.
     expect((await screen.findAllByText(`${currencyText(45)}/kg`)).length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Delivery fee').length).toBeGreaterThan(0)
-    expect(screen.getAllByText(currencyText(45)).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Delivery fee')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(currencyText(49)).length).toBeGreaterThan(0)
 
     // Total presentation semantics: never the old fabricated headline.
     const oldFabricatedHeadline = `from ${currencyText(45)} + weight-based services`
@@ -348,6 +352,9 @@ describe('CustomerBookingPage — regression: estimate continuity (never a fabri
 
     await user.click(screen.getByRole('button', { name: /continue to review/i }))
     await waitFor(() => screen.getByText('Review your order'))
+    // Wait for the (asynchronously resolved, distance-dependent) quote to
+    // load before booking, so the confirmation snapshot reflects it.
+    await screen.findAllByText('Delivery fee')
     await user.click(screen.getByRole('button', { name: 'Confirm Booking' }))
 
     await screen.findByText('Your booking is confirmed.', undefined, { timeout: 4000 })

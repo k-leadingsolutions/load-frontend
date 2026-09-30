@@ -1,5 +1,6 @@
 import type { EstimateLine, PricingQuote } from '@/domain/models'
 import { isEligibleForDispatch } from '@/domain/models'
+import { calculateDeliveryPricing, calculateQualifyingBasketValue } from '@/domain/deliveryPricing'
 import { getFriendlyOrderStatus, ORDER_STATUS_MODEL } from '@/domain/orderStatus'
 import { approvedAddOns } from '@/services/mock/approvedLaundryCatalogue'
 import {
@@ -213,7 +214,18 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
   const promotion = request.promotionCode
     ? mockPromotions.find((item) => item.code === request.promotionCode)
     : undefined
-  const baseDeliveryFee = subtotal >= 300 ? 0 : 45
+
+  // Distance-tiered delivery pricing (see `domain/deliveryPricing.ts`) —
+  // STORE_COLLECTION has no return-delivery leg, so no delivery fee applies
+  // regardless of distance. For DELIVERY, the distance must already be
+  // resolved by the caller (e.g. once a delivery/pickup address is
+  // selected) — when it is not yet known, delivery pricing is genuinely
+  // pending rather than defaulting to any invented fee/tier.
+  const qualifyingBasketValue = calculateQualifyingBasketValue(serviceLines)
+  const deliveryPricing = request.fulfilmentType === 'STORE_COLLECTION' || request.distanceKm === undefined
+    ? null
+    : calculateDeliveryPricing({ distanceKm: request.distanceKm, qualifyingBasketValue })
+  const baseDeliveryFee = deliveryPricing?.effectiveDeliveryFee ?? 0
   const deliveryFee = promotion?.discountType === 'FREE_DELIVERY' && subtotal >= (promotion.minimumOrderAmount ?? 0)
     ? 0
     : baseDeliveryFee
@@ -248,8 +260,13 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
     loyaltyRedemptionTotal,
     estimatedTotal: Math.max(0, subtotal + fromAssessmentSubtotal + deliveryFee + expressFee - discountTotal),
     loyaltyPreviewPoints: Math.round((subtotal + expressFee) * 5),
-    freeDeliveryThreshold: 300,
-    freeDeliveryGap: Math.max(0, 300 - subtotal),
+    ...(deliveryPricing?.freeDeliveryThreshold !== undefined
+      ? {
+          freeDeliveryThreshold: deliveryPricing.freeDeliveryThreshold,
+          freeDeliveryGap: deliveryPricing.remainingForFreeDelivery,
+        }
+      : {}),
+    deliveryPricing,
     lineItems: [
       ...basketItem,
       ...serviceItems,

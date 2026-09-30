@@ -19,6 +19,7 @@ import type { FulfilmentType } from '@/domain/models/booking'
 import { MAX_RECENT_ADDRESSES, sortAddressesByRecency } from '@/domain/address'
 import { buildCustomerEstimatePresentation } from '@/domain/estimatePresentation'
 import type { CustomerEstimatePresentation } from '@/domain/estimatePresentation'
+import { resolveDeliveryDistanceKm } from '@/domain/deliveryPricing'
 import { appPaths } from '@/app/router/paths'
 import { mockCatalogueService } from '@/services/mock'
 import { apiCustomerOrderService } from '@/services/api/customerOrderService'
@@ -71,12 +72,32 @@ export const CustomerBookingPage = () => {
       return null
     }
 
+    // Distance-tiered delivery pricing needs a resolved distance — prefer
+    // the delivery address (the return leg the fee tiers describe), falling
+    // back to the pickup address once at least one is selected. Genuinely
+    // unresolved (no address chosen yet) is passed through as `undefined`
+    // rather than fabricating a distance — see `resolveDeliveryDistanceKm`.
+    const addressForDistance = user?.addresses.find(
+      (address) => address.id === draft.deliveryAddressId,
+    ) ?? user?.addresses.find((address) => address.id === draft.pickupAddressId)
+    const distanceKm = resolveDeliveryDistanceKm(addressForDistance)
+
     return {
       serviceSelections: draft.serviceSelections,
       addOnSelections: draft.addOnSelections,
       expressRequested: draft.expressRequested,
+      fulfilmentType: draft.fulfilmentType,
+      ...(distanceKm !== undefined ? { distanceKm } : {}),
     }
-  }, [draft.serviceSelections, draft.addOnSelections, draft.expressRequested])
+  }, [
+    draft.serviceSelections,
+    draft.addOnSelections,
+    draft.expressRequested,
+    draft.fulfilmentType,
+    draft.pickupAddressId,
+    draft.deliveryAddressId,
+    user?.addresses,
+  ])
 
   const quoteQuery = useQuery({
     queryKey: ['pricing-quote', quoteRequest],

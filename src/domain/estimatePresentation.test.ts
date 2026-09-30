@@ -20,6 +20,7 @@ const buildQuoteFixture = (overrides: Partial<PricingQuote> = {}): PricingQuote 
   loyaltyPreviewPoints: 0,
   freeDeliveryThreshold: 300,
   freeDeliveryGap: 300,
+  deliveryPricing: null,
   lineItems: [],
   serviceLines: [],
   ...overrides,

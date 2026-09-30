@@ -29,6 +29,9 @@ const primaryAddress = {
   postalCode: '2057',
   deliveryInstructions: 'Security desk will call on arrival.',
   isDefault: true,
+  // Demo/seed distance only — see `Address.distanceKm` doc comment. No real
+  // geocoding/routing integration exists yet to resolve this in production.
+  distanceKm: 4.2,
 } as const
 
 export const mockCustomerProfile: CustomerProfile = {
@@ -49,6 +52,8 @@ export const mockCustomerProfile: CustomerProfile = {
       city: 'Johannesburg',
       province: 'Gauteng',
       postalCode: '2196',
+      // Demo/seed distance only — see `Address.distanceKm` doc comment.
+      distanceKm: 8.5,
     },
   ],
   loyalty: {
