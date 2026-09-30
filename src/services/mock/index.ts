@@ -1,4 +1,4 @@
-import type { PricingQuote } from '@/domain/models'
+import type { EstimateLine, PricingQuote } from '@/domain/models'
 import { isEligibleForDispatch } from '@/domain/models'
 import { getFriendlyOrderStatus, ORDER_STATUS_MODEL } from '@/domain/orderStatus'
 import { approvedAddOns } from '@/services/mock/approvedLaundryCatalogue'
@@ -66,10 +66,10 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
     ? mockBasketSizes.find((item) => item.id === request.basketSizeId)
     : undefined
 
-  // Only PER_ITEM / FIXED_SERVICE selections contribute a precisely known price.
-  // PER_KILOGRAM / ASSESSMENT_REQUIRED / QUOTE_REQUIRED selections mean "the
-  // Customer requested this service" — NOT a declared weight or a final price —
-  // so they are reported separately below rather than folded into the total.
+  // Only PER_ITEM / FIXED_SERVICE / PER_BASKET selections contribute a
+  // precisely known price. PER_KILOGRAM / ASSESSMENT_REQUIRED / QUOTE_REQUIRED
+  // selections mean "the Customer requested this service" — NOT a declared
+  // weight or a final price — so they are never folded into `subtotal`.
   const serviceItems = request.serviceSelections.flatMap((selection) => {
     const service = mockServices.find((item) => item.id === selection.serviceId)
     if (!service || service.pricingModel === 'PER_KILOGRAM' || service.pricingModel === 'ASSESSMENT_REQUIRED' || service.pricingModel === 'QUOTE_REQUIRED') {
@@ -86,31 +86,55 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
     }]
   })
 
-  const weightBasedItems = request.serviceSelections.flatMap((selection) => {
+  // One `EstimateLine` per selected catalogue service, in original selection
+  // order, tagged with its real catalogue pricing model — this is the single
+  // source the Customer-facing estimate presentation layer reads from. Never
+  // dropped, never duplicated, and PER_KILOGRAM/QUOTE_REQUIRED lines never
+  // carry a fabricated `lineTotal`.
+  const catalogueServiceLines: EstimateLine[] = request.serviceSelections.flatMap((selection): EstimateLine[] => {
     const service = mockServices.find((item) => item.id === selection.serviceId)
-    if (!service || service.pricingModel !== 'PER_KILOGRAM') {
-      return []
+    if (!service) return []
+
+    if (service.pricingModel === 'PER_KILOGRAM') {
+      return [{
+        id: service.id,
+        label: service.name,
+        pricingModel: 'PER_KILOGRAM',
+        unitLabel: service.unitLabel,
+        quantity: selection.quantity,
+        ratePerKg: service.basePrice,
+        ...(service.minimumCharge !== undefined ? { minimumCharge: service.minimumCharge } : {}),
+      }]
     }
+
+    if (service.pricingModel === 'ASSESSMENT_REQUIRED' || service.pricingModel === 'QUOTE_REQUIRED') {
+      const isQuoteOnly = service.pricingModel === 'QUOTE_REQUIRED' || service.basePrice === 0
+      return [{
+        id: service.id,
+        label: service.name,
+        pricingModel: service.pricingModel,
+        unitLabel: service.unitLabel,
+        quantity: selection.quantity,
+        isQuoteOnly,
+        ...(isQuoteOnly ? {} : { startingPrice: service.basePrice, unitPrice: service.basePrice }),
+      }]
+    }
+
+    // PER_ITEM / FIXED_SERVICE
     return [{
-      serviceId: service.id,
+      id: service.id,
       label: service.name,
-      ratePerKg: service.basePrice,
-      ...(service.minimumCharge !== undefined ? { minimumCharge: service.minimumCharge } : {}),
+      pricingModel: service.pricingModel,
+      unitLabel: service.unitLabel,
+      quantity: selection.quantity,
+      unitPrice: service.basePrice,
+      lineTotal: selection.quantity * service.basePrice,
     }]
   })
 
-  const assessmentItems = request.serviceSelections.flatMap((selection) => {
-    const service = mockServices.find((item) => item.id === selection.serviceId)
-    if (!service || (service.pricingModel !== 'ASSESSMENT_REQUIRED' && service.pricingModel !== 'QUOTE_REQUIRED')) {
-      return []
-    }
-    return [{
-      serviceId: service.id,
-      label: service.name,
-      startingPrice: service.basePrice,
-      isQuoteOnly: service.pricingModel === 'QUOTE_REQUIRED' || service.basePrice === 0,
-    }]
-  })
+  const assessmentItems = catalogueServiceLines.filter(
+    (line) => line.pricingModel === 'ASSESSMENT_REQUIRED' || line.pricingModel === 'QUOTE_REQUIRED',
+  )
 
   // Assessment-priced ("from R X") items DO have a real, known starting price
   // (unlike QUOTE_REQUIRED items, whose price is entirely unknown). That
@@ -119,7 +143,7 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
   // to just the delivery/express fee when a priced item was selected.
   const fromAssessmentSubtotal = assessmentItems
     .filter((item) => !item.isQuoteOnly)
-    .reduce((sum, item) => sum + item.startingPrice, 0)
+    .reduce((sum, item) => sum + (item.startingPrice ?? 0), 0)
 
   const addOnItems = request.addOnSelections.flatMap((selection) => {
     const addOn = mockAddOns.find((item) => item.id === selection.addOnId)
@@ -137,6 +161,23 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
     }]
   })
 
+  const addOnServiceLines: EstimateLine[] = request.addOnSelections.flatMap((selection) => {
+    const addOn = mockAddOns.find((item) => item.id === selection.addOnId)
+    if (!addOn || addOn.id === 'addon-express') {
+      return []
+    }
+
+    return [{
+      id: addOn.id,
+      label: addOn.name,
+      pricingModel: 'ADD_ON' as const,
+      unitLabel: 'item',
+      quantity: selection.quantity,
+      unitPrice: addOn.price,
+      lineTotal: selection.quantity * addOn.price,
+    }]
+  })
+
   const basketItem = basket
     ? [{
         id: basket.id,
@@ -147,6 +188,21 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
         totalPrice: (request.basketQuantity ?? 1) * basket.price,
       }]
     : []
+
+  const basketServiceLine: EstimateLine[] = basket
+    ? [{
+        id: basket.id,
+        label: `${basket.name} ${basket.capacityLabel}`,
+        pricingModel: 'PER_BASKET' as const,
+        unitLabel: basket.capacityLabel,
+        quantity: request.basketQuantity ?? 1,
+        unitPrice: basket.price,
+        lineTotal: (request.basketQuantity ?? 1) * basket.price,
+      }]
+    : []
+
+  const serviceLines: EstimateLine[] = [...basketServiceLine, ...catalogueServiceLines, ...addOnServiceLines]
+
 
   const expressAddOn = approvedAddOns.find((item) => item.id === 'addon-express')
   const expressFee = request.expressRequested ? (expressAddOn?.price ?? 79) : 0
@@ -227,14 +283,7 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
           }]
         : []),
     ],
-    ...(weightBasedItems.length > 0
-      ? {
-          weightDisclaimer: 'Final price based on actual weight after collection.',
-        }
-      : {}),
-    knownEstimatedSubtotal: subtotal,
-    weightBasedItems,
-    assessmentItems,
+    serviceLines,
   }
 }
 

@@ -260,7 +260,7 @@ describe('CustomerBookingPage — Collection & Delivery / Review flow', () => {
     await user.click(screen.getByRole('button', { name: /continue to review/i }))
 
     await waitFor(() => screen.getByText('Review your order'))
-    expect(screen.getByText(/shirt \/ blouse/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/shirt \/ blouse/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/estimated pricing/i).length).toBeGreaterThan(0)
     expect(screen.queryByText('Amount Due')).not.toBeInTheDocument()
     expect(screen.queryByText(/pay now/i)).not.toBeInTheDocument()
@@ -305,17 +305,16 @@ describe('CustomerBookingPage — regression: estimate continuity (never a fabri
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockCustomerProfile))
   })
 
-  it('shows "from R<delivery fee> + weight-based services" on Review when the only selected service is weight-only (subtotal is 0, no fabricated laundry total)', async () => {
+  it('renders the exact regression: Wash + Dry + Fold R45/kg + Delivery R45 shows per-line pricing and "Calculated after weighing" (never a fabricated delivery-as-laundry-price headline)', async () => {
     const user = userEvent.setup()
     renderApp('/customer/services/everyday')
 
     // "Wash + Dry + Fold" is PER_KILOGRAM — it contributes 0 to `subtotal`
-    // (only weight-based/assessment items do), but with the default DELIVERY
-    // fulfilment and no free-delivery threshold met, the estimate still
-    // includes a non-zero delivery fee. The Review headline must reflect
-    // that honestly ("from R45.00 + weight-based services"), never a bare
-    // R0.00, and never present that delivery-only figure as a complete
-    // laundry total.
+    // (only exact-priced items do), but with the default DELIVERY
+    // fulfilment and no free-delivery threshold met, a R45 delivery fee
+    // still applies. The Review estimate must show the per-kg rate and the
+    // delivery fee as separate, honest lines, and must NEVER headline the
+    // delivery fee alone as if it were the laundry price estimate.
     const card = (await screen.findByText('Wash + Dry + Fold')).closest('article')!
     await user.click(within(card).getByRole('button', { name: 'Add service' }))
     await user.click(await screen.findByRole('link', { name: /continue to collection & delivery/i }))
@@ -325,13 +324,19 @@ describe('CustomerBookingPage — regression: estimate continuity (never a fabri
     await user.click(screen.getByRole('button', { name: /continue to review/i }))
     await waitFor(() => screen.getByText('Review your order'))
 
-    const expectedHeadline = `from ${currencyText(45)} + weight-based services`
-    const estimateMatches = await screen.findAllByText(expectedHeadline)
-    expect(estimateMatches.length).toBeGreaterThan(0)
+    // Selected-service line presentation: per-kg rate and delivery fee shown separately.
+    expect((await screen.findAllByText(`${currencyText(45)}/kg`)).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Delivery fee').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(currencyText(45)).length).toBeGreaterThan(0)
+
+    // Total presentation semantics: never the old fabricated headline.
+    const oldFabricatedHeadline = `from ${currencyText(45)} + weight-based services`
+    expect(screen.queryByText(oldFabricatedHeadline)).not.toBeInTheDocument()
+    expect(screen.getAllByText('Calculated after weighing').length).toBeGreaterThan(0)
     expect(screen.queryByText(currencyText(0))).not.toBeInTheDocument()
   })
 
-  it('preserves the same headline through to the confirmation screen', async () => {
+  it('preserves the same "Calculated after weighing" headline through to the confirmation screen', async () => {
     const user = userEvent.setup()
     renderApp('/customer/services/everyday')
 
@@ -346,7 +351,8 @@ describe('CustomerBookingPage — regression: estimate continuity (never a fabri
     await user.click(screen.getByRole('button', { name: 'Confirm Booking' }))
 
     await screen.findByText('Your booking is confirmed.', undefined, { timeout: 4000 })
-    expect(screen.getByText(`from ${currencyText(45)} + weight-based services`)).toBeInTheDocument()
+    expect(screen.getByText('Calculated after weighing')).toBeInTheDocument()
+    expect(screen.queryByText(`from ${currencyText(45)} + weight-based services`)).not.toBeInTheDocument()
   })
 })
 

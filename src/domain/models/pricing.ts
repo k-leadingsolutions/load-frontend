@@ -39,6 +39,47 @@ export interface PricingQuoteItem {
   totalPrice: number
 }
 
+/**
+ * Discriminates how a single selected catalogue line's price is known (or
+ * not yet known). Mirrors `PricingModel` from the catalogue, plus `ADD_ON`
+ * for selected add-ons (which always carry a single fixed unit price).
+ */
+export type EstimateLinePricingModel =
+  | 'PER_ITEM'
+  | 'FIXED_SERVICE'
+  | 'PER_BASKET'
+  | 'PER_KILOGRAM'
+  | 'ASSESSMENT_REQUIRED'
+  | 'QUOTE_REQUIRED'
+  | 'ADD_ON'
+
+/**
+ * One selected catalogue service or add-on, tagged with its real catalogue
+ * pricing model so the estimate presentation layer can render it honestly
+ * without ever fabricating a weight or a total that isn't yet knowable.
+ *
+ * Exactly one `EstimateLine` exists per selected service/add-on (in original
+ * selection order) — never zero, never duplicated.
+ */
+export interface EstimateLine {
+  id: string
+  label: string
+  pricingModel: EstimateLinePricingModel
+  unitLabel: string
+  quantity: number
+  /** Known unit price. Present for every model except a true QUOTE_REQUIRED item with no starting price. */
+  unitPrice?: number
+  /** Calculable line total (unitPrice × quantity) — only for PER_ITEM / FIXED_SERVICE / PER_BASKET / ADD_ON. */
+  lineTotal?: number
+  /** PER_KILOGRAM only — known rate; weight is not yet known so there is deliberately no `lineTotal`. */
+  ratePerKg?: number
+  minimumCharge?: number
+  /** ASSESSMENT_REQUIRED with a real starting price — a "from" floor, not a final price. */
+  startingPrice?: number
+  /** True for QUOTE_REQUIRED / assessment items with no numeric floor at all. */
+  isQuoteOnly?: boolean
+}
+
 export interface PricingQuote {
   basketPlan?: {
     basketSizeId: string
@@ -65,26 +106,15 @@ export interface PricingQuote {
   lineItems: PricingQuoteItem[]
   /** Included when service is PER_KILOGRAM – estimate only */
   estimatedWeightKg?: number
-  weightDisclaimer?: string
   /**
-   * Honest estimate breakdown: `lineItems`/`estimatedTotal` only ever reflect
-   * precisely known contributions. Weight-based and assessment-based
-   * selections are reported separately below rather than folded into the
-   * total, because their price is not yet known.
+   * Every selected catalogue service and add-on, tagged with its true
+   * pricing model, in original selection order. This is the single source
+   * the Customer-facing estimate presentation layer (`buildCustomerEstimatePresentation`)
+   * reads from — it must never fabricate a weight or a total for
+   * PER_KILOGRAM/QUOTE_REQUIRED lines, and every selected line appears here
+   * exactly once.
    */
-  knownEstimatedSubtotal?: number
-  weightBasedItems?: Array<{
-    serviceId: string
-    label: string
-    ratePerKg: number
-    minimumCharge?: number
-  }>
-  assessmentItems?: Array<{
-    serviceId: string
-    label: string
-    startingPrice: number
-    isQuoteOnly: boolean
-  }>
+  serviceLines: EstimateLine[]
 }
 
 // ─── Invoice ──────────────────────────────────────────────────────────────────

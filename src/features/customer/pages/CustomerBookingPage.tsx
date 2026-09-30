@@ -711,34 +711,27 @@ export const CustomerBookingPage = () => {
 
                 <Card variant="flat" className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-slate-500">Estimated pricing</span>
+                    <span className="text-sm text-slate-500">{reviewEstimate.totalLabel}</span>
                     <span className="text-xl font-semibold text-ink">
                       {reviewEstimate.headline}
                     </span>
                   </div>
-                  {(quoteQuery.data?.weightBasedItems?.length ?? 0) > 0 ? (
+                  <div className="space-y-2">
+                    {reviewEstimate.breakdown.map((line) => (
+                      <div key={line.id} className="flex items-center justify-between gap-3 text-sm text-slate-600">
+                        <span>{line.label}</span>
+                        <span className="font-semibold text-ink">{line.valueText}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {reviewEstimate.hasWeightBasedItems ? (
                     <div className="rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                      <p className="font-semibold">Final price based on actual weight.</p>
-                      <ul className="mt-1 space-y-1">
-                        {quoteQuery.data?.weightBasedItems?.map((item) => (
-                          <li key={item.serviceId}>
-                            {item.label} — {formatCurrency(item.ratePerKg)}/kg
-                            {item.minimumCharge ? ` (minimum ${formatCurrency(item.minimumCharge)})` : ''}
-                          </li>
-                        ))}
-                      </ul>
+                      <p className="font-semibold">Final price based on actual weight after collection.</p>
                     </div>
                   ) : null}
-                  {(quoteQuery.data?.assessmentItems?.length ?? 0) > 0 ? (
+                  {reviewEstimate.hasQuoteOnlyItems ? (
                     <div className="rounded-card border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
                       <p className="font-semibold">Final price confirmed after assessment.</p>
-                      <ul className="mt-1 space-y-1">
-                        {quoteQuery.data?.assessmentItems?.map((item) => (
-                          <li key={item.serviceId}>
-                            {item.label} — {item.isQuoteOnly ? 'quote required' : `from ${formatCurrency(item.startingPrice)}`}
-                          </li>
-                        ))}
-                      </ul>
                     </div>
                   ) : null}
                   <p className="text-sm text-slate-600">

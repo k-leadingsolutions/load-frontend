@@ -30,16 +30,12 @@ export const BookingSummaryCard = ({ canSubmit, isSubmitting, onSubmit, quote }:
       {quote ? (
         <>
           <div className="space-y-3 rounded-3xl bg-load-50/60 p-4">
-            {quote.lineItems
-              .filter((item) => item.totalPrice !== 0)
-              .map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-3 text-sm text-slate-600">
-                  <span>
-                    {item.label} × {item.quantity}
-                  </span>
-                  <span className="font-semibold text-ink">{formatCurrency(item.totalPrice)}</span>
-                </div>
-              ))}
+            {estimate.breakdown.map((line) => (
+              <div key={line.id} className="flex items-center justify-between gap-3 text-sm text-slate-600">
+                <span>{line.label}</span>
+                <span className="font-semibold text-ink">{line.valueText}</span>
+              </div>
+            ))}
           </div>
 
           <div>
@@ -61,12 +57,12 @@ export const BookingSummaryCard = ({ canSubmit, isSubmitting, onSubmit, quote }:
             {quote.loyaltyRedemptionTotal > 0 ? (
               <p className="mt-1 text-load-700">Rewards applied: {formatCurrency(quote.loyaltyRedemptionTotal)}</p>
             ) : null}
-            {(quote.weightBasedItems?.length ?? 0) > 0 ? (
+            {estimate.hasWeightBasedItems ? (
               <p className="mt-2 rounded-card border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                {quote.weightDisclaimer ?? 'Final price based on actual weight after collection.'}
+                Final price based on actual weight after collection.
               </p>
             ) : null}
-            {(quote.assessmentItems?.length ?? 0) > 0 ? (
+            {estimate.hasQuoteOnlyItems ? (
               <p className="mt-2 rounded-card border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
                 Final price confirmed after assessment.
               </p>
