@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { buildPath } from '@/app/router/paths'
@@ -12,7 +13,7 @@ import { LoadingState } from '@/components/ui/LoadingState'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { OrderStatusTimeline } from '@/features/customer/components/OrderStatusTimeline'
 import { InvoiceStatusSection } from '@/features/customer/invoice/InvoiceStatusSection'
-import { ORDER_STATUS_MODEL } from '@/domain/orderStatus'
+import { ORDER_STATUS_MODEL, isActiveOrderStatus } from '@/domain/orderStatus'
 import { apiCustomerOrderService } from '@/services/api/customerOrderService'
 import { getStoredDriverRating } from '@/services/mock/driverRatings'
 import { formatCurrency } from '@/utils/format'
@@ -72,12 +73,87 @@ function StageProgressBar({ order }: { order: LaundryOrder }) {
   )
 }
 
+// ── Active-order selector (tab list) ──────────────────────────────────────────
+
+interface ActiveOrderSelectorProps {
+  orders: LaundryOrder[]
+  selectedOrderId: string
+  onSelect: (orderId: string) => void
+}
+
+function ActiveOrderSelector({ orders, selectedOrderId, onSelect }: ActiveOrderSelectorProps) {
+  if (orders.length < 2) {
+    return null
+  }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let nextIndex: number | null = null
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      nextIndex = (index + 1) % orders.length
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      nextIndex = (index - 1 + orders.length) % orders.length
+    } else if (event.key === 'Home') {
+      nextIndex = 0
+    } else if (event.key === 'End') {
+      nextIndex = orders.length - 1
+    }
+
+    if (nextIndex === null) {
+      return
+    }
+
+    event.preventDefault()
+    const nextOrder = orders[nextIndex]!
+    onSelect(nextOrder.id)
+    document.getElementById(`order-tab-${nextOrder.id}`)?.focus()
+  }
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Your active orders"
+      className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible"
+    >
+      {orders.map((order, index) => {
+        const isSelected = order.id === selectedOrderId
+        const stage = STAGE_FROM_MODEL[ORDER_STATUS_MODEL[order.status]?.stage ?? 'BOOKING'] ?? 'Booking'
+        return (
+          <button
+            key={order.id}
+            type="button"
+            role="tab"
+            id={`order-tab-${order.id}`}
+            aria-selected={isSelected}
+            aria-controls="order-tracking-panel"
+            tabIndex={isSelected ? 0 : -1}
+            onClick={() => onSelect(order.id)}
+            onKeyDown={(event) => handleKeyDown(event, index)}
+            className={`min-w-[9.5rem] flex-shrink-0 rounded-card border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-load-300 focus-visible:ring-offset-2 sm:min-w-0 sm:flex-1 ${
+              isSelected
+                ? 'border-load-500 bg-load-50 shadow-card'
+                : 'border-card-border bg-white hover:border-load-200'
+            }`}
+          >
+            <p className={`text-sm ${isSelected ? 'font-semibold text-load-700' : 'font-medium text-ink'}`}>
+              #{order.orderNumber ?? order.id}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-muted">{order.friendlyStatus}</p>
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-load-600">{stage}</p>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export const CustomerOrdersPage = () => {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [repeatSuccessId, setRepeatSuccessId] = useState<string | null>(null)
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const trackingSectionRef = useRef<HTMLDivElement | null>(null)
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['customer-orders', user?.id],
     queryFn: () => apiCustomerOrderService.listOrders(user!.id),
@@ -139,7 +215,18 @@ export const CustomerOrdersPage = () => {
   }
 
   const orders = data?.data ?? []
-  const activeOrder = orders.find((order) => !['DELIVERED', 'COMPLETED', 'CANCELLED'].includes(order.status))
+  const activeOrders = orders.filter((order) => isActiveOrderStatus(order.status))
+  const selectedOrder =
+    (selectedOrderId ? activeOrders.find((order) => order.id === selectedOrderId) : undefined) ?? activeOrders[0]
+
+  const handleSelectOrder = (orderId: string) => {
+    setSelectedOrderId(orderId)
+  }
+
+  const handleTrackOrder = (orderId: string) => {
+    setSelectedOrderId(orderId)
+    trackingSectionRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <div className="space-y-6">
@@ -152,46 +239,61 @@ export const CustomerOrdersPage = () => {
       ) : null}
 
       {/* Active order — enriched card */}
-      <SectionCard
-        title="Live order tracking"
-        description="Customer-friendly status labels and production visibility for the active order."
-      >
-        {activeOrder ? (
-          <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <Card variant="brand" className="space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-caption text-muted">Order #{activeOrder.orderNumber ?? activeOrder.id}</p>
-                  <h3 className="mt-1 text-heading text-ink">{activeOrder.friendlyStatus}</h3>
-                </div>
+      <div ref={trackingSectionRef}>
+        <SectionCard
+          title="Live order tracking"
+          description="Customer-friendly status labels and production visibility for your active orders."
+        >
+          {selectedOrder ? (
+            <div className="space-y-4">
+              <ActiveOrderSelector
+                orders={activeOrders}
+                selectedOrderId={selectedOrder.id}
+                onSelect={handleSelectOrder}
+              />
+
+              <div
+                id="order-tracking-panel"
+                role="tabpanel"
+                aria-labelledby={`order-tab-${selectedOrder.id}`}
+                className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]"
+              >
+                <Card variant="brand" className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-caption text-muted">Order #{selectedOrder.orderNumber ?? selectedOrder.id}</p>
+                      <h3 className="mt-1 text-heading text-ink">{selectedOrder.friendlyStatus}</h3>
+                    </div>
+                  </div>
+
+                  <StageProgressBar order={selectedOrder} />
+
+                  <div className="space-y-1 text-body text-muted">
+                    <p>
+                      {selectedOrder.fulfilmentType === 'STORE_COLLECTION'
+                        ? 'Collect from LOAD'
+                        : `Delivery: ${selectedOrder.deliveryWindow?.windowLabel ?? 'To be confirmed'}`}
+                    </p>
+                    {selectedOrder.confirmedWeightKg ? (
+                      <p>Confirmed weight: {selectedOrder.confirmedWeightKg.toFixed(1)} kg</p>
+                    ) : null}
+                  </div>
+
+                  <p className="text-caption text-muted">Estimated total: {formatCurrency(selectedOrder.estimatedTotal)}</p>
+
+                  <InvoiceStatusSection order={selectedOrder} />
+                </Card>
+                <OrderStatusTimeline status={selectedOrder.status} />
               </div>
-
-              <StageProgressBar order={activeOrder} />
-
-              <div className="space-y-1 text-body text-muted">
-                <p>
-                  {activeOrder.fulfilmentType === 'STORE_COLLECTION'
-                    ? 'Collect from LOAD'
-                    : `Delivery: ${activeOrder.deliveryWindow?.windowLabel ?? 'To be confirmed'}`}
-                </p>
-                {activeOrder.confirmedWeightKg ? (
-                  <p>Confirmed weight: {activeOrder.confirmedWeightKg.toFixed(1)} kg</p>
-                ) : null}
-              </div>
-
-              <p className="text-caption text-muted">Estimated total: {formatCurrency(activeOrder.estimatedTotal)}</p>
-
-              <InvoiceStatusSection order={activeOrder} />
-            </Card>
-            <OrderStatusTimeline status={activeOrder.status} />
-          </div>
-        ) : (
-          <EmptyState
-            title="No active order"
-            description="Your completed orders remain in the history below, ready for quick reorder."
-          />
-        )}
-      </SectionCard>
+            </div>
+          ) : (
+            <EmptyState
+              title="No active order"
+              description="Your completed orders remain in the history below, ready for quick reorder."
+            />
+          )}
+        </SectionCard>
+      </div>
 
       {/* Order history */}
       <SectionCard
@@ -239,6 +341,15 @@ export const CustomerOrdersPage = () => {
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-3">
+                    {isActiveOrderStatus(order.status) ? (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => handleTrackOrder(order.id)}
+                      >
+                        Track order
+                      </Button>
+                    ) : null}
                     <Button
                       variant="outline"
                       size="sm"

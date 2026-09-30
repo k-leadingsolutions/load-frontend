@@ -1,7 +1,7 @@
 import type { LaundryOrder } from '@/domain/models'
 import { mockOrders } from '@/services/mock/data'
 
-const ORDER_STORAGE_KEY = 'load.customer.orders.v1'
+export const ORDER_STORAGE_KEY = 'load.customer.orders.v1'
 
 let memoryOrders: LaundryOrder[] = mockOrders
 

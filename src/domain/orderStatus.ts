@@ -200,3 +200,16 @@ export const ORDER_STATUS_MODEL: Record<OrderStatus, OrderStatusTimelineEntry> =
 
 export const getFriendlyOrderStatus = (status: OrderStatus) =>
   ORDER_STATUS_MODEL[status].customerLabel
+
+/**
+ * True when an order is still "live"/in-progress and belongs in Customer-facing
+ * active-order surfaces (e.g. the Live order tracking selector). Reuses the
+ * existing stage taxonomy rather than a second status list: any status whose
+ * stage is `'CLOSED'` (COMPLETED/RESCHEDULED/CANCELLED) is terminal, and
+ * `DELIVERED` is also treated as terminal for Customer tracking purposes even
+ * though its stage is `'DELIVERY'` — once delivered there is nothing left to
+ * track live. Completed/closed/delivered orders remain visible in Order
+ * History, just not in the live tracking selector.
+ */
+export const isActiveOrderStatus = (status: OrderStatus): boolean =>
+  ORDER_STATUS_MODEL[status].stage !== 'CLOSED' && status !== 'DELIVERED'
