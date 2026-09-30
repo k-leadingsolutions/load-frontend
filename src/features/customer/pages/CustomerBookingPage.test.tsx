@@ -363,6 +363,95 @@ describe('CustomerBookingPage — regression: estimate continuity (never a fabri
   })
 })
 
+describe('CustomerBookingPage — regression: unresolved distance must never render as FREE delivery', () => {
+  // Reproduces the reported screenshot bug: a real persisted address has no
+  // `distanceKm` (there is no real geocoding/routing integration yet), so
+  // delivery pricing for it is genuinely UNKNOWN — never "FREE".
+  const profileWithoutDistanceData = {
+    ...mockCustomerProfile,
+    addresses: mockCustomerProfile.addresses.map(({ distanceKm: _distanceKm, ...address }) => address),
+  }
+
+  beforeEach(() => {
+    window.localStorage.clear()
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(profileWithoutDistanceData))
+  })
+
+  it('Dry Only R35/kg + a persisted address without distanceKm: never shows "Delivery fee FREE", shows a pending state, and fabricates no free-delivery progress', async () => {
+    const user = userEvent.setup()
+    renderApp('/customer/services/everyday')
+
+    const card = (await screen.findByText('Dry Only')).closest('article')!
+    await user.click(within(card).getByRole('button', { name: 'Add service' }))
+    await user.click(await screen.findByRole('link', { name: /continue to collection & delivery/i }))
+    await waitFor(() => screen.getByText('Pickup address'))
+    await fillCollectionDetails(user)
+
+    await user.click(screen.getByRole('button', { name: /continue to review/i }))
+    await waitFor(() => screen.getByText('Review your order'))
+
+    // The per-kg laundry line renders honestly regardless of delivery pricing.
+    expect((await screen.findAllByText(`${currencyText(35)}/kg`)).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Calculated after weighing').length).toBeGreaterThan(0)
+
+    // The critical assertions: an unresolved distance must never be
+    // presented as free delivery, must show an honest pending state, and
+    // must never fabricate free-delivery progress toward an unknown tier.
+    expect(screen.queryByText('FREE')).not.toBeInTheDocument()
+    expect(await screen.findAllByText('Delivery fee calculated from your address')).not.toHaveLength(0)
+    expect(screen.queryByText('Free delivery progress')).not.toBeInTheDocument()
+    expect(screen.queryByText(/to go$/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Free delivery unlocked')).not.toBeInTheDocument()
+  })
+
+  it('once a known distance is available (4km), the same basket resolves to the correct R49 fee and R265-to-go / ~11.67% progress', async () => {
+    const user = userEvent.setup()
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+      ...mockCustomerProfile,
+      addresses: mockCustomerProfile.addresses.map((address) =>
+        address.id === mockCustomerProfile.addresses[0]!.id ? { ...address, distanceKm: 4 } : address),
+    }))
+    renderApp('/customer/services/everyday')
+
+    const card = (await screen.findByText('Dry Only')).closest('article')!
+    await user.click(within(card).getByRole('button', { name: 'Add service' }))
+    await user.click(await screen.findByRole('link', { name: /continue to collection & delivery/i }))
+    await waitFor(() => screen.getByText('Pickup address'))
+    await fillCollectionDetails(user)
+
+    await user.click(screen.getByRole('button', { name: /continue to review/i }))
+    await waitFor(() => screen.getByText('Review your order'))
+
+    expect((await screen.findAllByText(currencyText(49))).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(`${currencyText(265)} to go`).length).toBeGreaterThan(0)
+    expect(screen.queryByText('FREE')).not.toBeInTheDocument()
+  })
+
+  it('12km (beyond the far tier) charges R99 and shows no free-delivery progress at all', async () => {
+    const user = userEvent.setup()
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+      ...mockCustomerProfile,
+      addresses: mockCustomerProfile.addresses.map((address) =>
+        address.id === mockCustomerProfile.addresses[0]!.id ? { ...address, distanceKm: 12 } : address),
+    }))
+    renderApp('/customer/services/everyday')
+
+    const card = (await screen.findByText('Dry Only')).closest('article')!
+    await user.click(within(card).getByRole('button', { name: 'Add service' }))
+    await user.click(await screen.findByRole('link', { name: /continue to collection & delivery/i }))
+    await waitFor(() => screen.getByText('Pickup address'))
+    await fillCollectionDetails(user)
+
+    await user.click(screen.getByRole('button', { name: /continue to review/i }))
+    await waitFor(() => screen.getByText('Review your order'))
+
+    expect((await screen.findAllByText(currencyText(99))).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Free delivery progress')).not.toBeInTheDocument()
+    expect(screen.queryByText(/to go$/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Free delivery unlocked')).not.toBeInTheDocument()
+  })
+})
+
 describe('CustomerBookingPage — regression: customer-facing LD##### order reference (never a raw UUID)', () => {
   beforeEach(() => {
     window.localStorage.clear()

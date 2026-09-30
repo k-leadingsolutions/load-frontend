@@ -1,4 +1,5 @@
 import type { EstimateLine, PricingQuote } from '@/domain/models/pricing'
+import type { DeliveryPricingState } from '@/domain/deliveryPricing'
 import { buildCustomerEstimatePresentation } from '@/domain/estimatePresentation'
 import { formatCurrency } from '@/utils/format'
 
@@ -20,10 +21,22 @@ const buildQuoteFixture = (overrides: Partial<PricingQuote> = {}): PricingQuote 
   loyaltyPreviewPoints: 0,
   freeDeliveryThreshold: 300,
   freeDeliveryGap: 300,
-  deliveryPricing: null,
+  deliveryPricing: { status: 'NOT_APPLICABLE' },
   lineItems: [],
   serviceLines: [],
   ...overrides,
+})
+
+/** Convenience builder for a resolved ("PRICED") delivery-pricing state, for tests that only care about the effective fee. */
+const pricedDelivery = (effectiveDeliveryFee: number, extra: Partial<Extract<DeliveryPricingState, { status: 'PRICED' }>> = {}): DeliveryPricingState => ({
+  status: 'PRICED',
+  distanceKm: 4,
+  tier: 'NEAR_1_TO_5KM',
+  standardDeliveryFee: effectiveDeliveryFee,
+  qualifyingBasketValue: 0,
+  freeDeliveryUnlocked: false,
+  effectiveDeliveryFee,
+  ...extra,
 })
 
 // ── EstimateLine builders, one per catalogue pricing model ──────────────────
@@ -133,6 +146,7 @@ describe('buildCustomerEstimatePresentation', () => {
     const quote = buildQuoteFixture({
       subtotal: 90,
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       estimatedTotal: 135,
       serviceLines: [perItem('shirt', 'Shirt Press', 45, 2)],
     })
@@ -158,6 +172,7 @@ describe('buildCustomerEstimatePresentation', () => {
     const quote = buildQuoteFixture({
       subtotal: 100,
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       estimatedTotal: 145,
       serviceLines: [fixedService('dry-clean-suit', '2-Piece Suit Dry Clean', 100)],
     })
@@ -178,6 +193,7 @@ describe('buildCustomerEstimatePresentation', () => {
     const quote = buildQuoteFixture({
       subtotal: 250,
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       estimatedTotal: 295,
       serviceLines: [perBasket('basket-large', 'Large Basket', 250)],
     })
@@ -198,6 +214,7 @@ describe('buildCustomerEstimatePresentation', () => {
     const quote = buildQuoteFixture({
       subtotal: 0,
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       estimatedTotal: 45, // delivery only — must never be headlined as the laundry estimate
       serviceLines: [perKg('wash-dry-fold', 'Wash + Dry + Fold', 45, 120)],
     })
@@ -223,6 +240,7 @@ describe('buildCustomerEstimatePresentation', () => {
     const quote = buildQuoteFixture({
       subtotal: 0,
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       estimatedTotal: 110, // 65 (from) + 45 (delivery)
       serviceLines: [fromAssessment('delicates-wash', 'Delicates Wash', 65)],
     })
@@ -245,6 +263,7 @@ describe('buildCustomerEstimatePresentation', () => {
     const quote = buildQuoteFixture({
       subtotal: 0,
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       estimatedTotal: 45, // delivery only
       serviceLines: [quoteRequired('custom-restoration', 'Custom Bag Restoration')],
     })
@@ -269,6 +288,7 @@ describe('buildCustomerEstimatePresentation', () => {
     const quote = buildQuoteFixture({
       subtotal: 100,
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       estimatedTotal: 145, // 100 + 45 delivery (per-kg NOT multiplied in)
       serviceLines: [fixedService('suit', '2-Piece Suit Dry Clean', 100), perKg('wash-dry-fold', 'Wash + Dry + Fold', 45, 120)],
     })
@@ -292,6 +312,7 @@ describe('buildCustomerEstimatePresentation', () => {
     const quote = buildQuoteFixture({
       subtotal: 0,
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       estimatedTotal: 110, // 65 (from) + 45 (delivery) — never fabricated
       serviceLines: [fromAssessment('delicates-wash', 'Delicates Wash', 65), perKg('wash-dry-fold', 'Wash + Dry + Fold', 45, 120)],
     })
@@ -311,6 +332,7 @@ describe('buildCustomerEstimatePresentation', () => {
     const quote = buildQuoteFixture({
       subtotal: 0,
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       estimatedTotal: 45, // delivery fee only
       serviceLines: [perKg('wash-dry-fold', 'Wash + Dry + Fold', 45, 120)],
     })
@@ -333,6 +355,7 @@ describe('buildCustomerEstimatePresentation', () => {
     const quote = buildQuoteFixture({
       subtotal: 100,
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       estimatedTotal: 145,
       serviceLines: [fixedService('suit', '2-Piece Suit Dry Clean', 100)],
     })
@@ -351,6 +374,7 @@ describe('buildCustomerEstimatePresentation', () => {
     const quote = buildQuoteFixture({
       subtotal: 130, // 100 (fixed) + 30 (add-on)
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       estimatedTotal: 240, // 130 + 65 (from) + 45 (delivery) — per-kg excluded
       serviceLines: [
         fixedService('suit', '2-Piece Suit Dry Clean', 100),
@@ -379,6 +403,13 @@ describe('buildCustomerEstimatePresentation', () => {
       subtotal: 320,
       deliveryFee: 0,
       freeDeliveryGap: 0,
+      deliveryPricing: pricedDelivery(0, {
+        freeDeliveryUnlocked: true,
+        freeDeliveryThreshold: 300,
+        remainingForFreeDelivery: 0,
+        progressPercentage: 100,
+        qualifyingBasketValue: 320,
+      }),
       estimatedTotal: 320,
       serviceLines: [fixedService('suit', '2-Piece Suit Dry Clean', 320)],
     })
@@ -394,10 +425,53 @@ describe('buildCustomerEstimatePresentation', () => {
     expectEveryServiceAppearsExactlyOnce(quote)
   })
 
+  it('PENDING_DISTANCE: unresolved distance must render a pending delivery-fee state, never "FREE"', () => {
+    const quote = buildQuoteFixture({
+      subtotal: 100,
+      deliveryFee: 0,
+      deliveryPricing: { status: 'PENDING_DISTANCE' },
+      estimatedTotal: 100,
+      serviceLines: [fixedService('suit', '2-Piece Suit Dry Clean', 100)],
+    })
+    const presentation = buildCustomerEstimatePresentation(quote)
+
+    const deliveryLine = presentation.breakdown.find((item) => item.id === 'delivery')
+    expect(deliveryLine?.valueText).not.toBe('FREE')
+    expect(deliveryLine).toMatchObject({
+      label: 'Delivery fee',
+      pricingModel: 'DELIVERY',
+      valueText: 'Delivery fee calculated from your address',
+      isPending: true,
+    })
+    expectEveryServiceAppearsExactlyOnce(quote)
+  })
+
+  it('NOT_APPLICABLE: STORE_COLLECTION renders a distinct "Not applicable" delivery line, never "FREE"', () => {
+    const quote = buildQuoteFixture({
+      subtotal: 100,
+      deliveryFee: 0,
+      deliveryPricing: { status: 'NOT_APPLICABLE' },
+      estimatedTotal: 100,
+      serviceLines: [fixedService('suit', '2-Piece Suit Dry Clean', 100)],
+    })
+    const presentation = buildCustomerEstimatePresentation(quote)
+
+    const deliveryLine = presentation.breakdown.find((item) => item.id === 'delivery')
+    expect(deliveryLine?.valueText).not.toBe('FREE')
+    expect(deliveryLine).toMatchObject({
+      label: 'Delivery fee',
+      pricingModel: 'DELIVERY',
+      valueText: 'Not applicable',
+      isPending: false,
+    })
+    expectEveryServiceAppearsExactlyOnce(quote)
+  })
+
   it('preserves loyalty redemption: a discount reduces the headline total like any other known component', () => {
     const quote = buildQuoteFixture({
       subtotal: 150,
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       discountTotal: 75,
       loyaltyRedemptionTotal: 75,
       estimatedTotal: 120, // 150 + 45 - 75
@@ -414,6 +488,7 @@ describe('buildCustomerEstimatePresentation', () => {
     const quote = buildQuoteFixture({
       subtotal: 100,
       deliveryFee: 45,
+      deliveryPricing: pricedDelivery(45),
       estimatedTotal: 145,
       serviceLines: [fixedService('suit', '2-Piece Suit Dry Clean', 100)],
     })

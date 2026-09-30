@@ -1,4 +1,5 @@
 import type { PaymentSummary, PricingQuote, TipSelection } from '@/domain/models'
+import { presentDeliveryPricing } from '@/domain/deliveryPricing'
 import { Card } from '@/components/ui/Card'
 import { formatCurrency } from '@/utils/format'
 
@@ -23,7 +24,7 @@ const getPaymentSummary = (quote: PricingQuote, tip: TipSelection): PaymentSumma
   const loyaltyDiscount = Math.abs(
     quote.lineItems.find((item) => item.id === 'loyalty-redemption')?.totalPrice ?? 0,
   )
-  const freeDeliveryDiscount = quote.deliveryFee === 0 && quote.deliveryPricing?.freeDeliveryUnlocked
+  const freeDeliveryDiscount = quote.deliveryPricing.status === 'PRICED' && quote.deliveryPricing.freeDeliveryUnlocked
     ? quote.deliveryPricing.standardDeliveryFee
     : 0
 
@@ -53,10 +54,10 @@ export const OrderSummaryPanel = ({ quote, tip, isWeightBased }: OrderSummaryPan
   }
 
   const paymentSummary = getPaymentSummary(quote, tip)
-  const deliveryPricing = quote.deliveryPricing
-  const deliveryProgress = deliveryPricing?.freeDeliveryThreshold !== undefined
-    ? Math.min(deliveryPricing.progressPercentage ?? 0, 100)
-    : 0
+  // Delivery fee/progress text is derived from the SAME `DeliveryPricingResult`
+  // via the shared `presentDeliveryPricing` helper — never re-derived here —
+  // so an unresolved distance can never render as "FREE".
+  const deliveryPresentation = presentDeliveryPricing(quote.deliveryPricing, formatCurrency)
   const promotionName = quote.promotions.find((promotion) =>
     promotion.discountType === 'FIXED' || promotion.discountType === 'PERCENTAGE')
 
@@ -74,18 +75,19 @@ export const OrderSummaryPanel = ({ quote, tip, isWeightBased }: OrderSummaryPan
           </div>
         ) : null}
 
-        {deliveryPricing?.freeDeliveryThreshold !== undefined ? (
+        {deliveryPresentation.freeDeliveryProgress ? (
           <div>
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="text-slate-500">Free delivery progress</span>
               <span className="font-semibold text-load-700">
-                {deliveryPricing.freeDeliveryUnlocked
-                  ? 'Free delivery unlocked'
-                  : `${formatCurrency(deliveryPricing.remainingForFreeDelivery ?? 0)} to go`}
+                {deliveryPresentation.freeDeliveryProgress.remainingText}
               </span>
             </div>
             <div className="mt-2 h-2 rounded-full bg-load-100">
-              <div className="h-2 rounded-full bg-load-600" style={{ width: `${deliveryProgress}%` }} />
+              <div
+                className="h-2 rounded-full bg-load-600"
+                style={{ width: `${deliveryPresentation.freeDeliveryProgress.progressPercentage}%` }}
+              />
             </div>
           </div>
         ) : null}
@@ -107,7 +109,7 @@ export const OrderSummaryPanel = ({ quote, tip, isWeightBased }: OrderSummaryPan
           ) : null}
           <div className="flex items-center justify-between gap-3">
             <span className="text-slate-500">Pickup &amp; delivery fee</span>
-            <span className="font-semibold text-ink">{formatCurrency(paymentSummary.deliveryFee)}</span>
+            <span className="font-semibold text-ink">{deliveryPresentation.feeText}</span>
           </div>
           {paymentSummary.promotionDiscount > 0 ? (
             <div className="flex items-center justify-between gap-3 text-load-700">

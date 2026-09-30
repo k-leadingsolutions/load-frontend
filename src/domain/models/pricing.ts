@@ -1,5 +1,5 @@
 import type { PaymentStatus } from '@/domain/models/order'
-import type { DeliveryPricingResult } from '@/domain/deliveryPricing'
+import type { DeliveryPricingState } from '@/domain/deliveryPricing'
 
 // ─── Pricing model enum ───────────────────────────────────────────────────────
 
@@ -103,25 +103,34 @@ export interface PricingQuote {
   estimatedTotal: number
   loyaltyPreviewPoints: number
   /**
-   * @deprecated Read `deliveryPricing.freeDeliveryThreshold` instead — this
-   * flat field cannot express the >10km tier, which has no threshold at all.
-   * Kept only so any not-yet-migrated reader still gets a real, per-tier
-   * value (never a fabricated flat R300) rather than failing to compile.
+   * @deprecated Read `deliveryPricing` instead (a `PRICED` state's
+   * `freeDeliveryThreshold`) — this flat field cannot express the >10km
+   * tier (no threshold at all) or the PENDING_DISTANCE state (delivery
+   * pricing not yet known, which is NOT the same as "no threshold").
+   * Kept only so any not-yet-migrated reader still compiles.
    */
   freeDeliveryThreshold?: number
-  /** @deprecated Read `deliveryPricing.remainingForFreeDelivery` instead. */
+  /** @deprecated Read `deliveryPricing` instead (a `PRICED` state's `remainingForFreeDelivery`). */
   freeDeliveryGap?: number
   /**
    * Distance-tiered delivery fee and free-delivery progress — the single
-   * shared calculation result (see `domain/deliveryPricing.ts`). This is the
-   * authoritative source for delivery pricing UI; `deliveryFee` above is
-   * simply `deliveryPricing.effectiveDeliveryFee` kept for convenience.
-   * `null` when delivery pricing cannot yet be calculated: STORE_COLLECTION
-   * (no return-delivery leg — always fee-free) or DELIVERY with a
-   * not-yet-resolved distance (e.g. no address selected yet). Never
-   * fabricate a tier in either case.
+   * shared, authoritative calculation result (see `domain/deliveryPricing.ts`).
+   * A discriminated union so "delivery pricing is not yet known" can never
+   * be mistaken for "delivery is free":
+   *
+   *  - `{ status: 'NOT_APPLICABLE' }` — STORE_COLLECTION: no delivery leg,
+   *    genuinely fee-free (distinct from free delivery having been earned).
+   *  - `{ status: 'PENDING_DISTANCE' }` — DELIVERY fulfilment but the
+   *    address's distance is not yet resolved. The fee is UNKNOWN — never
+   *    render a numeric amount, "FREE", or free-delivery progress.
+   *  - `{ status: 'PRICED', ... }` — DELIVERY fulfilment with a resolved
+   *    distance; carries the full `DeliveryPricingResult`.
+   *
+   * `deliveryFee` above is `PRICED` → `effectiveDeliveryFee`, else `0` —
+   * kept for legacy numeric consumers, but `0` there must NEVER be read as
+   * "free"; always branch on `deliveryPricing.status` for that decision.
    */
-  deliveryPricing: DeliveryPricingResult | null
+  deliveryPricing: DeliveryPricingState
   lineItems: PricingQuoteItem[]
   /** Included when service is PER_KILOGRAM – estimate only */
   estimatedWeightKg?: number

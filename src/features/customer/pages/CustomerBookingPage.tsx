@@ -19,7 +19,7 @@ import type { FulfilmentType } from '@/domain/models/booking'
 import { MAX_RECENT_ADDRESSES, sortAddressesByRecency } from '@/domain/address'
 import { buildCustomerEstimatePresentation } from '@/domain/estimatePresentation'
 import type { CustomerEstimatePresentation } from '@/domain/estimatePresentation'
-import { resolveDeliveryDistanceKm } from '@/domain/deliveryPricing'
+import { resolveDeliveryDistanceKm, presentDeliveryPricing } from '@/domain/deliveryPricing'
 import { appPaths } from '@/app/router/paths'
 import { mockCatalogueService } from '@/services/mock'
 import { apiCustomerOrderService } from '@/services/api/customerOrderService'
@@ -118,6 +118,15 @@ export const CustomerBookingPage = () => {
 
   const reviewEstimate = useMemo(
     () => buildCustomerEstimatePresentation(quoteQuery.data ?? null),
+    [quoteQuery.data],
+  )
+  // Free-delivery progress on Review must derive from the SAME
+  // `DeliveryPricingResult` as the delivery-fee line above (via the shared
+  // `presentDeliveryPricing` helper) — never re-derived independently —
+  // so an unresolved distance can never render as free, and the text and
+  // progress bar can never disagree.
+  const reviewDeliveryPresentation = useMemo(
+    () => (quoteQuery.data ? presentDeliveryPricing(quoteQuery.data.deliveryPricing, formatCurrency) : null),
     [quoteQuery.data],
   )
 
@@ -745,6 +754,22 @@ export const CustomerBookingPage = () => {
                       </div>
                     ))}
                   </div>
+                  {reviewDeliveryPresentation?.freeDeliveryProgress ? (
+                    <div>
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="text-slate-500">Free delivery progress</span>
+                        <span className="font-semibold text-load-700">
+                          {reviewDeliveryPresentation.freeDeliveryProgress.remainingText}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 rounded-full bg-load-100">
+                        <div
+                          className="h-2 rounded-full bg-load-600"
+                          style={{ width: `${reviewDeliveryPresentation.freeDeliveryProgress.progressPercentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
                   {reviewEstimate.hasWeightBasedItems ? (
                     <div className="rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                       <p className="font-semibold">Final price based on actual weight after collection.</p>

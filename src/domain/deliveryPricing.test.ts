@@ -6,8 +6,12 @@ import type { Address } from '@/domain/models/customer'
 import {
   calculateDeliveryPricing,
   calculateQualifyingBasketValue,
+  presentDeliveryPricing,
   resolveDeliveryDistanceKm,
+  resolveDeliveryPricingState,
 } from '@/domain/deliveryPricing'
+
+const currency = (amount: number) => `R${amount.toFixed(2)}`
 
 describe('calculateDeliveryPricing — distance tiers', () => {
   it('1km and 5km both resolve to the R49 near tier', () => {
@@ -227,5 +231,137 @@ describe('calculateDeliveryPricing — integration example from the business rul
     expect(result.freeDeliveryThreshold).toBe(300)
     expect(result.remainingForFreeDelivery).toBe(240)
     expect(result.progressPercentage).toBe(20)
+  })
+})
+
+// ── Screenshot-bug regression: an unresolved distance must NEVER be free ───
+
+describe('resolveDeliveryPricingState — the screenshot bug (unresolved distance != free)', () => {
+  it('STORE_COLLECTION -> NOT_APPLICABLE, distinct from a genuinely-free PRICED result', () => {
+    const state = resolveDeliveryPricingState({
+      fulfilmentType: 'STORE_COLLECTION',
+      distanceKm: undefined,
+      qualifyingBasketValue: 0,
+    })
+    expect(state).toEqual({ status: 'NOT_APPLICABLE' })
+  })
+
+  it('DELIVERY + unresolved distance (e.g. a real persisted address with no distanceKm) -> PENDING_DISTANCE, never a 0/"free" result', () => {
+    const state = resolveDeliveryPricingState({
+      fulfilmentType: 'DELIVERY',
+      distanceKm: undefined,
+      qualifyingBasketValue: 35,
+    })
+    expect(state).toEqual({ status: 'PENDING_DISTANCE' })
+    expect(state).not.toMatchObject({ status: 'PRICED' })
+  })
+
+  it('DELIVERY + resolved distance below threshold -> PRICED, not free', () => {
+    const state = resolveDeliveryPricingState({
+      fulfilmentType: 'DELIVERY',
+      distanceKm: 4,
+      qualifyingBasketValue: 35,
+    })
+    expect(state).toMatchObject({ status: 'PRICED', standardDeliveryFee: 49, effectiveDeliveryFee: 49, freeDeliveryUnlocked: false })
+  })
+
+  it('DELIVERY + resolved distance at/above threshold -> PRICED and genuinely freeDeliveryUnlocked', () => {
+    const state = resolveDeliveryPricingState({
+      fulfilmentType: 'DELIVERY',
+      distanceKm: 4,
+      qualifyingBasketValue: 300,
+    })
+    expect(state).toMatchObject({ status: 'PRICED', freeDeliveryUnlocked: true, effectiveDeliveryFee: 0 })
+  })
+
+  // The exact reported scenario: "Dry Only R35/kg" (a PER_KILOGRAM service
+  // contributing its provisional catalogue rate) + PICKUP_DELIVERY.
+  it('reproduces the exact reported scenario: Dry Only R35/kg, known distance tiers', () => {
+    const qualifyingBasketValue = calculateQualifyingBasketValue([
+      { id: 'dry-only', label: 'Dry Only', pricingModel: 'PER_KILOGRAM', unitLabel: 'kg', quantity: 1, ratePerKg: 35 },
+    ])
+    expect(qualifyingBasketValue).toBe(35)
+
+    const at4km = resolveDeliveryPricingState({ fulfilmentType: 'DELIVERY', distanceKm: 4, qualifyingBasketValue })
+    expect(at4km).toMatchObject({
+      status: 'PRICED',
+      standardDeliveryFee: 49,
+      effectiveDeliveryFee: 49,
+      freeDeliveryThreshold: 300,
+      remainingForFreeDelivery: 265,
+      freeDeliveryUnlocked: false,
+    })
+    expect((at4km as Extract<typeof at4km, { status: 'PRICED' }>).progressPercentage).toBeCloseTo(11.666666, 4)
+
+    const at8km = resolveDeliveryPricingState({ fulfilmentType: 'DELIVERY', distanceKm: 8, qualifyingBasketValue })
+    expect(at8km).toMatchObject({
+      status: 'PRICED',
+      standardDeliveryFee: 79,
+      effectiveDeliveryFee: 79,
+      freeDeliveryThreshold: 600,
+      remainingForFreeDelivery: 565,
+      freeDeliveryUnlocked: false,
+    })
+    expect((at8km as Extract<typeof at8km, { status: 'PRICED' }>).progressPercentage).toBeCloseTo(5.833333, 4)
+
+    const at12km = resolveDeliveryPricingState({ fulfilmentType: 'DELIVERY', distanceKm: 12, qualifyingBasketValue })
+    expect(at12km).toMatchObject({ status: 'PRICED', standardDeliveryFee: 99, effectiveDeliveryFee: 99, freeDeliveryUnlocked: false })
+    expect((at12km as Extract<typeof at12km, { status: 'PRICED' }>).freeDeliveryThreshold).toBeUndefined()
+    expect((at12km as Extract<typeof at12km, { status: 'PRICED' }>).progressPercentage).toBeUndefined()
+
+    const unresolved = resolveDeliveryPricingState({ fulfilmentType: 'DELIVERY', distanceKm: undefined, qualifyingBasketValue })
+    expect(unresolved).toEqual({ status: 'PENDING_DISTANCE' })
+  })
+})
+
+describe('presentDeliveryPricing — the single rendering decision, never fabricating "FREE"', () => {
+  it('NOT_APPLICABLE renders a distinct, non-FREE fee text and no free-delivery progress', () => {
+    const presentation = presentDeliveryPricing({ status: 'NOT_APPLICABLE' }, currency)
+    expect(presentation.feeText).not.toBe('FREE')
+    expect(presentation.feeText).toBe('Not applicable')
+    expect(presentation.isPending).toBe(false)
+    expect(presentation.freeDeliveryProgress).toBeNull()
+  })
+
+  it('PENDING_DISTANCE renders a pending, non-FREE fee text and no fabricated free-delivery progress', () => {
+    const presentation = presentDeliveryPricing({ status: 'PENDING_DISTANCE' }, currency)
+    expect(presentation.feeText).not.toBe('FREE')
+    expect(presentation.feeText).toBe('Delivery fee calculated from your address')
+    expect(presentation.isPending).toBe(true)
+    expect(presentation.freeDeliveryProgress).toBeNull()
+  })
+
+  it('PRICED below threshold renders the numeric fee and matching progress text/percentage', () => {
+    const presentation = presentDeliveryPricing(
+      { status: 'PRICED', ...calculateDeliveryPricing({ distanceKm: 4, qualifyingBasketValue: 35 }) },
+      currency,
+    )
+    expect(presentation.feeText).toBe(currency(49))
+    expect(presentation.freeDeliveryProgress).not.toBeNull()
+    expect(presentation.freeDeliveryProgress?.remainingText).toBe(`${currency(265)} to go`)
+    expect(presentation.freeDeliveryProgress?.progressPercentage).toBeCloseTo(11.666666, 4)
+    expect(presentation.freeDeliveryProgress?.unlocked).toBe(false)
+  })
+
+  it('PRICED at/above threshold renders "FREE" and "Free delivery unlocked" at 100%', () => {
+    const presentation = presentDeliveryPricing(
+      { status: 'PRICED', ...calculateDeliveryPricing({ distanceKm: 4, qualifyingBasketValue: 300 }) },
+      currency,
+    )
+    expect(presentation.feeText).toBe('FREE')
+    expect(presentation.freeDeliveryProgress).toEqual({
+      remainingText: 'Free delivery unlocked',
+      progressPercentage: 100,
+      unlocked: true,
+    })
+  })
+
+  it('PRICED beyond 10km renders the fee with no free-delivery progress at all', () => {
+    const presentation = presentDeliveryPricing(
+      { status: 'PRICED', ...calculateDeliveryPricing({ distanceKm: 12, qualifyingBasketValue: 5000 }) },
+      currency,
+    )
+    expect(presentation.feeText).toBe(currency(99))
+    expect(presentation.freeDeliveryProgress).toBeNull()
   })
 })

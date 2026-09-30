@@ -1,6 +1,6 @@
 import type { EstimateLine, PricingQuote } from '@/domain/models'
 import { isEligibleForDispatch } from '@/domain/models'
-import { calculateDeliveryPricing, calculateQualifyingBasketValue } from '@/domain/deliveryPricing'
+import { calculateQualifyingBasketValue, resolveDeliveryPricingState } from '@/domain/deliveryPricing'
 import { getFriendlyOrderStatus, ORDER_STATUS_MODEL } from '@/domain/orderStatus'
 import { approvedAddOns } from '@/services/mock/approvedLaundryCatalogue'
 import {
@@ -220,12 +220,14 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
   // regardless of distance. For DELIVERY, the distance must already be
   // resolved by the caller (e.g. once a delivery/pickup address is
   // selected) — when it is not yet known, delivery pricing is genuinely
-  // pending rather than defaulting to any invented fee/tier.
+  // PENDING_DISTANCE (never treated/rendered as free).
   const qualifyingBasketValue = calculateQualifyingBasketValue(serviceLines)
-  const deliveryPricing = request.fulfilmentType === 'STORE_COLLECTION' || request.distanceKm === undefined
-    ? null
-    : calculateDeliveryPricing({ distanceKm: request.distanceKm, qualifyingBasketValue })
-  const baseDeliveryFee = deliveryPricing?.effectiveDeliveryFee ?? 0
+  const deliveryPricing = resolveDeliveryPricingState({
+    fulfilmentType: request.fulfilmentType,
+    distanceKm: request.distanceKm,
+    qualifyingBasketValue,
+  })
+  const baseDeliveryFee = deliveryPricing.status === 'PRICED' ? deliveryPricing.effectiveDeliveryFee : 0
   const deliveryFee = promotion?.discountType === 'FREE_DELIVERY' && subtotal >= (promotion.minimumOrderAmount ?? 0)
     ? 0
     : baseDeliveryFee
@@ -260,7 +262,7 @@ const buildQuote = (request: QuoteRequest): PricingQuote => {
     loyaltyRedemptionTotal,
     estimatedTotal: Math.max(0, subtotal + fromAssessmentSubtotal + deliveryFee + expressFee - discountTotal),
     loyaltyPreviewPoints: Math.round((subtotal + expressFee) * 5),
-    ...(deliveryPricing?.freeDeliveryThreshold !== undefined
+    ...(deliveryPricing.status === 'PRICED' && deliveryPricing.freeDeliveryThreshold !== undefined
       ? {
           freeDeliveryThreshold: deliveryPricing.freeDeliveryThreshold,
           freeDeliveryGap: deliveryPricing.remainingForFreeDelivery,

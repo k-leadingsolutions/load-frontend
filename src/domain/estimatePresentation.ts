@@ -1,4 +1,5 @@
 import type { EstimateLine, EstimateLinePricingModel, PricingQuote } from '@/domain/models/pricing'
+import { presentDeliveryPricing } from '@/domain/deliveryPricing'
 import { formatCurrency } from '@/utils/format'
 
 /**
@@ -97,13 +98,16 @@ const formatServiceLineValue = (line: EstimateLine): { valueText: string; isPend
   }
 }
 
-const deliveryBreakdownLine = (deliveryFee: number): EstimateBreakdownLine => ({
-  id: 'delivery',
-  label: 'Delivery fee',
-  pricingModel: 'DELIVERY',
-  valueText: deliveryFee > 0 ? formatCurrency(deliveryFee) : 'FREE',
-  isPending: false,
-})
+const deliveryBreakdownLine = (quote: PricingQuote): EstimateBreakdownLine => {
+  const { feeText, isPending } = presentDeliveryPricing(quote.deliveryPricing, formatCurrency)
+  return {
+    id: 'delivery',
+    label: 'Delivery fee',
+    pricingModel: 'DELIVERY',
+    valueText: feeText,
+    isPending,
+  }
+}
 
 const emptyPresentation = (): CustomerEstimatePresentation => ({
   kind: 'EMPTY',
@@ -162,7 +166,7 @@ export const buildCustomerEstimatePresentation = (
         isPending,
       }
     }),
-    deliveryBreakdownLine(quote.deliveryFee),
+    deliveryBreakdownLine(quote),
   ]
 
   // Includes exactly the components that are genuinely calculable right now:

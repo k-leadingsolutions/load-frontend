@@ -1,5 +1,6 @@
 import type { PricingQuote } from '@/domain/models'
 import { buildCustomerEstimatePresentation } from '@/domain/estimatePresentation'
+import { presentDeliveryPricing } from '@/domain/deliveryPricing'
 import { formatCurrency, formatPoints } from '@/utils/format'
 
 interface BookingSummaryCardProps {
@@ -10,13 +11,12 @@ interface BookingSummaryCardProps {
 }
 
 export const BookingSummaryCard = ({ canSubmit, isSubmitting, onSubmit, quote }: BookingSummaryCardProps) => {
-  const deliveryPricing = quote?.deliveryPricing ?? null
-  // Free-delivery progress only exists for tiers with a defined threshold
-  // (1–5km / >5–10km). >10km has no threshold — never invent one — and
-  // STORE_COLLECTION / not-yet-resolved distance have no `deliveryPricing`
-  // at all, so no progress is shown either.
-  const showFreeDeliveryProgress = deliveryPricing?.freeDeliveryThreshold !== undefined
   const estimate = buildCustomerEstimatePresentation(quote)
+  // Free-delivery progress/fee text is derived from the SAME
+  // `DeliveryPricingResult` via the shared `presentDeliveryPricing` helper —
+  // never re-derived here — so an unresolved distance can never render as
+  // "FREE" or fabricate progress toward a threshold that isn't yet known.
+  const deliveryPresentation = quote ? presentDeliveryPricing(quote.deliveryPricing, formatCurrency) : null
 
   return (
     <aside className="space-y-4 rounded-panel border border-load-100 bg-white p-5 shadow-panel">
@@ -41,20 +41,18 @@ export const BookingSummaryCard = ({ canSubmit, isSubmitting, onSubmit, quote }:
             ))}
           </div>
 
-          {showFreeDeliveryProgress && deliveryPricing ? (
+          {deliveryPresentation?.freeDeliveryProgress ? (
             <div>
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="text-slate-500">Free delivery progress</span>
                 <span className="font-semibold text-load-700">
-                  {deliveryPricing.freeDeliveryUnlocked
-                    ? 'Free delivery unlocked'
-                    : `${formatCurrency(deliveryPricing.remainingForFreeDelivery ?? 0)} to go`}
+                  {deliveryPresentation.freeDeliveryProgress.remainingText}
                 </span>
               </div>
               <div className="mt-2 h-2 rounded-full bg-load-100">
                 <div
                   className="h-2 rounded-full bg-load-600"
-                  style={{ width: `${Math.min(deliveryPricing.progressPercentage ?? 0, 100)}%` }}
+                  style={{ width: `${deliveryPresentation.freeDeliveryProgress.progressPercentage}%` }}
                 />
               </div>
             </div>

@@ -46,6 +46,29 @@ export interface DeliveryPricingResult {
   effectiveDeliveryFee: number
 }
 
+/**
+ * Discriminated union representing the delivery-pricing state for a quote.
+ * This is the ONLY shape that should ever reach a renderer — it exists
+ * specifically so "delivery pricing is unknown" can never be mistaken for
+ * "delivery is free" (a real, previously-shipped defect: a missing/unknown
+ * distance silently fell back to a `0` fee that rendered as "FREE").
+ *
+ *  - `NOT_APPLICABLE` — STORE_COLLECTION: there is no return-delivery leg at
+ *    all, so there is genuinely no delivery fee (distinct from "free").
+ *  - `PENDING_DISTANCE` — DELIVERY fulfilment, but the distance to the
+ *    selected address is not yet resolved (e.g. no real geocoding/routing
+ *    integration exists for this address yet). The fee is UNKNOWN — never
+ *    render a numeric amount, "FREE", or free-delivery progress for this
+ *    state.
+ *  - `PRICED` — DELIVERY fulfilment with a resolved distance: carries the
+ *    full `DeliveryPricingResult` (fee, tier, free-delivery
+ *    threshold/progress when applicable).
+ */
+export type DeliveryPricingState =
+  | { status: 'NOT_APPLICABLE' }
+  | { status: 'PENDING_DISTANCE' }
+  | ({ status: 'PRICED' } & DeliveryPricingResult)
+
 interface TierDefinition {
   tier: DeliveryDistanceTier
   standardDeliveryFee: number
@@ -142,6 +165,33 @@ export const calculateQualifyingBasketValue = (serviceLines: EstimateLine[]): nu
   }, 0)
 
 /**
+ * Single authoritative decision for which `DeliveryPricingState` a quote is
+ * in. Callers (currently only the mock quote engine) must go through this
+ * rather than re-deriving the NOT_APPLICABLE / PENDING_DISTANCE / PRICED
+ * decision themselves, so there is exactly one place that can ever decide
+ * "delivery is free" versus "delivery pricing is not yet known".
+ */
+export const resolveDeliveryPricingState = ({
+  fulfilmentType,
+  distanceKm,
+  qualifyingBasketValue,
+}: {
+  fulfilmentType: 'DELIVERY' | 'STORE_COLLECTION' | undefined
+  distanceKm: number | undefined
+  qualifyingBasketValue: number
+}): DeliveryPricingState => {
+  if (fulfilmentType === 'STORE_COLLECTION') {
+    return { status: 'NOT_APPLICABLE' }
+  }
+
+  if (distanceKm === undefined) {
+    return { status: 'PENDING_DISTANCE' }
+  }
+
+  return { status: 'PRICED', ...calculateDeliveryPricing({ distanceKm, qualifyingBasketValue }) }
+}
+
+/**
  * Distance-resolution integration boundary.
  *
  * IMPORTANT — there is currently no real geocoding/routing capability
@@ -160,3 +210,54 @@ export const calculateQualifyingBasketValue = (serviceLines: EstimateLine[]): nu
  */
 export const resolveDeliveryDistanceKm = (address: Address | undefined | null): number | undefined =>
   address?.distanceKm
+
+/**
+ * Single shared rendering decision for the Customer-facing delivery-fee
+ * line/progress, derived only from `DeliveryPricingState`. Components must
+ * render this rather than independently branching on `deliveryFee === 0` or
+ * `!deliveryPricing` — those checks cannot distinguish "free" from "unknown"
+ * and are exactly how the previous defect (an unresolved distance silently
+ * rendering as "FREE") was introduced.
+ */
+export interface DeliveryFeePresentation {
+  /** Customer-facing text for the delivery-fee line itself. */
+  feeText: string
+  /** True when the fee text represents a not-yet-known amount (never a numeric value or "FREE"). */
+  isPending: boolean
+  /** Free-delivery progress to render, or `null` when no threshold applies (NOT_APPLICABLE / PENDING_DISTANCE / >10km). */
+  freeDeliveryProgress: {
+    remainingText: string
+    progressPercentage: number
+    unlocked: boolean
+  } | null
+}
+
+export const presentDeliveryPricing = (
+  state: DeliveryPricingState,
+  formatCurrency: (amount: number) => string,
+): DeliveryFeePresentation => {
+  if (state.status === 'NOT_APPLICABLE') {
+    return { feeText: 'Not applicable', isPending: false, freeDeliveryProgress: null }
+  }
+
+  if (state.status === 'PENDING_DISTANCE') {
+    return {
+      feeText: 'Delivery fee calculated from your address',
+      isPending: true,
+      freeDeliveryProgress: null,
+    }
+  }
+
+  const feeText = state.effectiveDeliveryFee > 0 ? formatCurrency(state.effectiveDeliveryFee) : 'FREE'
+  const freeDeliveryProgress = state.freeDeliveryThreshold === undefined
+    ? null
+    : {
+        remainingText: state.freeDeliveryUnlocked
+          ? 'Free delivery unlocked'
+          : `${formatCurrency(state.remainingForFreeDelivery ?? 0)} to go`,
+        progressPercentage: Math.min(state.progressPercentage ?? 0, 100),
+        unlocked: state.freeDeliveryUnlocked,
+      }
+
+  return { feeText, isPending: false, freeDeliveryProgress }
+}
